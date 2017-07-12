@@ -982,7 +982,8 @@ char* combinedEachAnnotation(khash_t(str) *hash_in) {
 	return ret_string;
 }
 
-void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in, char *sql_in) {
+// here hash_in refers to the refseq_hash, or ccds_hash or vega_hash or miRNA_hash 
+void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in) {
     if (mysql_query(con,sql))
         finish_with_error(con);
 
@@ -997,88 +998,53 @@ void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end
     int absent;
     uint16_t exon_count=0;
     khiter_t Synonymous_iter, prev_gene_iter;
-	char *id_lists;
-	uint16_t id_list_size = 150;
-	id_lists = calloc(id_list_size, sizeof(char));
 
     while ((row = mysql_fetch_row(result))) {
         // here I need to locate which exon it is part of and process them accordingly
-        exon_count = (uint16_t) atoi(row[4]);
+        exon_count = (uint16_t) atoi(row[3]);
         uint32_t exon_starts[exon_count], exon_ends[exon_count];
-        fromStringToIntArray(row[5], exon_starts);
-        fromStringToIntArray(row[6], exon_ends);
+        fromStringToIntArray(row[4], exon_starts);
+        fromStringToIntArray(row[5], exon_ends);
 
         processExonArrays(exon_count, exon_starts, exon_ends, row[0], pos_start, hash_in);
 		if (pos_start != pos_end)
 	        processExonArrays(exon_count, exon_starts, exon_ends, row[0], pos_end, hash_in);
 
 		//id_iter_hash = kh_put(m32, id_list, atoi(row[1]), &absent);
-		if (strlen(id_lists) > id_list_size - 10) {
-			char *tmp;
-			id_list_size += 100;
-			tmp = realloc(id_lists, id_list_size);
-			if (!tmp) {
-				free(id_lists);
-				id_lists = NULL;
-				fprintf(stderr, "String realloc() failed! Exiting...");
-				//exit(1);
-			}
-			id_lists = tmp;
-		}
 
-        if (strlen(id_lists) > 0)
-            strcat(id_lists, ",");
+        // for gene row[6], Synonymous row[7], and prev_gene row[8]
+        if (row[6] && strlen(row[6]) > 0 && strcmp(row[6], "NULL") != 0) {
+            if (strlen(gene) == 0) {
+                strcpy(gene, row[6]);
+            } else {
+                if (strcmp(gene, row[6]) != 0) {
+                    Synonymous_iter = kh_put(str, Synonymous, row[6], &absent);
+					if (absent)
+						kh_key(Synonymous, Synonymous_iter) = strdup(row[6]);
+                }
+            }
+        }
 
-		if (strlen(row[1]) > 0)
-			strcat(id_lists, row[1]);
-    }
+		/*
+		if (row[7] && strlen(row[7]) > 0 && strcmp(row[7], "NULL") != 0) {
+            Synonymous_iter = kh_put(str, Synonymous, row[7], &absent);
+            if (absent)
+				kh_key(Synonymous, Synonymous_iter) = strdup(row[7]);
+		}*/
+
+        if (row[8] && strlen(row[8]) > 0 && strcmp(row[8], "NULL") != 0) {
+            prev_gene_iter = kh_put(str, prev_gene, row[8], &absent);
+			if (absent)
+				kh_key(prev_gene, prev_gene_iter) = strdup(row[8]);
+        }
+	}
 
 	// Need to clean it here otherwise, valgrind will give possible memory leak error
 	if (result) mysql_free_result(result);
-
-	// here we need to make a second query to fetch the hgnc information
-	if (strlen(id_lists) > 0) {
-		uint16_t sql_length = strlen(sql_in) + id_list_size + 10;
-        char *tmp_sql = calloc(sql_length, sizeof(char));
-		sprintf(tmp_sql, "%s (%s)", sql_in, id_lists);
-		if (mysql_query(con,tmp_sql))
-            finish_with_error(con);
-
-		// declare another MYSQL_RES variable
-        MYSQL_RES *result2 = mysql_store_result(con);
-        if (result2 == NULL)
-            finish_with_error(con);
-
-        while ((row = mysql_fetch_row(result2))) {
-            // for gene, Synonymous, and prev_gene
-            if (row[0] && strlen(row[0]) > 0 && strcmp(row[0], "NULL") != 0) {
-                if (strlen(gene) == 0) {
-                    strcpy(gene, row[0]);
-                } else {
-                    if (strcmp(gene, row[0]) != 0) {
-                        Synonymous_iter = kh_put(str, Synonymous, row[0], &absent);
-						if (absent)
-							kh_key(Synonymous, Synonymous_iter) = strdup(row[0]);
-                    }
-                }
-            }
-
-            if (row[2] && strlen(row[2]) > 0 && strcmp(row[2], "NULL") != 0) {
-                prev_gene_iter = kh_put(str, prev_gene, row[2], &absent);
-				if (absent)
-					kh_key(prev_gene, prev_gene_iter) = strdup(row[2]);
-            }
-		}
-		//memset(tmp_sql,0,sizeof(tmp_sql));
-		if (tmp_sql) free(tmp_sql);
-		if (result2) mysql_free_result(result2);
-    }
-	if (id_lists) free(id_lists);
-
 }
 
 char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con) {
-    char *prev_sql  = " start, end, exon_count, exon_starts, exon_ends ";
+    char *prev_sql  = " start, end, exon_count, exon_starts, exon_ends, gene_symbol, alias_gene_symbol, prev_gene_symbol ";
 	char *mid_sql   = calloc(150, sizeof(char)); 
     sprintf(mid_sql,  " chrom='%s' AND ((start <= %"PRIu32" AND %"PRIu32" <= end) OR (start <= %"PRIu32" AND %"PRIu32" <= end))", chrom_id, start_in, start_in, stop_in, stop_in);
 
@@ -1108,33 +1074,28 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 
 	// for refseq
 	char *sql = calloc(strlen(prev_sql) + strlen(mid_sql) + 75, sizeof(char));
-	char *inner_sql = calloc(100, sizeof(char));
-    sprintf(sql, "SELECT DISTINCT refseq_name, refseq_id, %s FROM RefSeq_coords WHERE %s ", prev_sql, mid_sql);
-    strcpy(inner_sql, "SELECT gene_symbol, alias_gene_symbol, prev_gene_symbol FROM RefSeq_hgnc WHERE refseq_id in ");
+    sprintf(sql, "SELECT DISTINCT refseq_name, %s FROM RefSeq_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, refseq, inner_sql);
-	memset(sql,0,strlen(sql));	 memset(inner_sql,0,strlen(inner_sql));
+    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, refseq);
+	memset(sql,0,strlen(sql));	 
 
     // for ccds
-    sprintf(sql, "SELECT DISTINCT ccds_name, ccds_id, %s FROM CCDS_coords WHERE %s ", prev_sql, mid_sql);
-    strcpy(inner_sql, "SELECT gene_symbol, alias_gene_symbol, prev_gene_symbol FROM CCDS_hgnc WHERE ccds_id in ");
+    sprintf(sql, "SELECT DISTINCT ccds_name, %s FROM CCDS_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, ccds, inner_sql);
-	memset(sql,0,strlen(sql));	 memset(inner_sql,0,strlen(inner_sql));
+    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, ccds);
+	memset(sql,0,strlen(sql));	
 
     // for vega
-    sprintf(sql, "SELECT DISTINCT vega_name, vega_id, %s FROM VEGA_coords WHERE %s ", prev_sql, mid_sql);
-    strcpy(inner_sql, "SELECT gene_symbol, alias_gene_symbol, prev_gene_symbol FROM VEGA_hgnc WHERE vega_id in ");
+    sprintf(sql, "SELECT DISTINCT vega_name, %s FROM VEGA_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, vega, inner_sql);
-	memset(sql,0,strlen(sql));	 memset(inner_sql,0,strlen(inner_sql));
+    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, vega);
+	memset(sql,0,strlen(sql));	 
 
     // now for miRNA
-    sprintf(sql, "SELECT DISTINCT miRNA_name, miRNA_id, %s FROM miRNA_coords WHERE %s ", prev_sql, mid_sql);
-    strcpy(inner_sql, "SELECT gene_symbol, alias_gene_symbol, prev_gene_symbol FROM miRNA_hgnc WHERE miRNA_id in ");
+    sprintf(sql, "SELECT DISTINCT miRNA_name, %s FROM miRNA_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, miRNA, inner_sql);
-	memset(sql,0,strlen(sql));	 memset(inner_sql,0,strlen(inner_sql));
+    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, miRNA);
+	memset(sql,0,strlen(sql));	 
 
     // now we need to combine everything together
 	char *refseq_str = combinedEachAnnotation(refseq);
@@ -1164,7 +1125,6 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 	if (sql) free(sql);
 	//free(prev_sql);
 	if (mid_sql) free(mid_sql);
-	if (inner_sql) free(inner_sql);
 
 	memset(gene,0,sizeof(gene));
 	if (refseq_str) free(refseq_str);

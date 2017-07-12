@@ -184,6 +184,6 @@ void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exo
  */
 char* combinedEachAnnotation(khash_t(str) *hash_in);
 
-void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in, char *sql_in);
+void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in);
 
 #endif // STATS_H
