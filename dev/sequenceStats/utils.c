@@ -51,7 +51,7 @@ void usage() {
 	printf("\t-H <the score for regions with too high coverage>\n");
 	printf("\t-L <the score for regions with low coverage>\n");
 	printf("\t-T <the number of threads>\n");
-	printf("\t-u <the score for the upper bound cut off when reporting the extreme coverage (it's associated with -H to form an interval to report) >\n");
+	printf("\t-U <the score for the upper bound cut off when reporting the extreme coverage (it's associated with -H to form an interval to report) >\n");
 	printf("\t[-d] Remove Duplicates and DO NOT use them for statistics\n");
 	printf("\t[-G] Write/Dump the WIG formatted file\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics\n");
@@ -103,7 +103,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	int arg;
 
 	//When getopt returns -1, no more options available
-	while ((arg = getopt(argc, argv, "b:dGH:i:L:m:n:o:p:st:T:u:wWh")) != -1) {
+	while ((arg = getopt(argc, argv, "b:dGH:i:L:m:n:o:p:st:T:U:wWh")) != -1) {
 		printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'b':
@@ -170,7 +170,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->num_of_threads = atoi(optarg);
 				break;
-			case 'u':
+			case 'U':
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered number of threads %s is not a number\n", optarg);
                     usage();

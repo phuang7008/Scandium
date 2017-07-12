@@ -88,8 +88,21 @@ int main(int argc, char *argv[]) {
 
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 1000000;
-	if (user_inputs->wgs_coverage)
-		total_chunk_of_reads = 12000000;
+	if (user_inputs->wgs_coverage) {
+		if (user_inputs->num_of_threads == 1) {
+			total_chunk_of_reads = 45000000;
+		} else if (user_inputs->num_of_threads == 2) {
+            total_chunk_of_reads = 25000000;
+		} else if (user_inputs->num_of_threads == 4) {
+            total_chunk_of_reads = 12000000;
+		} else if (user_inputs->num_of_threads == 6) {
+			total_chunk_of_reads = 8500000;
+		} else if (user_inputs->num_of_threads == 8) {
+            total_chunk_of_reads = 5000000;
+		} else { 
+            total_chunk_of_reads = 4000000;
+		}
+	}
 
 	// try to allocate the bam1_t array here for each thread, so they don't have to create and delete the array at each loop
 	Read_Buffer *read_buff = calloc(user_inputs->num_of_threads, sizeof(Read_Buffer));

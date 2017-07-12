@@ -491,6 +491,9 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
         }
 
         // for high coverage
+		start = 0;
+		end = 0;
+		cov_total = 0;
         if (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
             start = i;
 
