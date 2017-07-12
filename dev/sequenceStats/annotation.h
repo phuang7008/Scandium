@@ -70,9 +70,9 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index);
 
-int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t index, uint32_t low_index);
+int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index);
 
-int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t pos, uint32_t low_search_index);
+int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t low_search_index);
 
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index);
 

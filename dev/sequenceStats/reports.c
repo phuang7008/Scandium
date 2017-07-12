@@ -840,16 +840,20 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		//	printf("%s\t%"PRIu32"\n", low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_start);
 		//}
 
-		// The following is to output the low coverage report for individual exon
+		// The following is to output the low coverage report for individual exon (or target). Need to find out which one to use
         for(i = 0; i < low_cov_genes->num_of_refseq; i++) {
-            uint32_t exon_start = low_cov_genes->gene_coverage[i].exon_start;
-            uint32_t exon_end   = low_cov_genes->gene_coverage[i].exon_end;
+            //uint32_t exon_start = low_cov_genes->gene_coverage[i].exon_start;
+            //uint32_t exon_end   = low_cov_genes->gene_coverage[i].exon_end;
+			uint32_t target_start = low_cov_genes->gene_coverage[i].target_start;
+			uint32_t target_end   = low_cov_genes->gene_coverage[i].target_end;
 
             //uint32_t refseq_start = low_cov_genes->gene_coverage[i].refseq_start;
             //uint32_t refseq_end = low_cov_genes->gene_coverage[i].refseq_end;
 
-			float pct = (float) ((exon_end - exon_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (exon_end - exon_start + 1);
-			fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, exon_start, exon_end, pct);
+			//float pct = (float) ((exon_end - exon_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (exon_end - exon_start + 1);
+			float pct = (float) ((target_end - target_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (target_end - target_start + 1);
+			//fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, exon_start, exon_end, pct);
+			fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, target_start, target_end, pct);
 		}
 
 		// The following is to output the low coverage report for each refseq/gene
@@ -892,17 +896,19 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				prev_gene_symbol = calloc(strlen(low_cov_genes->gene_coverage[i].gene_symbol) + 1, sizeof(char));
 				strcpy(prev_gene_symbol, low_cov_genes->gene_coverage[i].gene_symbol);
 
-				prev_refseq_size = low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
+				//prev_refseq_size = low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
+				prev_refseq_size = low_cov_genes->gene_coverage[i].target_end - low_cov_genes->gene_coverage[i].target_start + 1;
 				prev_refseq_low_bases = low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
 				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
 				exon_count++;
 
 			} else {
 				// accumulate values if we have a different exon_id than the previous one
-				if (prev_exon_id != low_cov_genes->gene_coverage[i].exon_id) {
-					prev_refseq_size += low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
+				//if (prev_exon_id != low_cov_genes->gene_coverage[i].exon_id) {
+					//prev_refseq_size += low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
+					prev_refseq_size += low_cov_genes->gene_coverage[i].target_end - low_cov_genes->gene_coverage[i].target_start + 1;
 					prev_refseq_low_bases += low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
-				}
+				//}
 				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
 				exon_count++;
 			}
@@ -919,28 +925,4 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		fclose(pct_cov_fp);
 
 	}
-}
-
-uint32_t writeGeneExonDetails(char *chrom_id, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, uint32_t gene_symbol_index, uint16_t exon_count, uint16_t exon_id, char *gene_symbol, char *refseq_name, FILE *exon_fp, FILE *exon_cov_fp, uint32_t start, uint32_t end) {
-	uint32_t i, j, exon_size=0;
-	uint16_t exon_low_q_bases = 0;
-
-	// now work on the current refseq info
-    for (j=0; j<low_cov_genes->num_of_refseq; j++) {
-        if (strcmp(refseq_name, low_cov_genes->gene_coverage[j].refseq_name) == 0) {
-            // we already know the exon_id from the query,so let's find the matching one
-            for (i=0; i<exon_count; i++) {
-                if (exon_id == low_cov_genes->gene_coverage[j].exon_id) {
-					exon_low_q_bases = low_cov_genes->gene_coverage[j].num_of_low_cov_bases;
-					exon_size = end - start;
-                    float pct = (float) (100 * (exon_size - exon_low_q_bases)) / (float) exon_size;
-                    fprintf(exon_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, gene_symbol, refseq_name, exon_id, start, end, pct);
-
-					break;
-				}
-			}
-        }
-	}
-
-	return exon_low_q_bases;
 }

@@ -287,51 +287,64 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 
 // As the array is sorted, I am going to use binary search for find the location
 int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index) {
-	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
-
-	if (found == -1 && end > start) 
-		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
+	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
 	return found;
 }
 
-// Note: for bed file format, the end position is not part of the region to be checked!
-int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t chrom_idx, uint32_t low_search_index) {
+// Note: for bed file format, the end position is not part of the region to be checked (so exclude end position)!
+//
+int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index) {
 	int32_t low = low_search_index;
-	int32_t high = regions_in->size_r[chrom_idx] - 1;
-	int32_t middle = (low + high)/2;
+    int32_t high = regions_in->size_r[chrom_idx] - 1;
+    int32_t middle = (low + high)/2;
 
-	while (low <= high) {
-		if (regions_in->starts[chrom_idx][middle] <= pos && pos < regions_in->ends[chrom_idx][middle]) {
+    while (low <= high) {
+		if (((regions_in->starts[chrom_idx][middle] <= start) && (start < regions_in->ends[chrom_idx][middle])) ||
+				((regions_in->starts[chrom_idx][middle] <= end) && (end < regions_in->ends[chrom_idx][middle]))) {
+			// take care of the cases: region.start |=========================| region.end
+    		//                                         start\----------------------\end
+    		//                          start\----------------------\end
 			return middle;
-		} else {
-			if (regions_in->starts[chrom_idx][middle] < pos) {
-				low = middle + 1;
-			} else {
-				high = middle - 1;
-			}
-		}
+		} else if ((start <= regions_in->starts[chrom_idx][middle]) && (regions_in->ends[chrom_idx][middle] <= end)) {
+			// take care of the case: region.start |=========================| region.end
+			//                       start\----------------------------------------------\end
+            return middle;
+        } else {
+            if (regions_in->starts[chrom_idx][middle] < start) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
 
-		middle = (low + high)/2;
-	}
+        middle = (low + high)/2;
+    }
 
-	// outside the while loop means low > high
-	//if (low > high)
-	//	return -1;
+    // outside the while loop means low > high
+    //if (low > high)
+    //  return -1;
 
-	return -1;
+    return -1;
 }
 
-int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t pos, uint32_t low_search_index) {
+int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t low_search_index) {
 	int32_t low = low_search_index;
 	int32_t high = low_cov_genes->num_of_refseq - 1;
 	int32_t middle = (low + high)/2;
 
 	while (low <= high) {
-		if (low_cov_genes->gene_coverage[middle].exon_start <= pos && pos < low_cov_genes->gene_coverage[middle].exon_end) {
+		//if ( (low_cov_genes->gene_coverage[middle].exon_start <= start && start < low_cov_genes->gene_coverage[middle].exon_end) ||
+		//	   (low_cov_genes->gene_coverage[middle].exon_start <= end && end < low_cov_genes->gene_coverage[middle].exon_end) ) {
+		if ( (low_cov_genes->gene_coverage[middle].target_start <= start && start < low_cov_genes->gene_coverage[middle].target_end) ||
+               (low_cov_genes->gene_coverage[middle].target_start <= end && end < low_cov_genes->gene_coverage[middle].target_end) ) {
+			return middle;
+		//} else if ((start <= low_cov_genes->gene_coverage[middle].exon_start) && (low_cov_genes->gene_coverage[middle].exon_end <= end)) {
+		} else if ((start <= low_cov_genes->gene_coverage[middle].target_start) && (low_cov_genes->gene_coverage[middle].target_end <= end)) {
 			return middle;
 		} else {
-			if (low_cov_genes->gene_coverage[middle].exon_start <= pos) {
+			//if (low_cov_genes->gene_coverage[middle].exon_start <= start) {
+			if (low_cov_genes->gene_coverage[middle].target_start <= start) {
 				low = middle + 1;
 			} else {
 				high = middle - 1;
@@ -345,17 +358,9 @@ int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t pos,
 	return -1;
 }
 
-// given an index, need to check if the low base positions overlap with the exons
-bool verifyIndexForLowCoverageGenes(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t location_search_index) {
-	return true;
-}
-
 // As the array is sorted, I am going to use binary search for find the location
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
-	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
-	if (found == -1 && end > start) {
-		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
-	}
+	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
 	if (found != -1) {
 		uint16_t orig_str_len = strlen(*info_in_and_out);
@@ -381,12 +386,7 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 }
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
-	//printf("chromsome index is %"PRIu32"\n", chrom_idx);
-	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
-
-	if (found == -1 && end > start) {
-		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
-	}
+	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
     if (found != -1) {
         uint16_t orig_str_len = strlen(*info_in_and_out);
@@ -506,9 +506,7 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	//}
 	// print low_cov_genes for debugging
 	//printLowCoverageGeneStructure(low_cov_genes);
-	int32_t found = binarySearchLowCoverage(low_cov_genes, start_in, 0);
-	if (found < 0 && start_in < stop_in)
-		found = binarySearchLowCoverage(low_cov_genes, stop_in, 0);
+	int32_t found = binarySearchLowCoverage(low_cov_genes, start_in, stop_in, 0);
 
 	if (found == -1) return;
 
@@ -519,8 +517,11 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	int32_t i;
 	for (i=found+1; i<low_cov_genes->num_of_refseq; i++) {
 		//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_coverage[i].gene_symbol, row[4]);
-		if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
-			   (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))	{
+		//if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
+		//	   (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))	{
+		if ((low_cov_genes->gene_coverage[i].target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].target_end) ||
+			   (low_cov_genes->gene_coverage[i].target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].target_end) || 
+			   (start_in <= low_cov_genes->gene_coverage[i].target_start && low_cov_genes->gene_coverage[i].target_end <= stop_in))	{
 			processExonArrays(low_cov_genes, i, start_in, stop_in);
 		} else {
 			break;
@@ -529,8 +530,11 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 	// now search backward!
 	for (i=found-1; i>=0; i--) {
-		if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
-               (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))   {
+		//if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
+        //       (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))   {
+		if ((low_cov_genes->gene_coverage[i].target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].target_end) ||
+               (low_cov_genes->gene_coverage[i].target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].target_end) || 
+               (start_in <= low_cov_genes->gene_coverage[i].target_start && low_cov_genes->gene_coverage[i].target_end <= stop_in)) {
             processExonArrays(low_cov_genes, i, start_in, stop_in);
         } else {
             break;
@@ -540,7 +544,7 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 // This will calculate the number of overlap count
 void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint16_t refseq_exon_index, uint32_t start, uint32_t end) {
-	uint32_t exon_start = low_cov_genes->gene_coverage[refseq_exon_index].exon_start;
+	/*uint32_t exon_start = low_cov_genes->gene_coverage[refseq_exon_index].exon_start;
 	uint32_t exon_end   = low_cov_genes->gene_coverage[refseq_exon_index].exon_end;
 
 	if (start <= exon_start && exon_end <= end) {
@@ -555,4 +559,21 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint16_t refseq_exon_i
 	} else if (exon_start <= start && start <= exon_end) {
 		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_end - start + 1;
 	}
+	*/
+
+	uint32_t target_start = low_cov_genes->gene_coverage[refseq_exon_index].target_start;
+	uint32_t target_end   = low_cov_genes->gene_coverage[refseq_exon_index].target_end;
+
+	if (start <= target_start && target_end <= end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += target_end - target_start + 1;
+
+    } else if (target_start <= start && end <= target_end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - start + 1; 
+
+    } else if (target_start <= end && end <= target_end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - target_start + 1;
+
+    } else if (target_start <= start && start <= target_end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += target_end - start + 1;
+    }
 }
