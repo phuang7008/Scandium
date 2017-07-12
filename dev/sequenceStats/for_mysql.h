@@ -56,7 +56,7 @@ void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exo
  */
 char* combinedEachAnnotation(khash_t(str) *hash_in);
 
-void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in);
+void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in, omp_lock_t *query_lock);
 
 uint32_t fetchTotalCount(uint8_t type, MYSQL *con, char *chrom_id);
 
@@ -83,6 +83,6 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
  * @param stop_in: the stop position for the capture region
  * @param con: the MySQL connection object/handler
  */
-char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con);
+char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, omp_lock_t *query_lock);
 
 #endif // FOR_MYSQL_H

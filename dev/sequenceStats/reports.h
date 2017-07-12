@@ -24,7 +24,7 @@
 //#include <stdbool.h>
 #include "htslib/sam.h"
 #include "terms.h"
-#include "annotation.h"
+#include "for_mysql.h"
 
 /**
  * To write to the coverage fasta files, as well as determines many of the coverage statistics. 
@@ -38,8 +38,9 @@
  * @param cov_fp: the opened file handler for cov.fasta file for writing
  * @param wig_fp: the opened file handler for wig.fasta file in "wig" format file (good for ucsc) which shows you where all off-target regions with high coverage are
  * @param wgs_fp: the opened file handler for the file that contains whole genome coverage
+ * @param con: the MySQL connection object/handler
  */
-void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, omp_lock_t *query_lock);
 
 /**
  * To compile base related statistics
@@ -85,10 +86,11 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param chrom_idx: the chromosome index
  * @maram fh_all_sites: the opened file handle for all capture sites annotation report file
+ * @param con: the MySQL connection object/handler
  */
-void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs, FILE *fh_all_sites, MYSQL *con, omp_lock_t *query_lock);
 
-void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void writeAnnotations(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, omp_lock_t *query_lock);
 
 /**
  * output those regions with lower than or higher than user specified coverage values
@@ -98,10 +100,9 @@ void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking
  * @param chrom_idx: the chromosome index
  * @maram fh_low: the opened file handle for lower coverage report file
  * @param fh_high: the opend file handle for higher coverage report file
+ * @param con: the MySQL connection object/handler
  * @return the end position of the region with lower or higher base coverage
  */
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs, FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
-
-char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs, FILE *fh_low, FILE *fh_high, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, omp_lock_t *query_lock);
 
 #endif // REPORTS_H

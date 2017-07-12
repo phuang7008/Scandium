@@ -24,7 +24,7 @@
 //#include <stdbool.h>
 #include "htslib/sam.h"
 #include "terms.h"
-#include "annotation.h"
+#include "for_mysql.h"
 
 /**
  * This is used to initialize an array of read buffers of type bam1_t (pointers)
