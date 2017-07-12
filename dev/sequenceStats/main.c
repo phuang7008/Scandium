@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
             //total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
             total_chunk_of_reads = 8000000;
-            //total_chunk_of_reads = 500000;
+            total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
@@ -252,11 +252,11 @@ int main(int argc, char *argv[]) {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now working on exon percentage calculation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
                 // For calculating the percentage of gene bases with low coverge for capture only
-                //Low_Coverage_Genes *low_cov_genes = calloc(1, sizeof(Low_Coverage_Genes));
-                //genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
-				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, con);
-				//outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, con);
-				//genePercentageCoverageDestroy(low_cov_genes, chrom_tracking->chromosome_ids[i]);
+                Low_Coverage_Genes *low_cov_genes = calloc(1, sizeof(Low_Coverage_Genes));
+                genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
+				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, low_cov_genes, con);
+				outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, con);
+				genePercentageCoverageDestroy(low_cov_genes, chrom_tracking->chromosome_ids[i]);
 
               }
 			}

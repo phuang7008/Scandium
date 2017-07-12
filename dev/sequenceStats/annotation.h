@@ -99,6 +99,4 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
  */
 char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, omp_lock_t *query_lock);
 
-void getGeneExonDetails(MYSQL *con, uint32_t start, uint32_t end, char *chrom_id, Gene_Exon_Array *gene_exon_array);
-
 #endif // ANNOTATION_H

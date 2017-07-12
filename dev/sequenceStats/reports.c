@@ -780,7 +780,7 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 	fclose(wp);
 }
 
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con) {
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Low_Coverage_Genes *low_cov_genes, MYSQL *con) {
 	// find out the index that is used to track current chromosome id
 	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 	if (chrom_idx == -1) return;
@@ -789,11 +789,8 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 	//printLowCoverageGeneStructure(low_cov_genes);
 
 	// if the target bed file is available, we will need to calculate percentage of gene bases that are covered
-	uint32_t i, j, k;
+	uint32_t i, j;
 	if (TARGET_FILE_PROVIDED) {
-
-		FILE *exon_pct_fp = fopen(user_inputs->low_cov_exon_pct_file, "a");
-
 		for(i = 0; i < target_info->size; i++) {
 			if ( strcmp(target_info->coords[i].chrom_id, chrom_id) != 0)
 				continue;
@@ -802,14 +799,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 			uint32_t finish = target_info->coords[i].end;
 			//int length = finish - begin + 1;
 
-			// Get the gene symbol, refseq and exon id
-			Gene_Exon_Array *gene_exon_array = calloc(1, sizeof(Gene_Exon_Array));
-			gene_exon_array->size_ge = 0;
-			getGeneExonDetails(con, begin, finish, chrom_id, gene_exon_array);
-
 			for (j=begin; j<finish; j++) {
-
-				// now we need to find out if this exon has low coverage bases and how many
 				uint32_t start=0, end=0;
 
 				// for low coverage
@@ -822,29 +812,17 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 					end = j;
 					if (start == end) continue;
 
-					// now update the Gene_Exon_Array variable gene_exon_array 
-					for (k=0; k<gene_exon_array->size_ge; k++) {
-						gene_exon_array->gene_exons[k].num_of_low_bases += end - start + 1;
-					}
+					// get the information regard this area, the region should be located inside exon area, otherwise something is wrong!
+					produceGenePercentageCoverageInfo(start, end-1, chrom_id, con, low_cov_genes);
 				}
 			}
-
-			// now output the exon percentage file
-			for (k=0; k<gene_exon_array->size_ge; k++) {
-				uint32_t exon_size = finish - begin + 1;
-				//uint32_t exon_size = gene_exon_array->gene_exons[k].end - gene_exon_array->gene_exons[k].start + 1;
-				uint32_t high_cov_bases = exon_size - gene_exon_array->gene_exons[k].num_of_low_bases; 
-				float pct = (float) (100 * high_cov_bases) / (float) exon_size;
-            	fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, gene_exon_array->gene_exons[k].gene_symbol, gene_exon_array->gene_exons[k].refseq_name, gene_exon_array->gene_exons[k].exon_id, begin, finish, pct);
-            	//fprintf(exon_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, gene_exon_array->gene_exons[k].gene_symbol, gene_exon_array->gene_exons[k].refseq_name, gene_exon_array->gene_exons[k].exon_id, start, gene_exon_array->gene_exons[k].end, pct);
-			}
 		}
-
-		fclose(exon_pct_fp);
 	}
 }
 
 void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, MYSQL *con) {
+	// print low_cov_genes for debugging
+	//printLowCoverageGeneStructure(low_cov_genes);
 	
     // if the target bed file is available, we will need to calculate percentage of gene bases that are covered
     uint32_t i;

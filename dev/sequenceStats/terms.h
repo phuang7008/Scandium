@@ -202,23 +202,6 @@ typedef struct {
 	Exon_Wrapper *refseq_exon_wrapper;
 } Gene_Percentage_Coverage;
 
-// the above is too slow, need to find a new one
-typedef struct {
-	char * chrom_id;
-	char * gene_symbol;
-	char * refseq_name;
-	uint32_t start;
-	uint32_t end;
-	uint16_t exon_count;
-	uint16_t exon_id;
-	uint16_t num_of_low_bases;
-} Gene_Exon;
-
-typedef struct {
-	Gene_Exon *gene_exons;
-	uint16_t size_ge;
-} Gene_Exon_Array;
-
 // one chromosome contains many different gene_symbols
 typedef struct {
     Gene_Percentage_Coverage * gene_pct_coverage;

@@ -253,10 +253,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		createFileName(user_inputs->bam_file, &user_inputs->capture_high_cov_file, string_to_add);
 
 		// for low coverage gene/exon/transcript reports
-		sprintf(string_to_add, ".below%dx_Capture_Gene_pct.txt", user_inputs->low_coverage_to_report);
+		sprintf(string_to_add, ".below%dx_Capture_Gene_pcr.txt", user_inputs->low_coverage_to_report);
         createFileName(user_inputs->bam_file, &user_inputs->low_cov_gene_pct_file, string_to_add);
 
-		sprintf(string_to_add, ".below%dx_Capture_Exon_pct.txt", user_inputs->low_coverage_to_report);
+		sprintf(string_to_add, ".below%dx_Capture_Exon_pcr.txt", user_inputs->low_coverage_to_report);
         createFileName(user_inputs->bam_file, &user_inputs->low_cov_exon_pct_file, string_to_add);
 
 		sprintf(string_to_add, ".below%dx_Capture_Transcript_pct.txt", user_inputs->low_coverage_to_report);
@@ -558,7 +558,7 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
         }
     }
 
-	//fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
+	fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
 	return -1;
 }
 

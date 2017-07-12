@@ -104,7 +104,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
 char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type);
 
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con);
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Low_Coverage_Genes *low_cov_genes, MYSQL *con);
 
 uint32_t writeGeneExonDetails(char *chrom_id, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, uint32_t gene_symbol_index, uint16_t exon_count, uint16_t exon_id, char *gene_symbol, char *refseq_name, FILE *exon_fp, FILE *exon_cov_fp, uint32_t start, uint32_t end); 
 
