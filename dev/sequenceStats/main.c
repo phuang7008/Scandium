@@ -30,206 +30,135 @@
 #include "targets.h"
 
 int main(int argc, char *argv[]) {
-	//fprintf(stderr, "Starting ... %ld\n", time(NULL));
+	printf("Processing bam file\n");
+	fprintf(stderr, "Starting ... %ld\n", time(NULL));
 
 	// get user input options and then processing it accordingly
 	User_Input *user_inputs = userInputInit();
 	processUserOptions(user_inputs, argc, argv);
-	//printf("User option for wgs is: %d\n", user_inputs->wgs_coverage);
+	printf("User option for target file is: %s\n", user_inputs->target_file);
 
-	// now need to setup a Stats_Info variable to track various statistical information
-    Stats_Info *stats_info = statsInfoInit();
+	// now process the target bed file if it is available
+	// First, let's get the total number of lines(items or count) within the target file
+    int target_line_count = getTargetCount(user_inputs->target_file);
 
-	// now for the bam/cram file
-    samFile *sfd = sam_open(user_inputs->bam_file, "r");
-    if (sfd == 0) {
-        fprintf(stderr, "Can not open file %s\n", argv[1]);
-        return -1;
+    // Now initialize the storage for arrays that are used to store target coordinates
+    // Do need to remember to free these allocated memories at the end of the program!!!
+    Target_Coords *target_coords = (Target_Coords*)  calloc(target_line_count, sizeof(Target_Coords));
+
+    // Finally, load target file again and store the target information (starts, stops and chromosome ids)
+    loadTargets(user_inputs->target_file, target_coords);
+
+    // Output stored coordinates for verification
+    /*for (i=0; i<target_line_count; i++) {
+        printf("%s\t%ld\t%ld\n", targets[i].chr, targets[i].start, targets[i].end);
+    }*/
+
+	// Now we are going to generate target-buffer lookup table for all the loaded targets
+    // we will store targets and buffers information based on chromosome ID
+    // we will have 22 + X + Y = 24 chromosomes, Here X=23 and Y will be 24
+	int i;
+    khash_t(m32) *target_buffer_hash[24];
+    for (i = 0; i < 26; i++) {
+        target_buffer_hash[i] = kh_init(m32);
     }
+    //generateTargetBufferLookupTable(target_coords, target_line_count, &target_buffer_hash);
 
-    // use sam_hdr_read to process both bam and cram header
-    bam_hdr_t *header=NULL;
-    if ((header = sam_hdr_read(sfd)) == 0) return -1;
 
-    fetchTotalGenomeBases(header, stats_info);
-
-	uint32_t i;
-	Bed_Info *target_bed_info=NULL, *Ns_bed_info=NULL;				//store only bed info chrom_id, start, stop
-	Target_Buffer_Status *target_buffer_status = NULL;
-
-    if (TARGET_FILE_PROVIDED) {
-		target_buffer_status = calloc(25, sizeof(Target_Buffer_Status));
-	    for(i=0; i<25; i++) {
-		    strcpy(target_buffer_status[i].chrom_id, header->target_name[i]);
-			target_buffer_status[i].size = header->target_len[i] + 1;
-	        target_buffer_status[i].status_array = calloc(header->target_len[i] + 1, sizeof(uint8_t));
-		}
-
-        target_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs->target_file, target_bed_info, stats_info, target_buffer_status, header, 1);
-    }
-    //outputForDebugging(target_bed_info, target_buffer_hash);
-    //fflush(stdout);
-    //return 0;
-
-    if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
-        Ns_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs->n_file, Ns_bed_info, stats_info, NULL, header, 2);
-    }
-
-	// setup a tracking variable to track chromosome working status 
-	Chromosome_Tracking *chrom_tracking = chromosomeTrackingInit(header);
-
-	// can't set to be static as openmp won't be able to handle it
-	uint32_t total_chunk_of_reads = 1000000;
-	if (user_inputs->wgs_coverage)
-		total_chunk_of_reads = 5000000;
-
-	// try to allocate the bam1_t array here for each thread, so they don't have to create and delete the array at each loop
-	Read_Buffer *read_buff = calloc(user_inputs->num_of_threads, sizeof(Read_Buffer));
-	for (i=0; i<user_inputs->num_of_threads; i++) {
-		read_buff[i].chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
-		read_buff[i].size = total_chunk_of_reads;
-		//readBufferInit(&read_buff[i]);
+	samFile *sfd = sam_open("NA19431-ny-r1-NA19431-o-2.recal.cram", "r");
+	//samFile *sfd = sam_open("/stornext/snfs5/next-gen/scratch/phuang/dev/excid/test.bam", "r");
+	if (sfd == 0) {
+		fprintf(stderr, "Can not open file %s\n", argv[1]);
+		return -1;
 	}
 
-	fflush(stdout);
+	// use sam_hdr_read to process both bam and cram header
+	bam_hdr_t *header=NULL;
+	if ((header = sam_hdr_read(sfd)) == 0) return -1;
+	//if ((header = bam_hdr_read(sfd->fp.bgzf)) == 0) return -1;
 
+	int thread_id=0;
+	bool more_to_read=true;
+	uint32_t total_chunk_of_reads = 1000000;	// can't set to be static as openmp won't be able to handle it
+
+	// setup a tracking variable to track chromosome working status 
+	Chromosome_Tracking *chrom_tracking = calloc(1, sizeof(Chromosome_Tracking));
+	chrom_tracking->number_tracked = 0;
+
+	// initialize current working chromosome id
+    strcpy(CURRENT_CHROMOSOME_ID, "nothing");
+
+	NUM_OF_THREADS = 8;
 	// now let's do the parallelism
-	while(chrom_tracking->more_to_read) {
-#pragma omp parallel num_threads(user_inputs->num_of_threads)
+	while(more_to_read) {
+#pragma omp parallel firstprivate(thread_id, total_chunk_of_reads) shared(more_to_read) num_threads(NUM_OF_THREADS)
 		{
-			//usleep(10000);	// sleep for 10 second, so two threads won't process the same thing
-
 			int num_of_threads = omp_get_num_threads();	
-			int thread_id = omp_get_thread_num();
-			//printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
+			thread_id = omp_get_thread_num();
+			printf("Before File Reading: number of threads is %d and current thread id is %d\n",num_of_threads, thread_id);
 
-			//Read_Buffer *read_buff;
-			//read_buff = malloc(sizeof(Read_Buffer));
-			//read_buff->chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
-			//read_buff->size = total_chunk_of_reads;
-			readBufferInit(&read_buff[thread_id]);
+			Read_Buffer *read_buff;
+			read_buff = malloc(sizeof(Read_Buffer));
+			read_buff->chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
+			read_buff->size = total_chunk_of_reads;
+			//bam1_t *read_buff[total_chunk_of_reads];
+			read_buff_init(read_buff);
 			uint32_t num_records = 0;
 
 #pragma omp critical 
 			{
 				// this part of the code need to run atomically, that is only one thread should allow access to read
-				num_records = readBam(sfd, header, chrom_tracking, &read_buff[thread_id]);
-				read_buff[thread_id].size = num_records;
+				num_records = read_bam(sfd, header, more_to_read, read_buff);
 			}
-			//printf("First Critical position for thread %d\n", thread_id);
 
+#pragma omp flush(more_to_read)
+			// flush the shared variable more_to_read to ensure other threads will observe the updated value
 			if (num_records == 0) {
-				printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
-				readBufferDestroy(&read_buff[thread_id]);
-				if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
+				printf("No more to read!!!!!!!!!!!!\n");
+				more_to_read = false;
 			}
+			
+			thread_id = omp_get_thread_num();
+			printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
 
-			// can not use the else {} with the previous if {} block, otherwise the barrier will wait forever!
-			if (num_records > 0) {
-				thread_id = omp_get_thread_num();
-				Coverage_Stats *cov_stats = coverageStatsInit();
-				khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
-				printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
+			khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
+			process_chunk_of_bam(thread_id, coverage_hash, header, read_buff);
 
-				processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id);
-
-				// release the allocated chunk of buffer for alignment reads after they have been processed!
-			    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
-				readBufferDestroy(&read_buff[thread_id]);
-
-				printf("Before Second Critical position for thread %d\n", thread_id);
-#pragma omp critical
-				{
-					printf("Before writing to the coverage array for Thread %d\n", thread_id);
-					combineThreadResults(chrom_tracking, coverage_hash, header);
-					combineCoverageStats(stats_info, cov_stats);
-					//printf("after writing to the coverage array for Thread %d\n", thread_id);
-
-					cleanKhashStr(coverage_hash);
-					free(cov_stats);
-
-					// since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
-	            	if (!chrom_tracking->more_to_read) {
-    	            	for(i=0; i<header->n_targets; i++) {
-        	            	if (chrom_tracking->chromosome_status[i] == 1)
-            	            	chrom_tracking->chromosome_status[i] = 2;
-						}
-                	}
-            	}
-				printf("After Second Critical position for thread %d\n", thread_id);
-
-			}
-// setup a barrier here and wait for every one of them to reach this point!
-#pragma omp barrier 
-
-			// check to see if any of the chromosomes has finished. If so, write the results out
 #pragma omp critical
 			{
-				if (num_records > 0) {
-					for (i=0; i<header->n_targets; i++) {
-						if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-							printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info);
-						
-							// now write the off targets into a wig file
-							if (TARGET_FILE_PROVIDED)
-								produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, stats_info);
+				printf("Before writing to the coverage array for Thread %d\n", thread_id);
+				combine_thread_results(chrom_tracking, coverage_hash, header);
+				printf("after writing to the coverage array for Thread %d\n", thread_id);
 
-							// clean up the array allocated
-							//printf("free the big array for current chromosome %s\n", chrom_tracking->chromosome_ids[i]);
-							if (chrom_tracking->coverage[i]) {
-								free(chrom_tracking->coverage[i]);
-								chrom_tracking->coverage[i] = NULL;
-								//chrom_tracking->coverage[i] = realloc(chrom_tracking->coverage[i], 0);
-							}
-							chrom_tracking->chromosome_status[i] = 3;
+			}
+
+			// setup a barrier here and wait for every one of them to reach this point!
+#pragma omp barrier
+
+			// check to see if any of the chromosomes has finished. If so, write the results out
+			int j;
+			for (i=0; i<chrom_tracking->number_tracked; i++) {
+                if ( chrom_tracking->chromosome_status[i] == 2) {
+#pragma omp critical
+					{
+						printf(">%s\n", chrom_tracking->chromosome_ids[i]);
+						for (j=1; j<chrom_tracking->chromosome_lengths[i]; j++) {
+							printf("%d\t", chrom_tracking->coverage[i][j]);
 						}
 					}
-				}
-			}
-			printf("End of while loop before flush for thread %d\n", thread_id);
-			fflush(stdout);
+					// clean up the array allocated
+					free(chrom_tracking->coverage[i]);
+                }
+            }
+
+			// release the allocated chunk of buffer for alignment reads after they have been processed!
+			read_buff_destroy(read_buff);
 		}
 	}
 
-	sam_close(sfd);
 	bam_hdr_destroy(header);
-
-	//printf("Outside the threads\n");
-
-	// Now need to write the report
-	writeReport(stats_info, user_inputs);
-	//printf("After the write report\n");
-
-	chromosomeTrackingDestroy(chrom_tracking);
-	//printf("After the chromosome tracking destroy\n");
-
-	if (target_bed_info)
-		cleanBedInfo(target_bed_info);
-	//printf("After the target destroy\n");
-
-	if (Ns_bed_info)
-		cleanBedInfo(Ns_bed_info);
-
-	//printf("Before buffer hash\n");
-	if (target_buffer_status) {
-		for (i=0; i<25; i++)
-			free(target_buffer_status[i].status_array);
-		free(target_buffer_status);
-	}
-
-	//printf("Before stats_info destroy\n");
-
-	if (stats_info)
-		statsInfoDestroy(stats_info);
-	//printf("after stats_info destroy\n");
-
-	if (chrom_tracking)
-		free(chrom_tracking);
-
 	userInputDestroy(user_inputs);
+	chromosome_tracking_destroy(chrom_tracking);
 
 	return 0;
 }
