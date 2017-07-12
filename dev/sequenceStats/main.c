@@ -28,7 +28,7 @@
 #include "stats.h"
 #include "utils.h"
 #include "targets.h"
-#include "for_mysql.h"
+#include "annotation.h"
 #include "reports.h"
 
 int main(int argc, char *argv[]) {
@@ -102,14 +102,13 @@ int main(int argc, char *argv[]) {
         finish_with_error(con);
 
 	// fetch regions that shouldn't use MySQL query
-    Regions_Skip_MySQL *unique_exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *inter_genic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
-    Regions_Skip_MySQL *intronic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *intronic_regions    = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *exon_regions        = calloc(1, sizeof(Regions_Skip_MySQL));
 
-    regionsSkipMySQLInit(con, inter_genic_regions, header, 1);
-    regionsSkipMySQLInit(con, unique_exon_regions, header, 3);
-    regionsSkipMySQLInit(con, intronic_regions, header, 2);
-	mysql_close(con);
+    regionsSkipMySQLInit(con, inter_genic_regions, 1);
+    regionsSkipMySQLInit(con, intronic_regions, 2);
+    regionsSkipMySQLInit(con, exon_regions, 3);
 
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 500000;
@@ -122,7 +121,7 @@ int main(int argc, char *argv[]) {
             //total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
             total_chunk_of_reads = 8000000;
-            total_chunk_of_reads = 500000;
+            //total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
@@ -141,25 +140,10 @@ int main(int argc, char *argv[]) {
 
 	fflush(stdout);
 
-	omp_lock_t query_lock;;
-	omp_init_lock(&query_lock);
-
 	// now let's do the parallelism
     while(chrom_tracking->more_to_read) {
 #pragma omp parallel shared(read_buff, chrom_tracking) num_threads(user_inputs->num_of_threads)
       {
-		// MySQL connection for working thread
-        MYSQL *thread_con = mysql_init(NULL);
-        if (thread_con == NULL)
-          finish_with_error(thread_con);
-
-#pragma omp critical 
-	   {
-        if (mysql_real_connect(thread_con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
-          finish_with_error(thread_con);
-		mysql_thread_init();
-       }
-
         int num_of_threads = omp_get_num_threads();	
         int thread_id = omp_get_thread_num();
         readBufferInit(&read_buff[thread_id]);
@@ -247,7 +231,7 @@ int main(int argc, char *argv[]) {
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now producing coverage information for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, thread_con, inter_genic_regions, intronic_regions, unique_exon_regions, &query_lock);
+                writeCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, inter_genic_regions, intronic_regions, exon_regions);
 						
                 // now write the off targets into a wig file
                 if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
@@ -259,14 +243,26 @@ int main(int argc, char *argv[]) {
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now writing annotation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                writeAnnotations(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, thread_con, inter_genic_regions, intronic_regions, unique_exon_regions, &query_lock);
+                writeAnnotations(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, inter_genic_regions, intronic_regions, exon_regions);
               }
             }
+
+#pragma omp section
+			{
+              if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
+                printf("Thread %d is now working on exon percentage calculation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
+                // For calculating the percentage of gene bases with low coverge for capture only
+                //Low_Coverage_Genes *low_cov_genes = calloc(1, sizeof(Low_Coverage_Genes));
+                //genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
+				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, con);
+				//outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, con);
+				//genePercentageCoverageDestroy(low_cov_genes, chrom_tracking->chromosome_ids[i]);
+
+              }
+			}
           }
 
 		  //printf("Waiting for other thread to completely here for thread %d\n", thread_id);
-          //if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-          //}
 #pragma omp barrier 
 
 #pragma omp single
@@ -289,11 +285,6 @@ int main(int argc, char *argv[]) {
       }
 	  printf("\n");
       fflush(stdout);
-
-#pragma omp critical
-	  {
-        mysql_thread_end();
-	  }
     }
 
 	sam_close(sfd);
@@ -338,17 +329,15 @@ int main(int argc, char *argv[]) {
 
 	// do some cleanup
 	regionsSkipMySQLDestroy(inter_genic_regions, 1);
-	regionsSkipMySQLDestroy(unique_exon_regions, 3);
 	regionsSkipMySQLDestroy(intronic_regions, 2);
+	regionsSkipMySQLDestroy(exon_regions, 3);
 
 	userInputDestroy(user_inputs);
 	bam_hdr_destroy(header);
 
-	// MySQL disconnection
-	//mysql_close(con);
+	// MYSQL clean-up
+	mysql_close(con);
 	mysql_library_end();
-
-	omp_destroy_lock(&query_lock);
 
 	return 0;
 }

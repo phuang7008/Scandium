@@ -47,7 +47,7 @@ void fromStringToIntArray(char *str_in, uint32_t *array_in);
  * @param pos: the position to be intercepted by exons
  * @param ret_val: the returned hash table with string as key
  */
-void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exon_ends, char *gene_name, uint32_t pos, khash_t(str) *ret_val);
+void processExonArrays(uint16_t exon_count, Low_Coverage_Genes *low_cov_genes, uint32_t LCG_array_index, uint16_t refseq_index, uint32_t start, uint32_t end);
 
 /**
  * the function will combine all the strings stored as key and formatted them for output
@@ -56,11 +56,9 @@ void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exo
  */
 char* combinedEachAnnotation(khash_t(str) *hash_in);
 
-void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in, omp_lock_t *query_lock);
-
 uint32_t fetchTotalCount(uint8_t type, MYSQL *con, char *chrom_id);
 
-void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t *header, uint8_t type);
+void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, uint8_t type);
 
 void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type);
 
@@ -77,6 +75,22 @@ int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t ind
 
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index);
 
+
+void fromStringToIntArray(char *str_in, uint32_t *array_in);
+
+void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, Low_Coverage_Genes *low_cov_genes, uint32_t LCG_array_index, uint8_t type);
+
+/**
+ * this is used to initialize the gene percentage coverage structure
+ * @param low_cov_genes, the variable to hold the low coverage genes info
+ * @param size_in, the initial size of the Low_Coverage_Genes, the size would be expanded dynamically
+ */
+void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_id, MYSQL *con);
+
+void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chrom_id);
+
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, Low_Coverage_Genes *low_cov_genes);
+
 /*
  * produce the gene annotation for the capture region
  * @param start_in: the start position for the capture region
@@ -84,5 +98,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
  * @param con: the MySQL connection object/handler
  */
 char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, omp_lock_t *query_lock);
+
+void getGeneExonDetails(MYSQL *con, uint32_t start, uint32_t end, char *chrom_id, Gene_Exon_Array *gene_exon_array);
 
 #endif // ANNOTATION_H

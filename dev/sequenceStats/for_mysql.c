@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
-#include "for_mysql.h"
+#include "annotation.h"
 #include "utils.h"
 
 // The followings are codes that related to gene annotation
@@ -32,17 +32,15 @@ void finish_with_error(MYSQL *con)
     exit(1);
 }
 
-// type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions, type 4 for all_site_reports 
+// type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
 uint32_t fetchTotalCount(uint8_t type, MYSQL *con, char *chrom_id) {
 	char *pre_sql = calloc(100, sizeof(char));
 	if (type == 1) {
-		sprintf(pre_sql, "SELECT count(*) from Regions_With_No_Annotation WHERE chrom='%s'", chrom_id);
+		sprintf(pre_sql, "SELECT count(*) from Intergenic_Regions WHERE chrom='%s'", chrom_id);
 	} else if (type == 2) {
 		sprintf(pre_sql, "SELECT count(*) from Intron_Regions WHERE chrom='%s'", chrom_id);
 	} else if (type == 3) {
-		sprintf(pre_sql, "SELECT count(*) from Unique_Gene_Exons WHERE chrom='%s'", chrom_id);
-	} else {
-		sprintf(pre_sql, "SELECT count(*) from All_Site_Reports WHERE chrom='%s'", chrom_id);
+		sprintf(pre_sql, "SELECT count(*) from Exon_Regions WHERE chrom='%s'", chrom_id);
 	}
 	//printf("%s\n", pre_sql);
 
@@ -82,19 +80,17 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
             exit(1);
         }
 
-		if (type < 4) {
-	        regions_in->Synonymous = calloc(25, sizeof(char**));
-		    if (!regions_in->Synonymous) {
-			    fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Synonymous");
-				exit(1);
-	        }
+        regions_in->Synonymous = calloc(25, sizeof(char**));
+	    if (!regions_in->Synonymous) {
+		    fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Synonymous");
+			exit(1);
+        }
 
-		    regions_in->prev_genes = calloc(25, sizeof(char**));
-			if (!regions_in->prev_genes) {
-				fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Prev_genes");
-		        exit(1);
-	        }
-		}
+	    regions_in->prev_genes = calloc(25, sizeof(char**));
+		if (!regions_in->prev_genes) {
+			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Prev_genes");
+	        exit(1);
+        }
 
 		// for exon regions only
 		if (type == 3) {
@@ -129,22 +125,17 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 		// for exon and intronic regions
 		if (type > 1) {
 			regions_in->gene[i] = calloc(regions_in->size_r[i], sizeof(char*));
-
-			if (type < 4) {
-	            regions_in->Synonymous[i] = calloc(regions_in->size_r[i], sizeof(char*));
-		        regions_in->prev_genes[i] = calloc(regions_in->size_r[i], sizeof(char*));
-			}
+            regions_in->Synonymous[i] = calloc(regions_in->size_r[i], sizeof(char*));
+	        regions_in->prev_genes[i] = calloc(regions_in->size_r[i], sizeof(char*));
 
 			for (j=0; j<regions_in->size_r[i]; j++) {
 				//regions_in->gene[i][j] = NULL;
 				regions_in->gene[i][j] = calloc(1, sizeof(char));
 
-				if (type < 4) {
-					regions_in->Synonymous[i][j] = calloc(1, sizeof(char));
-					//regions_in->Synonymous[i][j] = NULL;
-				    regions_in->prev_genes[i][j] = calloc(1, sizeof(char));
-				    //regions_in->prev_genes[i][j] = NULL;
-				}
+				regions_in->Synonymous[i][j] = calloc(1, sizeof(char));
+				//regions_in->Synonymous[i][j] = NULL;
+				regions_in->prev_genes[i][j] = calloc(1, sizeof(char));
+				//regions_in->prev_genes[i][j] = NULL;
 			}
 
 			// for exon regions only
@@ -171,24 +162,19 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 		// for exon and intronic regions
 		if (type > 1) {
 			for (j=0; j<regions_in->size_r[i]; j++) {
-				free(regions_in->gene[i][j]);
-				if (type < 4) {
-					free(regions_in->Synonymous[i][j]);
-					free(regions_in->prev_genes[i][j]);
-				}
+				if (regions_in->gene[i][j]) free(regions_in->gene[i][j]);
+				if (regions_in->Synonymous[i][j]) free(regions_in->Synonymous[i][j]);
+				if (regions_in->prev_genes[i][j]) free(regions_in->prev_genes[i][j]);
 			}
 
 			if (regions_in->gene[i]) free(regions_in->gene[i]);
-
-			if (type < 4) {
-				if (regions_in->Synonymous[i]) free(regions_in->Synonymous[i]);
-				if (regions_in->prev_genes[i]) free (regions_in->prev_genes[i]);
-			}
+			if (regions_in->Synonymous[i]) free(regions_in->Synonymous[i]);
+			if (regions_in->prev_genes[i]) free (regions_in->prev_genes[i]);
 
 			// for exon regions only
 			if (type == 3) {
 				for (j=0; j<regions_in->size_r[i]; j++) {
-					free(regions_in->exon_info[i][j]);
+					if (regions_in->exon_info[i][j]) free(regions_in->exon_info[i][j]);
 				}
 				if (regions_in->exon_info[i]) free(regions_in->exon_info[i]);
 			}
@@ -207,9 +193,6 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	// for exon and intronic regions
 	if (type > 1) {
 		if (regions_in->gene) free(regions_in->gene);
-	}
-
-	if (type == 2 || type == 3) {
 		if (regions_in->Synonymous) free(regions_in->Synonymous);
 		if (regions_in->prev_genes) free (regions_in->prev_genes);
 
@@ -225,13 +208,11 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL *con, char *chrom_id, uint32_t index, uint8_t type) {
 	char *sql = calloc(250, sizeof(char));
 	if (type == 1) {
-		sprintf(sql, "SELECT start, end from Regions_With_No_Annotation WHERE chrom='%s' ORDER BY start", chrom_id);
+		sprintf(sql, "SELECT start, end from Intergenic_Regions WHERE chrom='%s' ORDER BY start", chrom_id);
 	} else if (type == 2) {
 		sprintf(sql, "SELECT start, end, gene_symbol, Synonymous, prev_gene_symbol from Intron_Regions WHERE chrom='%s' ORDER BY start", chrom_id);
-	} else if (type == 3) {
-		sprintf(sql, "SELECT start, end, gene_symbol, Synonymous, prev_gene_symbol, source_name, exon_id from Unique_Gene_Exons WHERE chrom='%s' ORDER BY start", chrom_id);
 	} else {
-		sprintf(sql, "SELECT start, end, annotation from All_Site_Reports WHERE chrom='%s' ORDER BY start", chrom_id);
+		sprintf(sql, "SELECT start, end, gene_symbol, Synonymous, prev_gene_symbol, annotation from Exon_Regions WHERE chrom='%s' ORDER BY start", chrom_id);
 	}
 	//printf("%s\n", sql);
 
@@ -250,16 +231,12 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 
 		if (type > 1) {
 			regions_in->gene[index][count] = dynamicStringAllocation(row[2], regions_in->gene[index][count]) ;
-		}
-
-		if (type == 2 || type == 3) {
 			regions_in->Synonymous[index][count] = dynamicStringAllocation(row[3], regions_in->Synonymous[index][count]);
 			regions_in->prev_genes[index][count] = dynamicStringAllocation(row[4], regions_in->prev_genes[index][count]);
 
 			if (type == 3) {
-				uint16_t exon_id = (uint16_t) atoi(row[6]);
-				char *tmp = calloc(strlen(row[5]) + CHAR_BIT *sizeof(uint16_t) + 20, sizeof(char));
-				sprintf(tmp, "%s_exon_%"PRIu16"", row[5], exon_id);
+				char *tmp = calloc(strlen(row[5]) + 50, sizeof(char));
+				sprintf(tmp, "%s", row[5]);
 				regions_in->exon_info[index][count] = dynamicStringAllocation(tmp, regions_in->exon_info[index][count]);
 				if (tmp) {
 					free(tmp);
@@ -277,20 +254,26 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 // As the array is sorted, I am going to use binary search for find the location
 // here index is the chromosome index
 int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, uint32_t low_index) {
-	return binary_search(regions_in, start, end, index, low_index);
+	int32_t found = binary_search(regions_in, start, index, low_index);
+
+	if (found == -1 && end > start) 
+		found = binary_search(regions_in, end, index, low_index);
+
+	return found;
 }
 
 // here index is the chromosome index
-int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, uint32_t low_index) {
+// Note: for bed file format, the end position is not part of the region to be checked!
+int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t index, uint32_t low_index) {
 	int32_t low = low_index;
 	int32_t high = regions_in->size_r[index] - 1;
 	int32_t middle = (low + high)/2;
 
 	while (low <= high) {
-		if (regions_in->starts[index][middle] <= start && end <= regions_in->ends[index][middle]) {
+		if (regions_in->starts[index][middle] <= pos && pos < regions_in->ends[index][middle]) {
 			return middle;
 		} else {
-			if (regions_in->starts[index][middle] < start) {
+			if (regions_in->starts[index][middle] < pos) {
 				low = middle + 1;
 			} else {
 				high = middle - 1;
@@ -310,11 +293,14 @@ int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t e
 // As the array is sorted, I am going to use binary search for find the location
 // here index is the chromosome index
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index) {
-	int32_t found = binary_search(regions_in, start, end, index, low_index);
+	int32_t found = binary_search(regions_in, start, index, low_index);
+	if (found == -1 && end > start) {
+		found = binary_search(regions_in, end, index, low_index);
+	}
 
 	if (found != -1) {
 		uint16_t orig_str_len = strlen(*info_in_and_out);
-		uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + 10;
+		uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + 50;
 		
 		if (str_len_needed > orig_str_len) {
 			char *tmp = realloc(*info_in_and_out, str_len_needed);
@@ -336,11 +322,15 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 }
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index) {
-	int32_t found = binary_search(regions_in, start, end, index, low_index);
+	int32_t found = binary_search(regions_in, start, index, low_index);
+
+	if (found == -1 && end > start) {
+		found = binary_search(regions_in, end, index, low_index);
+	}
 
     if (found != -1) {
         uint16_t orig_str_len = strlen(*info_in_and_out);
-        uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + strlen(regions_in->exon_info[index][found]) + 25;
+        uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + strlen(regions_in->exon_info[index][found]) + 50;
 
         if (str_len_needed > orig_str_len) {
             char *tmp = realloc(*info_in_and_out, str_len_needed);
@@ -357,15 +347,7 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
             regions_in->gene[index][found] = "";
 
 		if (strlen(regions_in->exon_info[index][found]) > 1) {
-			if (strstr(regions_in->exon_info[index][found], "NR_") || strstr(regions_in->exon_info[index][found], "NM_")) {
-				sprintf(*info_in_and_out, "%s\t%s\t%s\t%s\t.\t.\t.", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
-			} else if (strstr(regions_in->exon_info[index][found], "CCDS")) {
-				sprintf(*info_in_and_out, "%s\t%s\t%s\t.\t%s\t.\t.", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
-			} else if (strstr(regions_in->exon_info[index][found], "OTTHUM")) {
-				sprintf(*info_in_and_out, "%s\t%s\t%s\t.\t.\t%s\t.", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
-			} else {
-				sprintf(*info_in_and_out, "%s\t%s\t%s\t.\t.\t.\t%s", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
-			}
+			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s\t.\t.\t.", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
 		}
     }
 
@@ -380,276 +362,4 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 	} else {
 		return false;
 	}
-}
-
-void fromStringToIntArray(char *str_in, uint32_t *array_in) {
-    uint16_t counter = 0;
-    char *pch;
-    pch = strtok(str_in, ",|\"");
-    while (pch != NULL) {
-        if (strcmp(pch, "\"") != 0) {
-            //array_in[counter] = (uint32_t) atol(pch);
-            array_in[counter] = (uint32_t) strtol(pch, NULL, 10);
-            //printf("value is %s and counter is %d\n", pch, counter);
-            counter++;
-        }
-        pch = strtok(NULL, ",|\"");
-    }
-}
-
-void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exon_ends, char *gene_name, uint32_t pos, khash_t(str) *ret_hash) {
-    char *string_to_add = calloc(1, sizeof(char));
-    uint16_t i = 0;
-	int ret;
-	khiter_t k_iter;
-
-	// Create an instance of Temp_Coverage_Array and initialize it, 
-	// Here we have to use Temp_Coverage_Array instead of uint32_t because it seems that I could have only one khash_t(str) type declared
-	//
-    //Temp_Coverage_Array *temp_cov_array = calloc(1, sizeof(Temp_Coverage_Array));
-    //temp_cov_array->size = 0;
-
-    for (i=0; i<exon_count; i++) {
-        if (exon_starts[i] <= pos && pos <= exon_ends[i]) {
-            //printf("Found with exon start at %d and end at %d with iteration of %d\n", exonStarts[i], exonEnds[i], i);
-			if (strlen(string_to_add) < (strlen(gene_name) + CHAR_BIT *sizeof(uint16_t) + 20)) {
-				char *tmp = realloc(string_to_add, strlen(gene_name) + CHAR_BIT *sizeof(uint16_t) + 20);
-				if (!tmp) {
-					fprintf(stderr, "Dynamic memory allocation failed inside processExonArrays function");
-					exit(1);
-				}
-				string_to_add = tmp;
-			}
-            sprintf(string_to_add, "%s_exon_%d", gene_name, i);
-
-			// create the key
-			k_iter = kh_put(str, ret_hash, strdup(string_to_add), &ret);
-			//if (ret)
-			//	kh_key(ret_hash, k_iter) = strdup(string_to_add);
-        }
-		strcpy(string_to_add, "");
-    }
-
-	if (string_to_add) {
-		free(string_to_add);
-		string_to_add = NULL;
-	}
-}
-
-char* combinedEachAnnotation(khash_t(str) *hash_in) {
-    khiter_t k_iter;
-    int flag = 0, str_total_size=200;
-	char *ret_string;
-	ret_string = calloc(str_total_size, sizeof(char));
-    strcpy(ret_string, ".");
-
-    for (k_iter = kh_begin(hash_in); k_iter != kh_end(hash_in); ++k_iter) {
-        if (kh_exist(hash_in, k_iter) && strlen(kh_key(hash_in, k_iter)) > 0) {
-            if (flag == 0) {
-                strcpy(ret_string, kh_key(hash_in, k_iter));
-                flag++;
-            } else {
-				// check to see if the ret_string can hold the s_length
-            	if (strlen(ret_string) >= (str_total_size - 30)) {
-                	// need to dynamically allocate the memory
-	                char *tmp=NULL;
-					str_total_size *= 2;
-					//printf("Dynamic allocation memory with size %d and string is %s\n", str_total_size, ret_string);
-    	            tmp = realloc(ret_string, str_total_size);
-        	        if (!tmp) {
-						free(ret_string);
-						ret_string = NULL;
-                    	fprintf(stderr, "String realloc() failed! Exiting...");
-	                    //exit(1);
-    	            }
-            	    ret_string = tmp;
-				}
-                strcat(ret_string, ";");
-                strcat(ret_string, kh_key(hash_in, k_iter));
-            }
-        }
-    }
-
-	return ret_string;
-}
-
-// here hash_in refers to the refseq_hash, or ccds_hash or vega_hash or miRNA_hash 
-void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end, char *gene, khash_t(str) *prev_gene, khash_t(str) *Synonymous, khash_t(str) *hash_in, omp_lock_t *query_lock) {
-
-	// set omp mutex lock here
-	//omp_set_lock(query_lock);
-    if (mysql_query(con,sql))
-        finish_with_error(con);
-
-    MYSQL_RES *result = mysql_store_result(con);
-    if (result == NULL)
-        finish_with_error(con);
-
-	// release the lock
-	//omp_unset_lock(query_lock);
-
-    //int num_fields = mysql_num_fields(result);
-    //printf("Total number of fields is %d\n", num_fields);
-
-    MYSQL_ROW row;
-    int absent;
-    uint16_t exon_count=0;
-    khiter_t Synonymous_iter, prev_gene_iter;
-
-    while ((row = mysql_fetch_row(result))) {
-        // here I need to locate which exon it is part of and process them accordingly
-        exon_count = (uint16_t) atoi(row[3]);
-        uint32_t *exon_starts = calloc(exon_count, sizeof(uint32_t));
-		uint32_t *exon_ends = calloc(exon_count, sizeof(uint32_t));
-        fromStringToIntArray(row[4], exon_starts);
-        fromStringToIntArray(row[5], exon_ends);
-
-        processExonArrays(exon_count, exon_starts, exon_ends, row[0], pos_start, hash_in);
-		if (pos_start != pos_end)
-	        processExonArrays(exon_count, exon_starts, exon_ends, row[0], pos_end, hash_in);
-
-		//id_iter_hash = kh_put(m32, id_list, atoi(row[1]), &absent);
-
-        // for gene row[6], Synonymous row[7], and prev_gene row[8]
-        if (row[6] && strlen(row[6]) > 0 && strcmp(row[6], "NULL") != 0) {
-            if (strlen(gene) == 0 || strcmp(gene, ".") == 0) {
-                strcpy(gene, row[6]);
-            } else {
-                if (strcmp(gene, row[6]) != 0 && strcmp(gene, ".") != 0) {
-                    Synonymous_iter = kh_put(str, Synonymous, strdup(row[6]), &absent);
-					//if (absent)
-					//	kh_key(Synonymous, Synonymous_iter) = strdup(row[6]);
-                }
-            }
-        }
-
-        if (row[8] && strlen(row[8]) > 0 && strcmp(row[8], "NULL") != 0) {
-            prev_gene_iter = kh_put(str, prev_gene, strdup(row[8]), &absent);
-			//if (absent)
-			//	kh_key(prev_gene, prev_gene_iter) = strdup(row[8]);
-        }
-
-		// clean up the memory
-		if (exon_starts) {
-			free(exon_starts);
-			exon_starts = NULL;
-		}
-
-		if (exon_ends) {
-			free(exon_ends);
-			exon_ends = NULL;
-		}
-	}
-
-	// Need to clean it here otherwise, valgrind will give possible memory leak error
-	if (result) {
-		mysql_free_result(result);
-		result = NULL;
-	}
-}
-
-char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, omp_lock_t *query_lock) {
-    char *prev_sql  = " start, end, exon_count, exon_starts, exon_ends, gene_symbol, alias_gene_symbol, prev_gene_symbol ";
-	char *mid_sql   = calloc(150, sizeof(char)); 
-    sprintf(mid_sql,  " chrom='%s' AND ((start <= %"PRIu32" AND %"PRIu32" <= end) OR (start <= %"PRIu32" AND %"PRIu32" <= end))", chrom_id, start_in, start_in, stop_in, stop_in);
-
-	// for debugging
-	//if (strcmp(chrom_id, "1") == 0)
-	//	return;
-
-	/*if (start_in < 103983252) {
-	//if (start_in < 61019535) {
-		//printf("%s\n", sql);
-		return;
-	} else {
-		printf("%s\n", mid_sql);
-	}
-	if (start_in == 1246709) {
-		printf("%s\n", mid_sql);
-	}*/
-
-    char *gene = calloc(100, sizeof(char));
-	strcpy(gene, "");
-	khash_t(str) *refseq     = kh_init(str);     // hash_table using string as key
-	khash_t(str) *ccds       = kh_init(str);     // hash_table using string as key
-	khash_t(str) *vega       = kh_init(str);     // hash_table using string as key
-	khash_t(str) *Synonymous = kh_init(str);     // hash_table using string as key
-	khash_t(str) *prev_gene  = kh_init(str);     // hash_table using string as key
-	khash_t(str) *miRNA      = kh_init(str);     // hash_table using string as key
-
-	//omp_set_lock(query_lock);
-
-	// for refseq
-	char *sql = calloc(strlen(prev_sql) + strlen(mid_sql) + 200, sizeof(char));
-    sprintf(sql, "SELECT DISTINCT refseq_name, %s FROM RefSeq_annotation WHERE %s ", prev_sql, mid_sql);
-    //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, refseq, query_lock);
-	strcpy(sql, "");
-	//memset(sql,0,strlen(sql));	 
-
-    // for ccds
-    sprintf(sql, "SELECT DISTINCT ccds_name, %s FROM CCDS_annotation WHERE %s ", prev_sql, mid_sql);
-    //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, ccds, query_lock);
-	strcpy(sql, "");
-	//memset(sql,0,strlen(sql));	
-
-    // for vega
-    sprintf(sql, "SELECT DISTINCT vega_name, %s FROM VEGA_annotation WHERE %s ", prev_sql, mid_sql);
-    //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, vega, query_lock);
-	strcpy(sql, "");
-	//memset(sql,0,strlen(sql));	 
-
-    // now for miRNA
-    sprintf(sql, "SELECT DISTINCT miRNA_name, %s FROM miRNA_annotation WHERE %s ", prev_sql, mid_sql);
-    //printf("%s\n", sql);
-    processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, miRNA, query_lock);
-	strcpy(sql, "");
-	//memset(sql,0,strlen(sql));	 
-
-	//omp_unset_lock(query_lock);
-
-    // now we need to combine everything together
-	char *refseq_str = combinedEachAnnotation(refseq);
-	char *ccds_str   = combinedEachAnnotation(ccds);
-	char *vega_str   = combinedEachAnnotation(vega);
-	char *miRNA_str  = combinedEachAnnotation(miRNA);
-	char *prev_gene_str  = combinedEachAnnotation(prev_gene);
-	char *Synonymous_str = combinedEachAnnotation(Synonymous);
-
-	//if (strlen(gene) == 0)
-	//	strcpy(gene, ".");
-	uint16_t annotation_size = strlen(gene) + strlen(prev_gene_str) + strlen(Synonymous_str) + strlen(refseq_str) + strlen(ccds_str) 
-								+ strlen(vega_str) + strlen(miRNA_str);
-	char *annotation = calloc(annotation_size + 50, sizeof(char));
-
-	sprintf(annotation, "%s\t%s\t%s\t%s\t%s\t%s\t%s", gene, prev_gene_str, Synonymous_str, refseq_str, ccds_str, vega_str, miRNA_str);
-
-	cleanKhashStr(refseq, 2);
-	cleanKhashStr(ccds, 2);
-	cleanKhashStr(vega, 2);
-	cleanKhashStr(miRNA, 2);
-	cleanKhashStr(Synonymous, 2);
-	cleanKhashStr(prev_gene, 2);
-
-	//printf("%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start_in, stop_in);
-	//fflush(stdout);
-
-	// properly empty/reset the strings I declared
-	if (sql) { free(sql); sql = NULL; }
-	//free(prev_sql);
-	if (mid_sql) { free(mid_sql); mid_sql = NULL; }
-
-	//memset(gene,0,sizeof(gene));
-	if (gene) { free(gene); gene = NULL; }
-	if (refseq_str) { free(refseq_str); refseq_str = NULL; }
-	if (prev_gene_str)  { free(prev_gene_str); prev_gene_str = NULL; }
-	if (Synonymous_str) { free(Synonymous_str); Synonymous_str = NULL; }
-	if (ccds_str)  { free(ccds_str); ccds_str = NULL; }
-	if (vega_str)  { free(vega_str); vega_str = NULL; }
-	if (miRNA_str) { free(miRNA_str); miRNA_str = NULL; }
-	//printf("return produceGeneAnnations %d\n", start_in);
-	
-	return annotation;
 }

@@ -66,6 +66,9 @@ typedef struct {
 	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
 	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
 	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
+	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
+	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
+	char * low_cov_transcript_file;	// for low cov percentage of every gene in capture file with all different transcripts
 	char * wgs_low_cov_file;		// for the regions within the whole genome that have lower coverage with detailed annotation
 	char * wgs_high_cov_file;		// for the regions within the whole genome that have high coverage without detailed annotation
 
@@ -143,20 +146,85 @@ typedef struct {
 } Chromosome_Tracking;
 
 /**
- * define a structure that holds the inter-genic and intronic regions
+ * define a structure that holds the exonic, inter-genic and intronic regions
+ * single '*' for 1-D pointer, double '**' for 2-D array, while three '***' for 2-D array of strings
+ *
+ * chromosome_ids array list:					'1', '2', '3', '4', '5', ...... 'X', 'Y', 'MT'
+ * size_r: num_of_regions on each chrom:        55,  96,  183, 66,  9,   ...... 32,  15,  2
+ * region starts/endds on one chrom:			0:  31938		32954
+ *												1:  65938		78932
+ *												2:  101343		123908
+ *												.
+ *												54: 1498903		2809823
+ * gene_name for each region on one chrom:		0: 'ABL2'
+ *												1: 'BCKL1'	'DSSL3'
+ *												.
+ *
  */
 typedef struct {
-	uint32_t *size_r;		// this is the total number of regions on each chromosome
-	uint32_t **starts;
+	uint16_t chrom_list_size;	// the size of first dimention 
+	char **chromosome_ids;		
+	uint32_t *size_r;			// this is the total number of regions on each chromosome
+	uint32_t **starts;			// each region has its start and end position
 	uint32_t **ends;
-	//uint32_t **size_i;		// this is for the size of each inter-genic region or intronic regions
+	uint32_t prev_search_loc_index;		// this is to avoid search starts from beginning
+	uint32_t prev_search_chrom_index;	// need to make sure we skip search for the previous same chromosome
 
-	char ***gene;				// For All Site Reports, annotation info will be store inside gene
+	char ***gene;
 	char ***Synonymous;
 	char ***prev_genes;
 	char ***exon_info;
-	char **chromosome_ids;
 } Regions_Skip_MySQL;
+
+/**
+ * define a structure for Gene Exons for the calculation of gene/exon Percentage Coverage Reports
+ */
+// each exon contains its own attributes
+typedef struct {
+    uint16_t exon_id;
+    uint32_t exon_start;
+    uint32_t exon_end;
+    uint16_t num_of_low_cov_bases;
+} Exon_Details;
+
+// each refseq_name contains many exons
+typedef struct {
+	char *refseq_name;
+	uint16_t num_of_exons;
+	Exon_Details *exons;
+} Exon_Wrapper;
+
+// each gene_symbol could contain more than one refseq_names
+typedef struct {
+	char *gene_symbol;
+
+	uint16_t num_of_refseq_names;
+	Exon_Wrapper *refseq_exon_wrapper;
+} Gene_Percentage_Coverage;
+
+// the above is too slow, need to find a new one
+typedef struct {
+	char * chrom_id;
+	char * gene_symbol;
+	char * refseq_name;
+	uint32_t start;
+	uint32_t end;
+	uint16_t exon_count;
+	uint16_t exon_id;
+	uint16_t num_of_low_bases;
+} Gene_Exon;
+
+typedef struct {
+	Gene_Exon *gene_exons;
+	uint16_t size_ge;
+} Gene_Exon_Array;
+
+// one chromosome contains many different gene_symbols
+typedef struct {
+    Gene_Percentage_Coverage * gene_pct_coverage;
+	char *chrom_id;
+    uint32_t num_of_gene_symbol;		// number of distinct gene symbol (as one symbol can have multiple refseq transcripts)
+} Low_Coverage_Genes;
 
 #include "htslib/khash.h"
 
@@ -166,6 +234,7 @@ typedef struct {
 
 // m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
 KHASH_MAP_INIT_INT(m32, uint32_t)
+	char **refseq_name_list;
 //KHASH_MAP_INIT_INT(m32)
 KHASH_MAP_INIT_INT(m16, uint16_t)
 KHASH_MAP_INIT_INT(m8, uint16_t)

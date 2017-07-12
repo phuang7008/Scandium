@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>		// for file access() and getopt()
-
+#include "terms.h"
 #include "utils.h"
 
 // define (initialize) global variables declared at the terms.h file
@@ -234,22 +234,36 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	char string_to_add[250];
 
-	// output average coverage for all target regions (capture)
-	sprintf(string_to_add, ".AllSites_REPORT.txt");
-	createFileName(user_inputs->bam_file, &user_inputs->capture_all_site_file, string_to_add);
+	// For all Capture related output files
+	if (TARGET_FILE_PROVIDED) {
+		// output average coverage for all target regions (capture)
+		sprintf(string_to_add, ".AllSites_REPORT.txt");
+		createFileName(user_inputs->bam_file, &user_inputs->capture_all_site_file, string_to_add);
 
-	// output low coverage regions for target (capture)
-	sprintf(string_to_add, ".below%dx_Capture_REPORT.txt", user_inputs->low_coverage_to_report);
-	createFileName(user_inputs->bam_file, &user_inputs->capture_low_cov_file, string_to_add);
+		// output low coverage regions for target (capture)
+		sprintf(string_to_add, ".below%dx_Capture_REPORT.txt", user_inputs->low_coverage_to_report);
+		createFileName(user_inputs->bam_file, &user_inputs->capture_low_cov_file, string_to_add);
 
-	// output too high coverage regions for target (capture)
-	if (user_inputs->upper_bound_to_report == -1) {
-		sprintf(string_to_add, ".above%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report);
-	} else {
-		sprintf(string_to_add, ".between%dx_%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
+		// output too high coverage regions for target (capture)
+		if (user_inputs->upper_bound_to_report == -1) {
+			sprintf(string_to_add, ".above%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report);
+		} else {
+			sprintf(string_to_add, ".between%dx_%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
+		}
+		createFileName(user_inputs->bam_file, &user_inputs->capture_high_cov_file, string_to_add);
+
+		// for low coverage gene/exon/transcript reports
+		sprintf(string_to_add, ".below%dx_Capture_Gene_pct.txt", user_inputs->low_coverage_to_report);
+        createFileName(user_inputs->bam_file, &user_inputs->low_cov_gene_pct_file, string_to_add);
+
+		sprintf(string_to_add, ".below%dx_Capture_Exon_pct.txt", user_inputs->low_coverage_to_report);
+        createFileName(user_inputs->bam_file, &user_inputs->low_cov_exon_pct_file, string_to_add);
+
+		sprintf(string_to_add, ".below%dx_Capture_Transcript_pct.txt", user_inputs->low_coverage_to_report);
+		createFileName(user_inputs->bam_file, &user_inputs->low_cov_transcript_file, string_to_add);
 	}
-    createFileName(user_inputs->bam_file, &user_inputs->capture_high_cov_file, string_to_add);
 
+	// For whole Genome report
 	if (user_inputs->wgs_coverage) {
 		// output low coverage regions for WGS
 		sprintf(string_to_add, ".below%dx_WGS_REPORT.txt", user_inputs->low_coverage_to_report);
@@ -328,7 +342,16 @@ void userInputDestroy(User_Input *user_inputs) {
 		free(user_inputs->capture_low_cov_file);
 
 	if (user_inputs->capture_high_cov_file)
-        free(user_inputs->capture_high_cov_file);
+		free(user_inputs->capture_high_cov_file);
+
+	if (user_inputs->low_cov_gene_pct_file)
+		free(user_inputs->low_cov_gene_pct_file);
+
+	if (user_inputs->low_cov_exon_pct_file)
+		free(user_inputs->low_cov_exon_pct_file);
+
+	if (user_inputs->low_cov_transcript_file)
+		free(user_inputs->low_cov_transcript_file);
 
 	if (user_inputs->wgs_low_cov_file)
         free(user_inputs->wgs_low_cov_file);
@@ -501,27 +524,33 @@ void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
 	free(chrom_tracking->coverage);
 }
 
-char * dynamicStringAllocation(char *str_in, char *storage_str) {
+void dynamicStringAllocation(char *str_in, char **storage_str) {
 	char *tmp;
-	if (storage_str) {
-		if (strlen(str_in) > strlen(storage_str)) {
-			tmp = realloc(storage_str, strlen(str_in) + 1);
+	if (!str_in) { printf("String is null\n"); }
+
+	if (strlen(str_in) == 0) { printf("String is empty\n"); strcpy(str_in, "."); }
+
+	if (*storage_str) {
+		if (strlen(str_in) > strlen(*storage_str)) {
+			tmp = realloc(*storage_str, strlen(str_in) + 2);
 			if (!tmp) {
 				fprintf(stderr, "Dynamic Memory allocation failed\n");
 				exit(1);
 			}
+			*storage_str = tmp;
 		}
 	} else {
-		tmp = calloc(strlen(str_in) + 1, sizeof(char));
+		*storage_str = calloc(strlen(str_in) + 2, sizeof(char));
 	}
 
-	strcpy(tmp, str_in);
-	return tmp;
+	strcpy(*storage_str, str_in);
+
+	//if (tmp) { free(tmp); tmp=NULL; }
 }
 
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {
 	int32_t i=0;
-    for (i = 0; i < 25; i++) {
+    for (i = 0; i < regions_in->chrom_list_size; i++) {
 		if (regions_in->chromosome_ids[i]) {
 			if (strcmp(chrom_id, regions_in->chromosome_ids[i]) == 0) {
 				return i;
@@ -768,4 +797,18 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 	if (stats_info->cov_stats->read_length == 0) 
 		stats_info->cov_stats->read_length = cov_stats->read_length;
 
+}
+
+void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
+	uint32_t i, j;
+
+	printf("Total Number of Gene Symbol is %"PRIu32"\n", low_cov_genes->num_of_gene_symbol);
+
+	for (i=0; i<low_cov_genes->num_of_gene_symbol; i++) {
+		printf("Gene: %s\n", low_cov_genes->gene_pct_coverage[i].gene_symbol);
+
+		for (j=0; j<low_cov_genes->gene_pct_coverage[i].num_of_refseq_names; j++) {
+			printf("\t%s with %"PRIu16" exons\n", low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name, low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].num_of_exons);
+		}
+	}
 }

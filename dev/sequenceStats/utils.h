@@ -113,7 +113,7 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
  * @param str_in, the string to be copied
  * @return allocated string pointer
  */
-char * dynamicStringAllocation(char *str_in, char *storage_str);
+void dynamicStringAllocation(char *str_in, char **storage_str);
 
 /**
  * Find the corresponding chromosome index from input chromosome id
@@ -216,5 +216,7 @@ float calculatePercentage(uint32_t num, uint32_t dom);
  * @param cov_stats
  */
 void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
+
+void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
 
 #endif //UTILS_H
