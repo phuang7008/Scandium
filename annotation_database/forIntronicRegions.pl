@@ -14,12 +14,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Intron_Regions2");
+	$dbh->do("DROP TABLE IF EXISTS Intron_Regions38");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE Intron_Regions2 (
+CREATE TABLE Intron_Regions38 (
   `in_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
@@ -62,19 +62,19 @@ while (<IN>) {
 	foreach my $sn (keys %source_names) {
 		my $sql;
 
-		if ($sn=~/^N.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
+		if ($sn=~/^N.*/ || $sn=~/^X.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
 		}
 
-		if ($sn=~/^OTT.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
+		if ($sn=~/^uc.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
 		}
 
 		if ($sn=~/^CCDS.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
+			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
 		}
 
-		#$sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (ccds_id IS NOT NULL AND find_in_set('$name', replace(ccds_id, '|', ','))) OR (refseq_accession IS NOT NULL AND find_in_set('$name', replace(refseq_accession, '|', ','))) OR (vega_id IS NOT NULL AND find_in_set('$name', replace(vega_id, '|', ',')))";
+		#$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ccds_id IS NOT NULL AND find_in_set('$name', replace(ccds_id, '|', ','))) OR (refseq_accession IS NOT NULL AND find_in_set('$name', replace(refseq_accession, '|', ','))) OR (vega_id IS NOT NULL AND find_in_set('$name', replace(vega_id, '|', ',')))";
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
 		$sth->execute() or die "DB execution error: $!";
 
@@ -112,7 +112,7 @@ while (<IN>) {
 		}
 	}
 
-	my $sql = "INSERT INTO Intron_Regions2 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene')";
+	my $sql = "INSERT INTO Intron_Regions38 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }

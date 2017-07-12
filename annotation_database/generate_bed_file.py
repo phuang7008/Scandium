@@ -13,7 +13,7 @@ def main(argv):
 		if opt in ("-i", "--ifile"):
 			in_file = arg
 			#print("in\n")
-	print("The input file is ", in_file)
+	#print("The input file is ", in_file)
 	processFile(in_file)
 
 def processFile(file_in):
@@ -23,13 +23,15 @@ def processFile(file_in):
 		for line in rfh:
 			if "chrom" not in line:
 				items  = line.rstrip("\n").split()
-				#starts = items[6].split("|")
 				starts = items[6].split(",")
-				#ends   = items[7].split("|")
 				ends   = items[7].split(",")
 				for idx in range(0,int(items[5])):
-					#wfh.write("%s\t%d\t%d\t%s\t%s\t%d\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx), '', idx))
-					wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8], items[8]))
+					if (len(items) == 9): 
+						wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8], items[8]))
+					else:
+						# for CCDS as it doesn't have name2 field
+						wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx), "."))
+
 
 
 if __name__ == "__main__":

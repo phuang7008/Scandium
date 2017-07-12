@@ -12,24 +12,24 @@ my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phua
 
 # drop the table first
 eval {
-    $dbh->do("DROP TABLE IF EXISTS HGNC");
+    $dbh->do("DROP TABLE IF EXISTS HGNC38");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE HGNC (
+CREATE TABLE HGNC38 (
   `hgnc_id` INT UNSIGNED NOT NULL,
   `symbol`  varchar(150) NOT NULL,
-  `alias_symbol` varchar(150) NULL,
   `prev_symbol` varchar(150) NULL,
-  `vega_id` varchar(150) NULL,
+  `ucsc_id` varchar(150) NULL,
   `refseq_accession` varchar(150) NULL,
   `ccds_id` varchar(150) NULL,
+  `uniprot_ids` varchar(150) NULL,
   `mirbase` varchar(150) NULL,
   PRIMARY KEY (hgnc_id),
   INDEX `REF` (`refseq_accession`),
   INDEX `CCDS` (`ccds_id`),
-  INDEX `VEGA` (`vega_id`),
+  INDEX `GEN` (`ucsc_id`),
   INDEX `MIR` (`mirbase`),
   INDEX `SYM` (`symbol`)
 ) ENGINE=MyISAM;
@@ -49,7 +49,7 @@ while(<IN>) {
 	if ($items[6] eq "") { $items[6]=undef; }
 	if ($items[7] eq "") { $items[7]=undef; }
 
-	$sql = "INSERT INTO HGNC (hgnc_id, symbol, alias_symbol, prev_symbol, vega_id, refseq_accession, ccds_id, mirbase) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+	$sql = "INSERT INTO HGNC38 (hgnc_id, symbol, prev_symbol, ucsc_id, refseq_accession, ccds_id, uniprot_ids, mirbase) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 	$sth = $dbh->prepare($sql) or die "DB query error: $!";
 	$sth->execute($items[0], $items[1], $items[2], $items[3], $items[4], $items[5], $items[6], $items[7]);
 }

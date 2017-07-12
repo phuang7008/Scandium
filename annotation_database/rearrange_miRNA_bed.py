@@ -13,7 +13,7 @@ def main(argv):
 		if opt in ("-i", "--ifile"):
 			in_file = arg
 			#print("in\n")
-	print("The input file is ", in_file)
+	#print("The input file is ", in_file)
 	processFile(in_file)
 
 def processFile(file_in):
