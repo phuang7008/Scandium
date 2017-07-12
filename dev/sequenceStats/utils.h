@@ -63,6 +63,14 @@ bool isNum(const char *inStr);
 void processUserOptions(User_Input *user_inputs, int argc, char *argv[]);
 
 /**
+ * this is a helper function that is used to create a file name from the existing base file name
+ * @param base_name: the file name to be created based on the base_name
+ * @param file_in: the file_name to be created into
+ * @param string_to_append: the string to be attached to the base name
+ */
+void createFileName(char *base_name, char **file_in, char *string_to_append);
+
+/**
  * this method is used to initialize the user input structure
  * @return returns an instance of User_Input upon the memory allocation success. On failure, the entire program will exit!
  */

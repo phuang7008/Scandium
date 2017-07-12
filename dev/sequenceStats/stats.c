@@ -58,14 +58,19 @@ uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
 	return record_idx;
 }
 
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, khash_t(str) *target_buffer_hash) {
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, khash_t(str) *target_buffer_hash, int thread_id) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
-	uint32_t i = 0;
-	char cur_chr[15];
+	uint32_t i = 0;// counter=5;
+	char cur_chr[50];
 	strcpy(cur_chr, "NOTTHEREALONE");
 
 	for (i=0; i<read_buff_in->size; i++) {
+		/*counter++;
+		if (counter > 6350000 && counter < 6400000) {
+			if (counter % 100000 == 0)
+				printf("counter is %d for thread %d\n", counter, thread_id);
+		}*/
 
 		if(user_inputs->percentage < 1.0) {
             srand((uint32_t)time(NULL));	// set random seed
@@ -95,7 +100,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 
 		cov_stats->total_reads_aligned++;
         
-		//if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPROPER_PAIR) {		// Read is properly paired
+		//if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPROPER_PAIR) 		// Read is properly paired
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPAIRED) {		// Read is properly paired
 			cov_stats->total_reads_paired++;
             if(!(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FMUNMAP)) {	// Read is Paird with Mapped Mate 
@@ -105,7 +110,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FDUP) {				// Read is a Duplicate (either optical or PCR)
 			cov_stats->total_duplicate_reads++;
-            if(user_inputs->remove_duplicate) {continue;}
+            if(user_inputs->remove_duplicate) continue;
         }
 
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSUPPLEMENTARY) {
@@ -120,14 +125,10 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			// update the last_chr value, as we are going to handle new chromosome 
 			strcpy(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]);
 
-			printf("Start processing chromosome id %s\n", cur_chr);
+			printf("Start processing chromosome id %s for thread %d\n", cur_chr, thread_id);
 
 			not_added = true;
 		}
-
-		//if (strcmp(cur_chr, "MT") == 0) {
-		//	printf("chromsome is %s and loop value is %d\n", cur_chr, i);
-		//}
 
 		// Add the instance of khash_t(m32) to the khash_t(str) object (ie coverage_hash) based on the chrom_id
 		if (not_added) {
@@ -147,6 +148,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 		}
 
         processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_hash);
+		//if (counter%1000000 == 0)printf("At iteration %d for thread %d\n", counter, thread_id);
     }
 
     printf("Done read bam\n");
@@ -180,19 +182,21 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 				uint32_t pos = j + 1;	// left most position of alignment in zero based coordinates (as BAM is 0-based)
 
 				// need to check if it is hit target/buffer
-				khiter_t tb1_iter, tb2_iter;
-				if (!on_target || !in_buffer) {
+				if (TARGET_FILE_PROVIDED) {
+					khiter_t tb1_iter, tb2_iter;
+					if (!on_target || !in_buffer) {
 
-					tb1_iter = kh_get(str, target_buffer_hash, chrom_id);
-					if (tb1_iter != kh_end(target_buffer_hash)) {
+						tb1_iter = kh_get(str, target_buffer_hash, chrom_id);
+						if (tb1_iter != kh_end(target_buffer_hash)) {
 
-						tb2_iter = kh_get(m32, kh_value(target_buffer_hash, tb1_iter), pos);
-						if (tb1_iter != kh_end(kh_value(target_buffer_hash, tb1_iter))) {
-							if (kh_val(kh_value(target_buffer_hash, tb1_iter), tb2_iter) == 1)
-								on_target = true;
+							tb2_iter = kh_get(m32, kh_value(target_buffer_hash, tb1_iter), pos);
+							if (tb1_iter != kh_end(kh_value(target_buffer_hash, tb1_iter))) {
+								if (kh_val(kh_value(target_buffer_hash, tb1_iter), tb2_iter) == 1)
+									on_target = true;
 
-							if (kh_val(kh_value(target_buffer_hash, tb1_iter), tb2_iter) == 2)
-								in_buffer = true;
+								if (kh_val(kh_value(target_buffer_hash, tb1_iter), tb2_iter) == 2)
+									in_buffer = true;
+							}
 						}
 					}
 				}
@@ -219,12 +223,14 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			x += cln;
 	}
 
-	if (on_target) {
-		cov_stats->on_target_read_hit_count += 1;
-	} else if (in_buffer) {
-		cov_stats->in_buffer_read_hit_count += 1;
-	} else {
-		cov_stats->off_target_read_hit_count += 1;
+	if (TARGET_FILE_PROVIDED) {
+		if (on_target) {
+			cov_stats->on_target_read_hit_count += 1;
+		} else if (in_buffer) {
+			cov_stats->in_buffer_read_hit_count += 1;
+		} else {
+			cov_stats->off_target_read_hit_count += 1;
+		}
 	}
 }
 
@@ -301,8 +307,6 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 }
 
 void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info) {
-	FILE * cov_fp = fopen(user_inputs->cov_file, "a");
-	FILE * wig_fp = fopen(user_inputs->wig_file, "a");
 
     // First, we need to find the index that is used to track current chromosome chrom_id
     uint32_t idx = locateChromosomeIndex(chrom_id, chrom_tracking);
@@ -317,16 +321,22 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
     if(user_inputs->wgs_coverage) {
 
 		FILE *wgs_fp = fopen(user_inputs->wgs_file, "a");
-		printf("Whole Genome output is on\n");
+		printf("Whole Genome output for chrom id %s is on\n", chrom_id);
 
 		// no need to add newline as the next line will take care of it!
 		fprintf(wgs_fp, ">chromosome_%s", chrom_id);
 
+		//uint32_t k = 0;
         for (i = 0; i < chrom_tracking->chromosome_lengths[idx]; i++) {
   			if(i%100==0) fputc('\n', wgs_fp);
 
 			addBaseStats(stats_info, (uint32_t) chrom_tracking->coverage[idx][i], 0, 1);
             fprintf(wgs_fp, "%d ", chrom_tracking->coverage[idx][i]);
+            /*if (chrom_tracking->coverage[idx][i] > 0) {
+				fprintf(wgs_fp, "%d ", chrom_tracking->coverage[idx][i]);
+				k++;
+				if (k%100 ==0) fputc('\n', wgs_fp);
+			}*/
         }
         fputc('\n', wgs_fp);
 
@@ -335,6 +345,9 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 
 	// if the target bed file is available, we will need to handle it here and write the results to cov.fasta file
 	if (TARGET_FILE_PROVIDED) {
+		FILE * cov_fp = fopen(user_inputs->cov_file, "a");
+		FILE * missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
+
 		for(i = 0; i < target_info->size; i++) {
             if ( strcmp(target_info->coords[i].chr, chrom_id) != 0)
                 continue;
@@ -361,7 +374,7 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 			//After discussion with Divya and Qiaoyan, here is what we understand.
 			//pc and pc2 is used to setup the 'target_coverage' variable which is defined as an array of 101 in the origain java code
 			//here I will use percentage_bin and percentage_count_per_bin
-			uint32_t percentage_bin[101], percentage_count_per_bin[101];
+			uint64_t percentage_bin[101], percentage_count_per_bin[101];
 			for(j=0; j<101; j++) {
 				percentage_bin[j] = 0;
 				percentage_count_per_bin[j] = 0;
@@ -386,10 +399,11 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
                 fprintf(cov_fp, "%d ", cov);
 
                 if (collect_target_cov) {
-                    //int percentage_pos = (int)((double)j/(double)length*100+0.5);
-                    int percentage_pos = lround((double)j/(double)length*100);
+                    int percentage_pos = (int)((double)(j*100)/(double)length + 0.5);
+                    //int percentage_pos = lround((double)j/(double)length*100);
                     percentage_bin[percentage_pos] += cov;
                     percentage_count_per_bin[percentage_pos] += 1;
+					//if (percentage_pos == 2) printf("the coverage at position 2 is %"PRIu32"\n", cov);
                 }
             }
 
@@ -398,12 +412,13 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 
 			for (j = 0; j < 101; j++) {
 				if(percentage_count_per_bin[j] != 0) {
-                    //int d = (int) (((double)percentage_bin[j]/(double)percentage_count_per_bin[j])+0.5);
-                    int d = lround((double)percentage_bin[j]/(double)percentage_count_per_bin[j]);
+                    int d = (int) (((double)percentage_bin[j]/(double)percentage_count_per_bin[j])+0.5);
+                    //int d = lround((double)percentage_bin[j]/(double)percentage_count_per_bin[j]);
                     percentage_bin[j] = (short) d;	
                 }
             }
 
+			//printf("current chromosome id is %s\n", chrom_id);
             for(j = 0; j < 101; j++)
 				stats_info->target_coverage[j] += percentage_bin[j];
 
@@ -411,7 +426,7 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 				stats_info->cov_stats->hit_target_count += 1;
 			} else {
 				// need to write to the missed target file
-				fprintf(wig_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
+				fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
 				bool hit = false;
 				for (j = start - BUFFER; j < start && !hit; j++) {
 					if (j >= chrom_tracking->chromosome_lengths[idx])
@@ -425,10 +440,9 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 					stats_info->cov_stats->hit_target_buffer_only_count += 1;
 			}
 		}
+		fclose(cov_fp);
+		fclose(missed_target_fp);
 	}
-
-	fclose(cov_fp);
-	fclose(wig_fp);
 }
 
 bool addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint8_t wgs) {
@@ -756,4 +770,50 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, int32_t average_coverag
 		fprintf(fp, "Total Aligned Reads (expected):,%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
 		fprintf(fp, "Total Aligned Reads (calculated):,%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count + stats_info->cov_stats->off_target_read_hit_count);
 	}
+}
+
+void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info) {
+	int32_t i, j;
+	uint16_t idx = locateChromosomeIndex(chrom_id, chrom_tracking);
+	FILE *wp = fopen(user_inputs->wig_file, "a");
+	fprintf(wp, "track type=wiggle_0 name=%s\n", user_inputs->bam_file);
+
+	for(i=0; i<target_bed_info->size; i++) {
+
+		// here we are going to erase everything that is on-target and in-buffer and set them to 0
+		if (strcmp(chrom_id, target_bed_info->coords[i].chr) == 0) {
+			uint32_t start = target_bed_info->coords[i].start;
+			uint32_t stop  = target_bed_info->coords[i].end;
+			//for(j=start-BUFFER; j<=stop+BUFFER; j++) {
+			for(j=start-500; j<=stop+500; j++) {
+				if (j < 0 || j >= chrom_tracking->chromosome_lengths[idx])
+					continue;
+
+				chrom_tracking->coverage[idx][j] = 0;
+			}
+		}
+	}
+
+	// once captured area + BUFFER is initialized to 0, we want to check if there is any coverage > 20 in off-target regions
+	for(i=0; i<chrom_tracking->chromosome_lengths[idx]; i++) {
+		if (chrom_tracking->coverage[idx][i] > 20) {
+			j = i;
+			stats_info->cov_stats->non_traget_good_hits += 1;
+
+			// right side 
+			while(i <= chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][i] > 0)
+				i++;
+
+			// left side
+			while(j > 0 && chrom_tracking->coverage[idx][i] > 0)
+				j--;
+
+			// now write to the off target wig file
+			fprintf(wp, "fixedStep chrom_id=%s start=%"PRId32" step=1\n", chrom_id, j);
+			uint32_t h = j;
+			for(h=j; h<i; h++)
+				fprintf(wp,"%"PRIu32"\n", chrom_tracking->coverage[idx][h]);
+		}
+	}
+	fclose(wp);
 }

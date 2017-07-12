@@ -147,7 +147,7 @@ void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_
 	int ret=0, absent=0;
 	uint32_t i=0, j=0, chrom_len=0;
 	khiter_t outer_iter, inner_iter;
-	char cur_chrom_id[15];
+	char cur_chrom_id[50];
 	strcpy(cur_chrom_id, "something");
 
 	for (i = 0; i < bed_info->size; i++) {

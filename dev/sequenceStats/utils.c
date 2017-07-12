@@ -178,21 +178,26 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     if (TARGET_FILE_PROVIDED) checkFile(user_inputs->target_file);
 
 	// for cov.fasta file name
-	user_inputs->cov_file = (char *) malloc((strlen(user_inputs->bam_file)+15) * sizeof(char));
-	strcpy(user_inputs->cov_file, user_inputs->bam_file);
-    strcat(user_inputs->cov_file, ".cov.fasta");
+	createFileName(user_inputs->bam_file, &user_inputs->cov_file, ".cov.fasta");
 
-	// for wig.fasta file name
-	user_inputs->wig_file = (char *) malloc((strlen(user_inputs->bam_file)+15) * sizeof(char));
-    strcpy(user_inputs->wig_file, user_inputs->bam_file);
-    strcat(user_inputs->wig_file, ".wig.fasta");
+	// for target regions have no coverage at all
+	createFileName(user_inputs->bam_file, &user_inputs->missed_targets_file, ".missedTargets.txt");
+
+	// for off target good hit wig.fasta file name
+	createFileName(user_inputs->bam_file, &user_inputs->wig_file, ".wig.fasta");
 
 	// for whole genome (wgs) file name
 	if (user_inputs->wgs_coverage) {
-		user_inputs->wgs_file = malloc((strlen(user_inputs->bam_file)+15) * sizeof(char));
-		strcpy(user_inputs->wgs_file, user_inputs->bam_file);
-		strcat(user_inputs->wgs_file, ".wgs.fasta");
+		createFileName(user_inputs->bam_file, &user_inputs->wgs_file, ".wgs.fasta");
+		//printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	}
+}
+
+//Here I need to pass in file_in name string as reference, otherwise, it will be by value and will get segmentation fault
+void createFileName(char *base_name, char **file_in, char *string_to_append) {
+	*file_in = calloc(strlen(base_name)+30,  sizeof(char));
+	strcpy(*file_in, base_name);
+	strcat(*file_in, string_to_append);
 }
 
 User_Input * userInputInit() {
@@ -222,6 +227,9 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->cov_file) 
 		free(user_inputs->cov_file);
+
+	if (user_inputs->missed_targets_file)
+		free(user_inputs->missed_targets_file);
 
 	if (user_inputs->out_file)
 		free(user_inputs->out_file);
@@ -354,7 +362,7 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 }
 
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index) {
-	chrom_tracking->chromosome_ids[index] = calloc(15, sizeof(char));
+	chrom_tracking->chromosome_ids[index] = calloc(50, sizeof(char));
 	strcpy(chrom_tracking->chromosome_ids[index], chrom_id);
 	if (chrom_tracking->chromosome_ids[index] == NULL) {
 		printf("Allocation failed for chrom %s\n", chrom_id);
@@ -539,7 +547,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 			}
 		}
 	}
-	//printf("Finished for zero all N zeros\n");
+	printf("Finished for zero all N zeros\n");
 }
 void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val) {
     int ret;

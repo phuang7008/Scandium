@@ -53,13 +53,14 @@ extern bool TARGET_FILE_PROVIDED;
  */
 typedef struct {
 	//file info
-	char * target_file;
 	char * bam_file;
 	char * cov_file;
-	char * n_file;		// provide the regions with Ns in the reference genome in bed format
+	char * missed_targets_file;	// for target regions that have no coverage at all
+	char * n_file;				// provide the regions with Ns in the reference genome in bed format
 	char * out_file;
-	char * wgs_file;	// output the whole genome coverage information
-	char * wig_file;	// output the wig formatted file for USCS
+	char * target_file;
+	char * wig_file;			// output the off target good hit in wig formatted
+	char * wgs_file;			// output the whole genome coverage information
 
 	//misc
 	int8_t min_map_quality;
@@ -101,7 +102,7 @@ typedef struct {
  * (that is all of the member variables are array, except number_tracked)
  */
 typedef struct {
-	uint16_t number_tracked;		// the number of chromosomes we are tracking so far!
+	uint32_t number_tracked;		// the number of chromosomes we are tracking so far!
 	uint16_t **coverage;			// the coverage count info for each base on each chromosome will be stored here!
 
     char **chromosome_ids;
@@ -162,7 +163,7 @@ typedef struct {
     uint32_t off_target_read_hit_count;		//total number of reads which do not align to a target region
     uint32_t in_buffer_read_hit_count;		//total number of reads which align to the buffer region
 	uint32_t hit_target_count;				//total targets with at least 1 read aligned to them
-	uint32_t hit_target_buffer_only_count;			//total targets with no hits, except in buffer
+	uint32_t hit_target_buffer_only_count;	//total targets with no hits, except in buffer
 	uint32_t non_traget_good_hits;			//regions that have high coverage but are not in the target
 
 	//misc

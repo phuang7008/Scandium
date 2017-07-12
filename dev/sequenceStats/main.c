@@ -76,18 +76,21 @@ int main(int argc, char *argv[]) {
 	Chromosome_Tracking *chrom_tracking = chromosomeTrackingInit(header);
 
 	// can't set to be static as openmp won't be able to handle it
-	uint32_t total_chunk_of_reads = 1000000;
+	uint32_t total_chunk_of_reads = 500000;
+	if (user_inputs->wgs_coverage)
+		total_chunk_of_reads = 3000000;
+
 	fflush(stdout);
 
 	// now let's do the parallelism
 	while(chrom_tracking->more_to_read) {
-#pragma omp parallel firstprivate(total_chunk_of_reads) num_threads(user_inputs->num_of_threads)
+#pragma omp parallel num_threads(user_inputs->num_of_threads)
 		{
 			//usleep(10000);	// sleep for 10 second, so two threads won't process the same thing
 
 			int num_of_threads = omp_get_num_threads();	
 			int thread_id = omp_get_thread_num();
-			//printf("Before File Reading: number of threads is %d and current thread id is %d and wgs is %d\n", num_of_threads, thread_id, user_inputs->wgs_coverage);
+			//printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
 
 			Read_Buffer *read_buff;
 			read_buff = malloc(sizeof(Read_Buffer));
@@ -102,6 +105,7 @@ int main(int argc, char *argv[]) {
 				num_records = readBam(sfd, header, chrom_tracking, read_buff);
 				read_buff->size = num_records;
 			}
+			//printf("First Critical position for thread %d\n", thread_id);
 
 			if (num_records == 0) {
 				printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
@@ -112,38 +116,40 @@ int main(int argc, char *argv[]) {
 			// can not use the else {} with the previous if {} block, otherwise the barrier will wait forever!
 			if (num_records > 0) {
 				thread_id = omp_get_thread_num();
-				printf("After file reading: Thread %d performed %d iterations of the loop w/ wgs is %d.\n", thread_id, num_records, user_inputs->wgs_coverage);
-
 				Coverage_Stats *cov_stats = coverageStatsInit();
 				khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
-				processBamChunk(user_inputs, cov_stats, coverage_hash, header, read_buff, target_buffer_hash);
+				printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
+
+				processBamChunk(user_inputs, cov_stats, coverage_hash, header, read_buff, target_buffer_hash, thread_id);
 
 				// release the allocated chunk of buffer for alignment reads after they have been processed!
-			    //printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
+			    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
 				readBufferDestroy(read_buff);
 
+				printf("Before Second Critical position for thread %d\n", thread_id);
 #pragma omp critical
 				{
 					//printf("Before writing to the coverage array for Thread %d\n", thread_id);
 					combineThreadResults(chrom_tracking, coverage_hash, header);
 					combineCoverageStats(stats_info, cov_stats);
-					printf("after writing to the coverage array for Thread %d\n", thread_id);
+					//printf("after writing to the coverage array for Thread %d\n", thread_id);
 
 					cleanKhashStr(coverage_hash);
 					free(cov_stats);
-				}
+
+					// since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
+	            	if (!chrom_tracking->more_to_read) {
+    	            	for(i=0; i<header->n_targets; i++) {
+        	            	if (chrom_tracking->chromosome_status[i] == 1)
+            	            	chrom_tracking->chromosome_status[i] = 2;
+						}
+                	}
+            	}
+				printf("After Second Critical position for thread %d\n", thread_id);
+
 			}
-
-            // since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
-			if (!chrom_tracking->more_to_read) {
-                for(i=0; i<header->n_targets; i++) {
-                    if (chrom_tracking->chromosome_status[i] == 1)
-                        chrom_tracking->chromosome_status[i] = 2;
-                }
-            }
-
-			// setup a barrier here and wait for every one of them to reach this point!
-#pragma omp barrier
+// setup a barrier here and wait for every one of them to reach this point!
+#pragma omp barrier 
 
 			// check to see if any of the chromosomes has finished. If so, write the results out
 #pragma omp critical
@@ -151,20 +157,26 @@ int main(int argc, char *argv[]) {
 				if (num_records > 0) {
 					for (i=0; i<header->n_targets; i++) {
 						if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-							//printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
+							printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
 							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info);
 						
+							// now write the off targets into a wig file
+							if (TARGET_FILE_PROVIDED)
+								produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, stats_info);
+
 							// clean up the array allocated
 							//printf("free the big array for current chromosome %s\n", chrom_tracking->chromosome_ids[i]);
 							if (chrom_tracking->coverage[i]) {
 								free(chrom_tracking->coverage[i]);
 								chrom_tracking->coverage[i] = NULL;
+								//chrom_tracking->coverage[i] = realloc(chrom_tracking->coverage[i], 0);
 							}
 							chrom_tracking->chromosome_status[i] = 3;
 						}
-			        }
+					}
 				}
 			}
+			printf("End of while loop before flush for thread %d\n", thread_id);
 			fflush(stdout);
 		}
 	}

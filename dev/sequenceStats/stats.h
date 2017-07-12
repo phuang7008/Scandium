@@ -54,7 +54,7 @@ uint32_t readBam(samFile *sffh, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
  * @param header: bam file header information
  * @param read_buff_in: the array of Read_Buffer that will be processed by current function
  */
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, khash_t(str) *bed_buffer_hash);
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, khash_t(str) *bed_buffer_hash, int thread_id);
 //void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, Coverage_Hash *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
 
 /**
@@ -115,5 +115,18 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
  * @param type: type of output, 1 for the whole genome, 2 for the target only
  */
 void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, int32_t average_coverage, uint8_t type);
+
+/**
+ * Write off target wig file for off target statistics
+ * This method is destructive to the data structure, no further work can be done after this method has ran.  
+ * Works out whether reads are on or off target and how far off target they are
+ * The original script uses 500 away from target as off target, here I am using 100 Buffer size as the off target
+ * @param chrom_tracking where it contains all the coverage information
+ * @param chrom_id: the chrom_id needs to be taken care of
+ * @param target_bed_info: contains the coordinates of all the targets
+ * @param user_input: the base file name needed to produce the name of the off-target wig file name
+ * @param stats_info: the function will increment a non_traget_good_hits member
+ */
+void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info);
 
 #endif // STATS_H
