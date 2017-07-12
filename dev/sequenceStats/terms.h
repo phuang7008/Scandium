@@ -25,7 +25,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
-#include <unistd.h>     // for getopt()
+#include <unistd.h>     // for getopt() and usleep()
 #include <math.h>
 #include <zlib.h>
 
@@ -75,7 +75,7 @@ typedef struct {
  * define a structure that holds the target coordinates
  */
 typedef struct {
-    char chr[15];    // some chromosome ID would be quite long, not sure if they will be used though as we are only interested in human ones
+    char chr[15];    // some chromosome ID would be quite long
     uint32_t start;
     uint32_t end;
 } Bed_Coords;
@@ -101,12 +101,13 @@ typedef struct {
  * (that is all of the member variables are array, except number_tracked)
  */
 typedef struct {
-	uint8_t number_tracked;			// the number of chromosomes we are tracking so far!
+	uint16_t number_tracked;		// the number of chromosomes we are tracking so far!
 	uint16_t **coverage;			// the coverage count info for each base on each chromosome will be stored here!
 
     char **chromosome_ids;
     uint32_t *chromosome_lengths;
     uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish processing, 3.done writing!
+	bool more_to_read;
 } Chromosome_Tracking;
 
 /*
@@ -124,7 +125,7 @@ typedef struct {
 //KHASH_MAP_INIT_INT(32, char)
 
 // m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
-KHASH_MAP_INIT_INT(m32, uint16_t)
+KHASH_MAP_INIT_INT(m32, uint32_t)
 //KHASH_MAP_INIT_INT(m32)
 KHASH_MAP_INIT_INT(m16, uint16_t)
 KHASH_MAP_INIT_INT(m8, uint16_t)
@@ -136,22 +137,9 @@ KHASH_MAP_INIT_STR(str, khash_t(m32)*)
 //KHASH_SET_INIT_STR(str)
 
 /**
- * define a structure to store various information, such as coverage histogram etc
+ * define a coverage statistics structure
  */
 typedef struct {
-    khash_t(m16) *target_cov_histogram;				//target coverage histogram
-    khash_t(m16) *genome_cov_histogram;				//coverage histogram for the whole Genome
-
-    khash_t(m16) *targeted_base_with_N_coverage;	// here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
-    khash_t(m16) *genome_base_with_N_coverage;		// here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
-
-	khash_t(m16) *target_coverage_for_median;		//Used for calculating the median coverage.
-	khash_t(m16) *genome_coverage_for_median;		//Used for calculating the median coverage for Whole Genome.
-
-	uint32_t target_coverage[101];					//stores data about the coverage across a target
-	uint16_t *five_prime[PRIMER_SIZE];				//stores data about coverage upstream of the target 
-	uint16_t *three_prime[PRIMER_SIZE];				//stores data about coverage downstream of the target 
-
 	//base stats
 	uint64_t total_genome_bases;		//total number of bases in Genome
 	uint32_t total_buffer_bases;		//total number of bases in the buffer region
@@ -174,7 +162,7 @@ typedef struct {
     uint32_t off_target_read_hit_count;		//total number of reads which do not align to a target region
     uint32_t in_buffer_read_hit_count;		//total number of reads which align to the buffer region
 	uint32_t hit_target_count;				//total targets with at least 1 read aligned to them
-	uint32_t hit_buffer_only_count;			//total targets with no hits, except in buffer
+	uint32_t hit_target_buffer_only_count;			//total targets with no hits, except in buffer
 	uint32_t non_traget_good_hits;			//regions that have high coverage but are not in the target
 
 	//misc
@@ -184,6 +172,25 @@ typedef struct {
 	uint16_t base_with_max_coverage;
 	uint16_t median_genome_coverage;
 	uint16_t median_target_coverage;
-} Stats_Info;
+} Coverage_Stats;
 
+/**
+ * define a structure to store various information, such as coverage histogram etc
+ */
+typedef struct {
+    khash_t(m32) *target_cov_histogram;             //target coverage histogram
+    khash_t(m32) *genome_cov_histogram;             //coverage histogram for the whole Genome
+
+    khash_t(m32) *targeted_base_with_N_coverage;    // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
+    khash_t(m32) *genome_base_with_N_coverage;      // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
+
+    khash_t(m32) *target_coverage_for_median;       //Used for calculating the median coverage.
+    khash_t(m32) *genome_coverage_for_median;       //Used for calculating the median coverage for Whole Genome.
+
+    uint32_t target_coverage[101];                  //stores data about the coverage across a target
+    uint32_t five_prime[PRIMER_SIZE];              //stores data about coverage upstream of the target 
+    uint32_t three_prime[PRIMER_SIZE];             //stores data about coverage downstream of the target 
+
+    Coverage_Stats *cov_stats;
+} Stats_Info;
 #endif //TERMS_H

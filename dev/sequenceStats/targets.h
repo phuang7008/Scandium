@@ -41,10 +41,12 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords);
 /**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup
  * @param bed_info: the bed information that is stored for the future usage
- * @param target_buffer_lookup_table, which is a type of khash_t(m32)
+ * @param bed_buffer_hash, which is a type of khash_t(m32)
+ * @param stat_info, statistical information for the reads/bases
+ * @param header, the bam/sam/cram header pointer that hold the length info of each chromosome
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, short type);
+void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, bam_hdr_t *header, short type);
 
 /**
  * process bed-formatted file and populate the coordinates and lookup hash table
@@ -54,7 +56,7 @@ void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_
  * @param stats_info: a variable that contains various statistical information
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void processBedFiles(char *bed_file, Bed_Info *bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, short type);
+void processBedFiles(char *bed_file, Bed_Info *bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, bam_hdr_t *header, short type);
 
 /**
  * just to output some information for debugging
