@@ -287,16 +287,16 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 
 // As the array is sorted, I am going to use binary search for find the location
 int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index) {
-	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
+	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
 
 	if (found == -1 && end > start) 
-		found = binary_search(regions_in, end, chrom_idx, low_search_index);
+		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
 
 	return found;
 }
 
 // Note: for bed file format, the end position is not part of the region to be checked!
-int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t chrom_idx, uint32_t low_search_index) {
+int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t chrom_idx, uint32_t low_search_index) {
 	int32_t low = low_search_index;
 	int32_t high = regions_in->size_r[chrom_idx] - 1;
 	int32_t middle = (low + high)/2;
@@ -322,11 +322,39 @@ int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t chr
 	return -1;
 }
 
+int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t pos, uint32_t low_search_index) {
+	int32_t low = low_search_index;
+	int32_t high = low_cov_genes->num_of_refseq - 1;
+	int32_t middle = (low + high)/2;
+
+	while (low <= high) {
+		if (low_cov_genes->gene_coverage[middle].exon_start <= pos && pos < low_cov_genes->gene_coverage[middle].exon_end) {
+			return middle;
+		} else {
+			if (low_cov_genes->gene_coverage[middle].exon_start <= pos) {
+				low = middle + 1;
+			} else {
+				high = middle - 1;
+			}
+		}
+
+		middle = (low + high)/2;
+	}
+
+	// outside the while loop means low > high
+	return -1;
+}
+
+// given an index, need to check if the low base positions overlap with the exons
+bool verifyIndexForLowCoverageGenes(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t location_search_index) {
+	return true;
+}
+
 // As the array is sorted, I am going to use binary search for find the location
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
-	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
+	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
 	if (found == -1 && end > start) {
-		found = binary_search(regions_in, end, chrom_idx, low_search_index);
+		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
 	}
 
 	if (found != -1) {
@@ -354,10 +382,10 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
 	//printf("chromsome index is %"PRIu32"\n", chrom_idx);
-	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
+	int32_t found = binarySearch(regions_in, start, chrom_idx, low_search_index);
 
 	if (found == -1 && end > start) {
-		found = binary_search(regions_in, end, chrom_idx, low_search_index);
+		found = binarySearch(regions_in, end, chrom_idx, low_search_index);
 	}
 
     if (found != -1) {
@@ -398,131 +426,71 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 	}
 }
 
+// Here we are only going to handle those regions related to Capture Target Regions
 void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_id, MYSQL *con) {
-	// first find out how many distinct gene_symbol this chromosome has 
-	// and for each gene_symbol, how many distinct refseq_name it has
-	char *sql = calloc(250, sizeof(char));
-	sprintf(sql, "SELECT gene_symbol, COUNT(DISTINCT refseq_name) FROM Gene_Exons WHERE chrom='%s' GROUP BY gene_symbol ORDER BY gene_symbol, refseq_name", chrom_id);
+	char *sql = calloc(350, sizeof(char));
+	sprintf(sql, "SELECT exon_start, exon_end, exon_id, exon_count, target_start, target_end, refseq_start, refseq_end, gene_symbol, refseq_name FROM Gene_RefSeq_Exon WHERE chrom='%s' ORDER BY exon_start, exon_end", chrom_id);
 
 	if (mysql_query(con,sql))
 		finish_with_error(con);
 
 	MYSQL_RES *result = mysql_store_result(con);
 	if (result == NULL)
-	    finish_with_error(con);
+    	finish_with_error(con);
 
 	// Update Low_Coverage_Genes variable low_cov_genes
-	// allocate memory space and set member values for chrom_id, gene_pct_coverage and num_of_gene_symbol
+	// allocate memory space and set member values for chrom_id, gene_symbol 
 	// if I use the array notation, I have to use "[0]." way, if I use point way, I have to use '->' instead
-	low_cov_genes->num_of_gene_symbol = mysql_num_rows(result);
-	low_cov_genes->chrom_id = calloc(strlen(chrom_id) + 1, sizeof(char));
-	strcpy(low_cov_genes->chrom_id, chrom_id);
-	low_cov_genes->gene_pct_coverage = calloc(low_cov_genes[0].num_of_gene_symbol, sizeof(Gene_Percentage_Coverage));
+	low_cov_genes->num_of_refseq = mysql_num_rows(result);
+	low_cov_genes->gene_coverage = calloc(low_cov_genes[0].num_of_refseq, sizeof(Gene_Coverage));
 
 	MYSQL_ROW row;
-    uint32_t counter = 0;
+	uint32_t counter = 0;
 	while ((row = mysql_fetch_row(result))) {
-		// update Gene_Percentage_Coverage variable ==> low_cov_genes->gene_pct_coverage
-        low_cov_genes->gene_pct_coverage[counter].gene_symbol = calloc(strlen(row[0]) + 1, sizeof(char));
-		strcpy(low_cov_genes->gene_pct_coverage[counter].gene_symbol, row[0]);
+		// update Gene_Coverage variable ==> low_cov_genes->gene_coverage
+		low_cov_genes->gene_coverage[counter].gene_symbol = calloc(strlen(row[8])+1, sizeof(char));
+		strcpy(low_cov_genes->gene_coverage[counter].gene_symbol, row[8]);
 
-        low_cov_genes->gene_pct_coverage[counter].num_of_refseq_names = (uint16_t) strtol(row[1], NULL, 10);
-		low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper = calloc((uint16_t) strtol(row[1], NULL, 10), sizeof(Exon_Wrapper));
+	    low_cov_genes->gene_coverage[counter].refseq_name = calloc(strlen(row[9])+1, sizeof(char));
+		strcpy(low_cov_genes->gene_coverage[counter].refseq_name, row[9]);
+
+		low_cov_genes->gene_coverage[counter].refseq_start = (uint32_t) strtol(row[6], NULL, 10);
+		low_cov_genes->gene_coverage[counter].refseq_end   = (uint32_t) strtol(row[7], NULL, 10);
+
+		low_cov_genes->gene_coverage[counter].target_start = (uint32_t) strtol(row[4], NULL, 10);
+		low_cov_genes->gene_coverage[counter].target_end   = (uint32_t) strtol(row[5], NULL, 10);
+
+		low_cov_genes->gene_coverage[counter].exon_start = (uint32_t) strtol(row[0], NULL, 10);
+		low_cov_genes->gene_coverage[counter].exon_end   = (uint32_t) strtol(row[1], NULL, 10);
+		low_cov_genes->gene_coverage[counter].exon_id    = (uint16_t) strtol(row[2], NULL, 10);
+		low_cov_genes->gene_coverage[counter].exon_count = (uint16_t) strtol(row[3], NULL, 10);
 
 		counter++;
-    }
-
-	// here we are going to query one gene symbol at a time
-	for (counter=0; counter<low_cov_genes->num_of_gene_symbol; counter++) {
-		if (counter == 771) {
-			printf("stop\n");
-		}
-		// Need to clean MYSQL result here otherwise, valgrind will give possible memory leak error
-		if (result) { 
-			mysql_free_result(result); 
-			result = NULL; 
-		}
-		strcpy(sql, "");
-
-		// now for new query to retrieve exon info based on gene symbol 
-		sprintf(sql, "SELECT start, end, exon_count, exon_id, refseq_name FROM Gene_Exons WHERE chrom='%s' and gene_symbol='%s' ORDER BY refseq_name, exon_id", chrom_id, low_cov_genes->gene_pct_coverage[counter].gene_symbol);
-
-		if (mysql_query(con,sql))
-			finish_with_error(con);
-
-		MYSQL_RES *result = mysql_store_result(con);
-		if (result == NULL)
-			finish_with_error(con);
-
-		char *prev_refseq_name = calloc(50, sizeof(char));
-		strcpy(prev_refseq_name, "");
-
-		int16_t refseq_index=-1;
-		while ((row = mysql_fetch_row(result))) {
-			uint16_t exon_count = (uint16_t) strtol(row[2], NULL, 10);
-			uint16_t exon_id = (uint16_t) strtol(row[3], NULL, 10);			// or using atol(row[3])
-
-			// check if current refseq name equal to the previous refseq name
-			if (strcmp(row[4], prev_refseq_name) == 0) {
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_id = exon_id;
-                low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_start = (uint32_t) strtol(row[0], NULL, 10);
-                low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_end   = (uint32_t) strtol(row[1], NULL, 10);
-				//printf("Same refseq %s with id %d out of %d\n", row[4], exon_id, exon_count);
-			} else {
-				refseq_index++;
-				//printf("%s counter is %d and refseq index is %d with name  %s to hold %d\n",low_cov_genes->gene_pct_coverage[counter].gene_symbol, counter, refseq_index, row[4], low_cov_genes->gene_pct_coverage[counter].num_of_refseq_names);
-
-				// update Exon_Wrapper variable ==> low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].num_of_exons = exon_count;
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].refseq_name = calloc(strlen(row[4]) + 1, sizeof(char));
-				strcpy(low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].refseq_name, row[4]);
-				strcpy(prev_refseq_name, row[4]);
-
-				// update the Exon_Details variable ==> low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons = calloc(exon_count, sizeof(Exon_Details));
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_id = exon_id;
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_start = (uint32_t) strtol(row[0], NULL, 10);
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].exon_end   = (uint32_t) strtol(row[1], NULL, 10);
-				low_cov_genes->gene_pct_coverage[counter].refseq_exon_wrapper[refseq_index].exons[exon_id].num_of_low_cov_bases = 0;
-			}
-		}
-		if (prev_refseq_name) { free(prev_refseq_name); prev_refseq_name = NULL; }
 	}
-	printf("End for chromosome %s\n", chrom_id);
+
+	if (result) { mysql_free_result(result); result = NULL; }
 	if (sql) { free(sql); sql = NULL; }
+	printf("End for chromosome %s\n", chrom_id);
 }
 
 void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chrom_id) {
-	if (low_cov_genes->chrom_id) {
-		free(low_cov_genes->chrom_id);
-		low_cov_genes->chrom_id = NULL;
-	}
-
-	uint32_t i, j;
-	for (i=0; i<low_cov_genes->num_of_gene_symbol; i++) {
-		//printf("Cleaning Gene symbol %s \n", low_cov_genes->gene_pct_coverage[i].gene_symbol);
-		if (low_cov_genes->gene_pct_coverage[i].gene_symbol) {
-			free(low_cov_genes->gene_pct_coverage[i].gene_symbol);
-			low_cov_genes->gene_pct_coverage[i].gene_symbol = NULL;
+	uint32_t i;
+	for (i=0; i<low_cov_genes->num_of_refseq; i++) {
+		//printf("Cleaning Gene symbol %s \n", low_cov_genes->gene_coverage[i].gene_symbol);
+		if (low_cov_genes->gene_coverage[i].gene_symbol) {
+			free(low_cov_genes->gene_coverage[i].gene_symbol);
+			low_cov_genes->gene_coverage[i].gene_symbol = NULL;
 		}
 
-		for (j=0; j<low_cov_genes->gene_pct_coverage[i].num_of_refseq_names; j++) {
-			//printf("Cleaning refseq %s\n", low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name);
-			if (low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name) {
-				free(low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name);
-				low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name = NULL;
-			}
-
-			if (low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].exons) {
-				free(low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].exons);
-				low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].exons = NULL;
-			}
+		if (low_cov_genes->gene_coverage[i].refseq_name) {
+			free(low_cov_genes->gene_coverage[i].refseq_name);
+			low_cov_genes->gene_coverage[i].refseq_name = NULL;
 		}
 	}
 	
-	if (low_cov_genes->gene_pct_coverage) {
-		free(low_cov_genes->gene_pct_coverage);
-		low_cov_genes->gene_pct_coverage = NULL;
+	if (low_cov_genes->gene_coverage) {
+		free(low_cov_genes->gene_coverage);
+		low_cov_genes->gene_coverage = NULL;
 	}
 
 	if (low_cov_genes) {
@@ -531,75 +499,57 @@ void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chro
 	}
 }
 
-void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, Low_Coverage_Genes *low_cov_genes) {
+// Here we are not going to go through the database, instead, we are going to use the Low_Coverage_Genes stored in heap!!!
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, Low_Coverage_Genes *low_cov_genes) {
 	// print low_cov_genes for debugging
 	//printLowCoverageGeneStructure(low_cov_genes);
+	int32_t found = binarySearchLowCoverage(low_cov_genes, start_in, 0);
+	if (found < 0 && start_in < stop_in)
+		found = binarySearchLowCoverage(low_cov_genes, stop_in, 0);
 
-	char *sql   = calloc(350, sizeof(char)); 
-	sprintf(sql,  "SELECT DISTINCT start, end, exon_count, exon_id, gene_symbol, refseq_name FROM Gene_Exons WHERE  chrom='%s' AND ((start <= %"PRIu32" AND %"PRIu32" <= end) OR (start <= %"PRIu32" AND %"PRIu32" <= end))", chrom_id, start_in, start_in, stop_in, stop_in);
+	if (found == -1) return;
 
-	if (mysql_query(con,sql))
-	finish_with_error(con);
+	// now need to add low coverage count into found exon
+	processExonArrays(low_cov_genes, found, start_in, stop_in);
 
-    MYSQL_RES *result = mysql_store_result(con);
-	if (result == NULL)
-		finish_with_error(con);
-
-	uint32_t i, gene_symbol_index;
-
-	MYSQL_ROW row;
-	uint16_t exon_count=0;
-
-	while ((row = mysql_fetch_row(result))) {
-		// find the index for current refseq index based on the gene symbol retrieved
-		uint32_t refseq_exon_index;
-		for (i=0; i<low_cov_genes->num_of_gene_symbol; i++) {
-			//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_pct_coverage[i].gene_symbol, row[4]);
-			if ((strcmp(low_cov_genes->gene_pct_coverage[i].gene_symbol, row[4]) == 0)) {
-				gene_symbol_index = i;
-		
-				uint16_t j;
-				for (j=0; j<low_cov_genes->gene_pct_coverage[i].num_of_refseq_names; j++) {
-					if (strcmp(low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name, row[5]) == 0) {
-						refseq_exon_index = j;
-						exon_count = low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].num_of_exons;
-						processExonArrays(exon_count, low_cov_genes, gene_symbol_index, refseq_exon_index, start_in, stop_in);
-					}
-				}
-				break;
-			}
+	// since it is possible for more than one refseq have the same coordinates, we need to sliding through each direction one by one
+	uint32_t i;
+	for (i=found+1; i<low_cov_genes->num_of_refseq; i++) {
+		//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_coverage[i].gene_symbol, row[4]);
+		if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
+			   (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))	{
+			processExonArrays(low_cov_genes, i, start_in, stop_in);
+		} else {
+			break;
 		}
 	}
 
-	if (result) { mysql_free_result(result); result=NULL; }
-	//if (prev_sql) { free(prev_sql); prev_sql=NULL; }
-	//if (mid_sql)  { free(mid_sql); mid_sql=NULL; }
-	if (sql) { free(sql); sql=NULL; }
+	// now search backward!
+	for (i=found-1; i>=0; i--) {
+		if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
+               (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))   {
+            processExonArrays(low_cov_genes, i, start_in, stop_in);
+        } else {
+            break;
+        }
+	}
 }
 
-// This will return the number of overlap count
-void processExonArrays(uint16_t exon_count, Low_Coverage_Genes *low_cov_genes, uint32_t gene_symbol_index, uint16_t refseq_exon_index, uint32_t start, uint32_t end) {
-	uint32_t i;
+// This will calculate the number of overlap count
+void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint16_t refseq_exon_index, uint32_t start, uint32_t end) {
+	uint32_t exon_start = low_cov_genes->gene_coverage[refseq_exon_index].exon_start;
+	uint32_t exon_end   = low_cov_genes->gene_coverage[refseq_exon_index].exon_end;
 
-	for (i=0; i<exon_count; i++) {
-		uint32_t db_exon_start = low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].exon_start;
-		uint32_t db_exon_end   = low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].exon_end;
+	if (start <= exon_start && exon_end <= end) {
+		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_end - exon_start + 1;
 
-		if (start <= db_exon_start && db_exon_end <= end) {
-			low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].num_of_low_cov_bases += 
-				db_exon_end - db_exon_start + 1;
+	} else if (exon_start <= start && end <= exon_end) {
+		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - start + 1; 
 
-		} else if (db_exon_start <= start && end <= db_exon_end) {
-			low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].num_of_low_cov_bases += end - start + 1;
+	} else if (exon_start <= end && end <= exon_end) {
+		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - exon_start + 1;
 
-		} else if (db_exon_start <= end && end <= db_exon_end) {
-			low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].num_of_low_cov_bases += 
-				end - db_exon_start + 1;
-
-		} else if (db_exon_start <= start && start <= db_exon_end) {
-			low_cov_genes->gene_pct_coverage[gene_symbol_index].refseq_exon_wrapper[refseq_exon_index].exons[i].num_of_low_cov_bases += 
-			   db_exon_end - start + 1;
-
-		}
+	} else if (exon_start <= start && start <= exon_end) {
+		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_end - start + 1;
 	}
 }

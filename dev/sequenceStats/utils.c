@@ -253,10 +253,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		createFileName(user_inputs->bam_file, &user_inputs->capture_high_cov_file, string_to_add);
 
 		// for low coverage gene/exon/transcript reports
-		sprintf(string_to_add, ".below%dx_Capture_Gene_pcr.txt", user_inputs->low_coverage_to_report);
+		sprintf(string_to_add, ".below%dx_Capture_Gene_pct.txt", user_inputs->low_coverage_to_report);
         createFileName(user_inputs->bam_file, &user_inputs->low_cov_gene_pct_file, string_to_add);
 
-		sprintf(string_to_add, ".below%dx_Capture_Exon_pcr.txt", user_inputs->low_coverage_to_report);
+		sprintf(string_to_add, ".below%dx_Capture_Exon_pct.txt", user_inputs->low_coverage_to_report);
         createFileName(user_inputs->bam_file, &user_inputs->low_cov_exon_pct_file, string_to_add);
 
 		sprintf(string_to_add, ".below%dx_Capture_Transcript_pct.txt", user_inputs->low_coverage_to_report);
@@ -558,7 +558,7 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
         }
     }
 
-	fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
+	//fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
 	return -1;
 }
 
@@ -800,15 +800,11 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 }
 
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
-	uint32_t i, j;
+	uint32_t i;
 
-	printf("Total Number of Gene Symbol is %"PRIu32"\n", low_cov_genes->num_of_gene_symbol);
+	printf("Total Number of Gene Symbol is %"PRIu32"\n", low_cov_genes->num_of_refseq);
 
-	for (i=0; i<low_cov_genes->num_of_gene_symbol; i++) {
-		printf("Gene: %s\n", low_cov_genes->gene_pct_coverage[i].gene_symbol);
-
-		for (j=0; j<low_cov_genes->gene_pct_coverage[i].num_of_refseq_names; j++) {
-			printf("\t%s with %"PRIu16" exons\n", low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].refseq_name, low_cov_genes->gene_pct_coverage[i].refseq_exon_wrapper[j].num_of_exons);
-		}
+	for (i=0; i<low_cov_genes->num_of_refseq; i++) {
+		printf("Gene: %s\tRefSeq: %s\n", low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name);
 	}
 }

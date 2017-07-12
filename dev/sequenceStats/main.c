@@ -121,13 +121,13 @@ int main(int argc, char *argv[]) {
             //total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
             total_chunk_of_reads = 8000000;
-            total_chunk_of_reads = 500000;
+            //total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
             total_chunk_of_reads = 4000000;
 		} else { 
-            total_chunk_of_reads = 2500000;
+            total_chunk_of_reads = 6000000;
 		}
 	}
 
@@ -177,16 +177,12 @@ int main(int argc, char *argv[]) {
         // release the allocated chunk of buffer for alignment reads after they have been processed!
         printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
         readBufferDestroy(&read_buff[thread_id]);
-        //printf("Before Second Critical position for thread %d\n", thread_id);
+
 #pragma omp critical
         {
           if (num_records > 0) {
             combineThreadResults(chrom_tracking, coverage_hash, header);
             combineCoverageStats(stats_info, cov_stats);
-
-            cleanKhashStr(coverage_hash, 1);
-            free(cov_stats);
-			cov_stats = NULL;	// to eleminate dangling pointer
 
             // since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
             if (!chrom_tracking->more_to_read) {
@@ -198,23 +194,27 @@ int main(int argc, char *argv[]) {
           }
         }
 
+        cleanKhashStr(coverage_hash, 1);
+        free(cov_stats);
+		cov_stats = NULL;	// to eleminate dangling pointer
+
 // setup a barrier here and wait for every one of them to reach this point!
 #pragma omp barrier 
 
 #pragma omp single
-          {
-            if (num_records > 0) {
-              for (i=0; i<header->n_targets; i++) {
-                if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-				  // check to see if any of the chromosomes has finished. If so, write the results out
-                  // for the whole genome, we need to use the file that contains regions of all Ns in the reference
-                  // As they will be not used, so we are going to set the count info in these regions to 0
-                  if (N_FILE_PROVIDED)
-                    zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking);
-                }
+        {
+          if (num_records > 0) {
+            for (i=0; i<header->n_targets; i++) {
+              if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
+                // check to see if any of the chromosomes has finished. If so, write the results out
+                // for the whole genome, we need to use the file that contains regions of all Ns in the reference
+                // As they will be not used, so we are going to set the count info in these regions to 0
+                if (N_FILE_PROVIDED)
+                  zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking);
               }
             }
-		  }
+          }
+		}
 
 #pragma omp barrier
 
@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
                 // For calculating the percentage of gene bases with low coverge for capture only
                 Low_Coverage_Genes *low_cov_genes = calloc(1, sizeof(Low_Coverage_Genes));
                 genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
-				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, low_cov_genes, con);
+				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, con, low_cov_genes);
 				outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, con);
 				genePercentageCoverageDestroy(low_cov_genes, chrom_tracking->chromosome_ids[i]);
 

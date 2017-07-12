@@ -41,13 +41,12 @@ void fromStringToIntArray(char *str_in, uint32_t *array_in);
 /*
  * this function is used to process the INT exon array and find the intercepted regions
  * @param exon_count: the number of exons need to be known before calling this function
- * @param exon_starts: the start positions for every exon region
- * @param exon_ends:   the end positions for every exon region
- * @param gene_name: the name of the gene from MySQL query
- * @param pos: the position to be intercepted by exons
- * @param ret_val: the returned hash table with string as key
+ * @param start: the start positions for low coverage region
+ * @param end:   the end positions for low coverage region
+ * @low_cov_genes: the structure that holds all the refseq information of one chromosome
+ * @refseq_exon_index: the found index that points to the refseq regions intercept with low coverage region
  */
-void processExonArrays(uint16_t exon_count, Low_Coverage_Genes *low_cov_genes, uint32_t LCG_array_index, uint16_t refseq_index, uint32_t start, uint32_t end);
+void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint16_t refseq_exon_index, uint32_t start, uint32_t end);
 
 /**
  * the function will combine all the strings stored as key and formatted them for output
@@ -71,10 +70,11 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index);
 
-int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t index, uint32_t low_index);
+int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t index, uint32_t low_index);
+
+int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t pos, uint32_t low_search_index);
 
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index);
-
 
 void fromStringToIntArray(char *str_in, uint32_t *array_in);
 
@@ -89,7 +89,7 @@ void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_i
 
 void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chrom_id);
 
-void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, Low_Coverage_Genes *low_cov_genes);
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, Low_Coverage_Genes *low_cov_genes);
 
 /*
  * produce the gene annotation for the capture region

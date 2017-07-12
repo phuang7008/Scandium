@@ -177,36 +177,26 @@ typedef struct {
 } Regions_Skip_MySQL;
 
 /**
- * define a structure for Gene Exons for the calculation of gene/exon Percentage Coverage Reports
+ * define a structure for Gene RefSeq Exons for the calculation of gene/exon Percentage Coverage Reports
  */
-// each exon contains its own attributes
-typedef struct {
-    uint16_t exon_id;
-    uint32_t exon_start;
-    uint32_t exon_end;
-    uint16_t num_of_low_cov_bases;
-} Exon_Details;
-
-// each refseq_name contains many exons
-typedef struct {
-	char *refseq_name;
-	uint16_t num_of_exons;
-	Exon_Details *exons;
-} Exon_Wrapper;
-
-// each gene_symbol could contain more than one refseq_names
 typedef struct {
 	char *gene_symbol;
+	char *refseq_name;
+	//char *chrom_id;
+	uint32_t refseq_start;		// for the RefSeq transcript
+	uint32_t refseq_end;
+    uint32_t exon_start;		// official exon coordinates from RefSeq database
+    uint32_t exon_end;
+	uint16_t exon_id;
+	uint16_t exon_count;
+	uint32_t target_start;		// capture target coordinates
+	uint32_t target_end;
+    uint16_t num_of_low_cov_bases;
+} Gene_Coverage;
 
-	uint16_t num_of_refseq_names;
-	Exon_Wrapper *refseq_exon_wrapper;
-} Gene_Percentage_Coverage;
-
-// one chromosome contains many different gene_symbols
 typedef struct {
-    Gene_Percentage_Coverage * gene_pct_coverage;
-	char *chrom_id;
-    uint32_t num_of_gene_symbol;		// number of distinct gene symbol (as one symbol can have multiple refseq transcripts)
+	Gene_Coverage *gene_coverage;
+	uint32_t num_of_refseq;
 } Low_Coverage_Genes;
 
 #include "htslib/khash.h"
