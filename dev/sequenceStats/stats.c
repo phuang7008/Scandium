@@ -149,16 +149,16 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 }
 
 void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status) {
-	uint32_t i=0, j=0, chrom_len=0;
+	uint32_t i=0, j=0, x=0, chrom_len=0;
 	bool on_target=false, in_buffer=false;
 
 	// get the target_buffer_status index
 	uint32_t idx = 0;
 	if (TARGET_FILE_PROVIDED) {
-		for (i=0; i<35; i++) {
+		for (i=0; i<25; i++) {
 			if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
-				chrom_len = target_buffer_status[i].size;
 				idx = i;
+				chrom_len = target_buffer_status[i].size;
 				break;
 			}
 		}
@@ -177,20 +177,17 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
-	uint32_t start = rec->core.pos;
-	uint32_t qual_pos = 0;
 
-	for (i=0; i<rec->core.n_cigar; ++i) {
+	for (i=0, x=rec->core.pos; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
         int cln = cigar[i] >> BAM_CIGAR_SHIFT;  // length
         if (cop == BAM_CMATCH) {
 
-			for (j=0; j<cln; ++j) {
+			for (j=x; j<x+cln; ++j) {
 				cov_stats->total_aligned_bases++;
-				uint32_t pos = start + qual_pos + 1;	// left most position of alignment in zero based coordinates (as BAM is 0-based)
-
+				uint32_t pos = j + 1;	// left most position of alignment in zero based coordinates (as BAM is 0-based)
 				if (pos < 0) continue;
-				if (pos >= chrom_len) break;
+                if (pos >= chrom_len) break;
 
 				if (TARGET_FILE_PROVIDED) {
 					if (!on_target) {
@@ -204,20 +201,15 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					}
 				}
 
-				if ( (user_inputs->min_base_quality) > 0 && (qual[qual_pos] < user_inputs->min_base_quality) ) {	
-					qual_pos++;
+				if ( (user_inputs->min_base_quality) > 0 && (qual[i] < user_inputs->min_base_quality) )		
 					// filter based on the MIN_BASE_SCORE
 					continue;
-				}
 
 				kh_value(coverage_hash, outer_iter)->cov_array[pos]++;
-				qual_pos++;
 			}
-			//pos += cln;
-		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL || cop == BAM_CPAD) {
-			qual_pos += cln;
-			//pos += cln;
-		}
+			x += cln;
+		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL || cop == BAM_CPAD) 
+			x += cln;
 	}
 
 	if (TARGET_FILE_PROVIDED) {
