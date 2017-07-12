@@ -39,14 +39,7 @@ void usage();
  * @param cName
  * @return char * without 'chr' prefix
  */
-char * removechr(char * cName);
-
-/**
- * removes the "chr" prefix from cName (chromosome name) passed in
- * @param cName
- * @return char * without 'chr' prefix
- */
-char * removechr(char * cName);
+char * removeChr(char * cName);
 
 /**
  * converts fractions into percentages with 2 decimal positions
@@ -61,7 +54,7 @@ double getPercentage(int num, int dom);
  * @param inStr
  * @return bool
  */
-bool isnum(const char *inStr);
+bool isNum(const char *inStr);
 
 /**
  * process user input options and ensure they are correct!
@@ -82,9 +75,99 @@ User_Input * userInputInit();
 void userInputDestroy(User_Input *user_inputs);
 
 /**
- * This function is used to clean the khash_t hash table used by the users
- * @param hash_to_clean: loop through the hash table to clean all the memories by the hash
+ * This function is used to clean the khash_t (int key) hash table used by the users
+ * @param hash_to_clean: loop through the hash table to clean all the allocated memories
  */
-void clean_khash(khash_t(32) *hash_to_clean);
+void cleanKhashInt(khash_t(m32) *hash_to_clean);
+
+/**
+ * This function is used to clean the khash_t (string key) hash table used by the users
+ * @param hash_to_clean: loop through the hash table to clean all the allocated memories
+ */
+void cleanKhashStr(khash_t(str) *hash_to_clean);
+
+/**
+ * Find the corresponding chromosome index from input chromosome id
+ * @param header: the bam/cram/sam header
+ * @param chrom_id
+ * @return the index of the corresponding chromosome id
+ */
+short getChromIndexFromID(bam_hdr_t *header, char *chrom_id);
+
+/**
+ * This function is used to initialize all members for the Chromosome_Tracking variable
+ * @param chrom_tracking: a Chromosome_Tracking used for tracking
+ * @param chrom_id: the current chromosome id
+ * @param chrom_len: the length of current chromosome
+ * @param index: the members in Chromosome_Tracking variable are stored in arrays, using index will help locate the chromosome info
+ */
+void chromosomeTrackingInit(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index);
+
+/**
+ * This function is used to update members for the Chromosome_Tracking variable
+ * @param chrom_tracking: a Chromosome_Tracking used for tracking
+ * @param chrom_id: the current chromosome id
+ * @param chrom_len: the length of current chromosome
+ * @param index: the members in Chromosome_Tracking variable are stored in arrays, using index will help locate the chromosome info
+ * @param status: the status of current chromosomd id
+ */
+//void chromosome_tracking_update(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index, int status);
+
+/**
+ * To clean up the allocated memory for chromosome tracking
+ * @param chrom_tracking: the tracking variable to be cleaned
+ */
+void chromosomeTrackingDestroy(Chromosome_Tracking * chrom_tracking);
+
+/**
+ * To locate the index of a chromosome id in an array give the chromosome id information
+ * @param chrom_id
+ * @param chrom_tracking: the Chromosome_Tracking variable to track the status of chromosome processed
+ */
+uint8_t locateChromosomeIndex(char *chrom_id, Chromosome_Tracking *chrom_tracking);
+
+/**
+ * Initialize the member of the Stats_Info variable
+ * @param stats_info
+ */
+void statsInfoInit(Stats_Info *stats_info);
+
+/**
+ * to destroy everything allocated for stats_info
+ * @param stats_info
+ */
+void statsInfoDestroy(Stats_Info *stats_info);
+
+/**
+ * it will set the coverage for all of the Ns regions in the genome to zero
+ * @param chrom_id
+ * @param Ns_buffer_hash
+ * @param chrom_tracking
+ */
+void zeroAllNsRegions(char *chrom_id, khash_t(str) *Ns_buffer_hash, Chromosome_Tracking *chrom_tracking);
+
+/**
+ * To add value into a hash table by the key
+ * @param hash_in: the hash table to be modified
+ * @param pos_key: the key for a specific position
+ * @param val: value to be added
+ */
+void addValueToKhashBucket(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val);
+void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint16_t val);
+
+/**
+ * Get value from the hash table by the key
+ * @param hash_in
+ * @param key
+ * @return the value pointed by the key
+ */
+uint16_t getValueFromKhash(khash_t(m16) *hash16, khash_t(m32) *hash32, uint16_t pos_key);
+
+/** converts fractions into percentages with 2 decimal positions
+ * @param num: the numeric value 
+ * @param dom: the donominator value
+ * @return a float value with 2 decimal points
+ */
+float calculatePercentage(uint32_t num, uint32_t dom);
 
 #endif //UTILS_H
