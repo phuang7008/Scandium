@@ -57,16 +57,17 @@ typedef struct {
 	//file info
 	char * bam_file;
 	char * cov_file;
-	char * missed_targets_file;	// for target regions that have no coverage at all
-	char * n_file;				// provide the regions with Ns in the reference genome in bed format
+	char * n_file;					// provide the regions with Ns in the reference genome in bed format
 	char * out_file;
 	char * target_file;
-	char * wig_file;			// output the off target good hit in wig formatted
-	char * wgs_file;			// output the whole genome coverage information
-	char * capture_low_cov_file;
-	char * capture_high_cov_file;
-	char * wgs_low_cov_file;
-	char * wgs_high_cov_file;
+	char * wig_file;				// output the off target good hit in wig formatted
+	char * wgs_file;				// output the whole genome coverage information
+	char * missed_targets_file;		// for target regions that have no coverage at all
+	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
+	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
+	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
+	char * wgs_low_cov_file;		// for the regions within the whole genome that have lower coverage with detailed annotation
+	char * wgs_high_cov_file;		// for the regions within the whole genome that have high coverage without detailed annotation
 
 	//misc
 	int8_t min_map_quality;
@@ -140,6 +141,22 @@ typedef struct {
     uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish processing, 3.done writing!
 	bool more_to_read;
 } Chromosome_Tracking;
+
+/**
+ * define a structure that holds the inter-genic and intronic regions
+ */
+typedef struct {
+	uint32_t *size_r;		// this is the total number of regions on each chromosome
+	uint32_t **starts;
+	uint32_t **ends;
+	//uint32_t **size_i;		// this is for the size of each inter-genic region or intronic regions
+
+	char ***gene;				// For All Site Reports, annotation info will be store inside gene
+	char ***Synonymous;
+	char ***prev_genes;
+	char ***exon_info;
+	char **chromosome_ids;
+} Regions_Skip_MySQL;
 
 #include "htslib/khash.h"
 

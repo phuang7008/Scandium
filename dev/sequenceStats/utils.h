@@ -121,6 +121,7 @@ void dynamicStringAllocation(char *str_in, uint16_t size_in);
  * @return the index of the corresponding chromosome id
  */
 uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id);
+//uint32_t getChromIndexFromID(uint16_t chr_count, char *chrom_id);
 
 /**
  * initialize the Chromosome_Tracking variable

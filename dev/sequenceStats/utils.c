@@ -232,8 +232,13 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		//printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	}
 
+	char string_to_add[250];
+
+	// output average coverage for all target regions (capture)
+	sprintf(string_to_add, ".AllSites_REPORT.txt");
+	createFileName(user_inputs->bam_file, &user_inputs->capture_all_site_file, string_to_add);
+
 	// output low coverage regions for target (capture)
-	char string_to_add[50];
 	sprintf(string_to_add, ".below%dx_Capture_REPORT.txt", user_inputs->low_coverage_to_report);
 	createFileName(user_inputs->bam_file, &user_inputs->capture_low_cov_file, string_to_add);
 
@@ -315,6 +320,9 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->wgs_file)
 		free(user_inputs->wgs_file);
+
+	if (user_inputs->capture_all_site_file)
+		free(user_inputs->capture_all_site_file);
 
 	if (user_inputs->capture_low_cov_file)
 		free(user_inputs->capture_low_cov_file);

@@ -4,8 +4,8 @@ HTSDIR=$(CODEDIR)/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 CC=gcc
-CFLAGS= -g -Wall -O2 -fopenmp
-#CFLAGS= -g -Wall -O0 -fopenmp
+#CFLAGS= -g -Wall -O2 -fopenmp
+CFLAGS= -g -Wall -O0 -fopenmp
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
 
 # define any directories containing header files other than /usr/bin
@@ -18,11 +18,11 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
 
 # define dependent header files
-_DEPS = stats.h  targets.h  terms.h  utils.h
+_DEPS = stats.h  targets.h  terms.h  utils.h for_mysql.h reports.h
 DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
 
 # define the C ssource files
-SRCS = main.c stats.c targets.c  utils.c
+SRCS = main.c stats.c targets.c  utils.c for_mysql.c reports.c
 
 # define the C object files 
 #

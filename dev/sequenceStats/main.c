@@ -28,6 +28,8 @@
 #include "stats.h"
 #include "utils.h"
 #include "targets.h"
+#include "for_mysql.h"
+#include "reports.h"
 
 int main(int argc, char *argv[]) {
 	//fprintf(stderr, "Starting ... %ld\n", time(NULL));
@@ -94,19 +96,30 @@ int main(int argc, char *argv[]) {
     if (mysql_real_connect(con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
         finish_with_error(con);
 
+	// fetch regions that shouldn't use MySQL query
+    Regions_Skip_MySQL *unique_exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *inter_genic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *intronic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *all_site_reports = calloc(1, sizeof(Regions_Skip_MySQL));
+
+    regionsSkipMySQLInit(con, inter_genic_regions, header, 1);
+    regionsSkipMySQLInit(con, unique_exon_regions, header, 3);
+    regionsSkipMySQLInit(con, intronic_regions, header, 2);
+    regionsSkipMySQLInit(con, all_site_reports, header, 4);
+
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 1000000;
 	if (user_inputs->wgs_coverage) {
 		if (user_inputs->num_of_threads == 1) {
-			total_chunk_of_reads = 40000000;
+			total_chunk_of_reads = 32000000;
 		} else if (user_inputs->num_of_threads == 2) {
             total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
-            total_chunk_of_reads = 10000000;
+            total_chunk_of_reads = 8000000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
-            total_chunk_of_reads = 3000000;
+            total_chunk_of_reads = 4000000;
 		} else { 
             total_chunk_of_reads = 2500000;
 		}
@@ -189,7 +202,7 @@ int main(int argc, char *argv[]) {
 					for (i=0; i<header->n_targets; i++) {
 						if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
 							printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con);
+							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con, inter_genic_regions, intronic_regions, unique_exon_regions, all_site_reports);
 						
 							// now write the off targets into a wig file
 							if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
@@ -230,14 +243,11 @@ int main(int argc, char *argv[]) {
 	if (Ns_bed_info)
 		cleanBedInfo(Ns_bed_info);
 
-	//printf("Before buffer hash\n");
 	if (target_buffer_status) {
 		for (i=0; i<header->n_targets; i++)
 			free(target_buffer_status[i].status_array);
 		free(target_buffer_status);
 	}
-
-	//printf("Before stats_info destroy\n");
 
 	if (stats_info)
 		statsInfoDestroy(stats_info);
@@ -249,12 +259,17 @@ int main(int argc, char *argv[]) {
 	if (read_buff) {
 		for (i=0; i<user_inputs->num_of_threads; i++) {
 			if (read_buff[i].chunk_of_reads) {
-				//readBufferDestroy(&read_buff[i]);
 				free(read_buff[i].chunk_of_reads);
 			}
     	}
 		free(read_buff);
 	}
+
+	// do some cleanup
+	regionsSkipMySQLDestroy(inter_genic_regions, 1);
+	regionsSkipMySQLDestroy(unique_exon_regions, 3);
+	regionsSkipMySQLDestroy(intronic_regions, 2);
+	regionsSkipMySQLDestroy(all_site_reports, 4);
 
 	userInputDestroy(user_inputs);
 	bam_hdr_destroy(header);
