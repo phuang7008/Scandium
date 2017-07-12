@@ -334,17 +334,14 @@ int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t star
 	int32_t middle = (low + high)/2;
 
 	while (low <= high) {
-		//if ( (low_cov_genes->gene_coverage[middle].exon_start <= start && start < low_cov_genes->gene_coverage[middle].exon_end) ||
-		//	   (low_cov_genes->gene_coverage[middle].exon_start <= end && end < low_cov_genes->gene_coverage[middle].exon_end) ) {
-		if ( (low_cov_genes->gene_coverage[middle].target_start <= start && start < low_cov_genes->gene_coverage[middle].target_end) ||
-               (low_cov_genes->gene_coverage[middle].target_start <= end && end < low_cov_genes->gene_coverage[middle].target_end) ) {
+		if ( (low_cov_genes->gene_coverage[middle].exon_target_start <= start && start < low_cov_genes->gene_coverage[middle].exon_target_end) ||
+               (low_cov_genes->gene_coverage[middle].exon_target_start <= end && end < low_cov_genes->gene_coverage[middle].exon_target_end) ) {
 			return middle;
-		//} else if ((start <= low_cov_genes->gene_coverage[middle].exon_start) && (low_cov_genes->gene_coverage[middle].exon_end <= end)) {
-		} else if ((start <= low_cov_genes->gene_coverage[middle].target_start) && (low_cov_genes->gene_coverage[middle].target_end <= end)) {
+		} else if ((start <= low_cov_genes->gene_coverage[middle].exon_target_start) && (low_cov_genes->gene_coverage[middle].exon_target_end <= end)) {
 			return middle;
 		} else {
 			//if (low_cov_genes->gene_coverage[middle].exon_start <= start) {
-			if (low_cov_genes->gene_coverage[middle].target_start <= start) {
+			if (low_cov_genes->gene_coverage[middle].exon_target_start <= start) {
 				low = middle + 1;
 			} else {
 				high = middle - 1;
@@ -429,7 +426,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 // Here we are only going to handle those regions related to Capture Target Regions
 void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_id, MYSQL *con) {
 	char *sql = calloc(350, sizeof(char));
-	sprintf(sql, "SELECT exon_start, exon_end, exon_id, exon_count, target_start, target_end, refseq_start, refseq_end, gene_symbol, refseq_name FROM Gene_RefSeq_Exon WHERE chrom='%s' ORDER BY exon_start, exon_end", chrom_id);
+	sprintf(sql, "SELECT exon_target_start, exon_target_end, exon_id, exon_count, refseq_start, refseq_end, gene_symbol, refseq_name FROM Gene_RefSeq_Exon WHERE chrom='%s' ORDER BY exon_target_start, exon_target_end", chrom_id);
 
 	if (mysql_query(con,sql))
 		finish_with_error(con);
@@ -439,7 +436,6 @@ void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_i
     	finish_with_error(con);
 
 	// Update Low_Coverage_Genes variable low_cov_genes
-	// allocate memory space and set member values for chrom_id, gene_symbol 
 	// if I use the array notation, I have to use "[0]." way, if I use point way, I have to use '->' instead
 	low_cov_genes->num_of_refseq = mysql_num_rows(result);
 	low_cov_genes->gene_coverage = calloc(low_cov_genes[0].num_of_refseq, sizeof(Gene_Coverage));
@@ -448,23 +444,21 @@ void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_i
 	uint32_t counter = 0;
 	while ((row = mysql_fetch_row(result))) {
 		// update Gene_Coverage variable ==> low_cov_genes->gene_coverage
-		low_cov_genes->gene_coverage[counter].gene_symbol = calloc(strlen(row[8])+1, sizeof(char));
-		strcpy(low_cov_genes->gene_coverage[counter].gene_symbol, row[8]);
+		low_cov_genes->gene_coverage[counter].gene_symbol = calloc(strlen(row[6])+1, sizeof(char));
+		strcpy(low_cov_genes->gene_coverage[counter].gene_symbol, row[6]);
 
-	    low_cov_genes->gene_coverage[counter].refseq_name = calloc(strlen(row[9])+1, sizeof(char));
-		strcpy(low_cov_genes->gene_coverage[counter].refseq_name, row[9]);
+	    low_cov_genes->gene_coverage[counter].refseq_name = calloc(strlen(row[7])+1, sizeof(char));
+		strcpy(low_cov_genes->gene_coverage[counter].refseq_name, row[7]);
 
-		low_cov_genes->gene_coverage[counter].refseq_start = (uint32_t) strtol(row[6], NULL, 10);
-		low_cov_genes->gene_coverage[counter].refseq_end   = (uint32_t) strtol(row[7], NULL, 10);
+		low_cov_genes->gene_coverage[counter].refseq_start = (uint32_t) strtol(row[4], NULL, 10);
+		low_cov_genes->gene_coverage[counter].refseq_end   = (uint32_t) strtol(row[5], NULL, 10);
 
-		low_cov_genes->gene_coverage[counter].target_start = (uint32_t) strtol(row[4], NULL, 10);
-		low_cov_genes->gene_coverage[counter].target_end   = (uint32_t) strtol(row[5], NULL, 10);
-
-		low_cov_genes->gene_coverage[counter].exon_start = (uint32_t) strtol(row[0], NULL, 10);
-		low_cov_genes->gene_coverage[counter].exon_end   = (uint32_t) strtol(row[1], NULL, 10);
+		low_cov_genes->gene_coverage[counter].exon_target_start = (uint32_t) strtol(row[0], NULL, 10);
+		low_cov_genes->gene_coverage[counter].exon_target_end   = (uint32_t) strtol(row[1], NULL, 10);
 		low_cov_genes->gene_coverage[counter].exon_id    = (uint16_t) strtol(row[2], NULL, 10);
 		low_cov_genes->gene_coverage[counter].exon_count = (uint16_t) strtol(row[3], NULL, 10);
 
+		low_cov_genes->gene_coverage[counter].low_cov_regions = NULL;
 		counter++;
 	}
 
@@ -473,7 +467,7 @@ void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_i
 	printf("End for chromosome %s\n", chrom_id);
 }
 
-void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chrom_id) {
+void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes) {
 	uint32_t i;
 	for (i=0; i<low_cov_genes->num_of_refseq; i++) {
 		//printf("Cleaning Gene symbol %s \n", low_cov_genes->gene_coverage[i].gene_symbol);
@@ -486,6 +480,11 @@ void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chro
 			free(low_cov_genes->gene_coverage[i].refseq_name);
 			low_cov_genes->gene_coverage[i].refseq_name = NULL;
 		}
+
+		if (low_cov_genes->gene_coverage[i].low_cov_regions) {
+			free(low_cov_genes->gene_coverage[i].low_cov_regions);
+			low_cov_genes->gene_coverage[i].low_cov_regions=NULL;
+		}
 	}
 	
 	if (low_cov_genes->gene_coverage) {
@@ -496,6 +495,64 @@ void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chro
 	if (low_cov_genes) {
 		free(low_cov_genes);
 		low_cov_genes = NULL;
+	}
+}
+
+// Here we will initialize the data structure that is used to store information related to transcript coverage percentage
+void transcriptPercentageCoverageInit(Transcript_Coverage *transcript_cov, char *chrom_id, MYSQL *con) {
+    char *sql = calloc(200, sizeof(char));
+    sprintf(sql, "SELECT COUNT(distinct refseq_name) FROM Gene_RefSeq_Exon WHERE chrom='%s'", chrom_id);
+
+    if (mysql_query(con,sql))
+        finish_with_error(con);
+
+    MYSQL_RES *result = mysql_store_result(con);
+    if (result == NULL)
+        finish_with_error(con);
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(result))) {
+		transcript_cov->num_of_refseq = (uint32_t) strtol(row[0], NULL, 10);;
+		break;
+	}
+
+	// Update Transcript_Coverage_Percentage variable xcript_cov_pct
+    // if I use the array notation, I have to use "[0]." way, if I use point way, I have to use '->' instead
+   	transcript_cov->transcript_cov_pct = calloc(transcript_cov->num_of_refseq, sizeof(Transcript_Coverage_Percentage));
+	uint32_t i;
+	for (i=0; i<transcript_cov->num_of_refseq; i++) {
+		transcript_cov->transcript_cov_pct[i].gene_symbol = NULL;
+		transcript_cov->transcript_cov_pct[i].refseq_name = NULL;
+		transcript_cov->transcript_cov_pct[i].refseq_cov_percentage = 0.0;
+	}
+
+	if (result) { mysql_free_result(result); result = NULL; }
+	free(sql);
+	sql=NULL;
+}
+
+void transcriptPercentageCoverageDestroy(Transcript_Coverage *transcript_cov) {
+	uint32_t i;
+	for (i=0; i<transcript_cov->num_of_refseq; i++) {
+		if (transcript_cov->transcript_cov_pct[i].gene_symbol) {
+			free(transcript_cov->transcript_cov_pct[i].gene_symbol);
+			transcript_cov->transcript_cov_pct[i].gene_symbol=NULL;
+		}
+
+		if (transcript_cov->transcript_cov_pct[i].refseq_name) {
+			free(transcript_cov->transcript_cov_pct[i].refseq_name);
+			transcript_cov->transcript_cov_pct[i].refseq_name=NULL;
+		}
+	}
+
+	if (transcript_cov->transcript_cov_pct) {
+		free(transcript_cov->transcript_cov_pct);
+		transcript_cov->transcript_cov_pct=NULL;
+	}
+
+	if (transcript_cov) {
+		free(transcript_cov);
+		transcript_cov=NULL;
 	}
 }
 
@@ -517,11 +574,9 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	int32_t i;
 	for (i=found+1; i<low_cov_genes->num_of_refseq; i++) {
 		//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_coverage[i].gene_symbol, row[4]);
-		//if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
-		//	   (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))	{
-		if ((low_cov_genes->gene_coverage[i].target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].target_end) ||
-			   (low_cov_genes->gene_coverage[i].target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].target_end) || 
-			   (start_in <= low_cov_genes->gene_coverage[i].target_start && low_cov_genes->gene_coverage[i].target_end <= stop_in))	{
+		if ((low_cov_genes->gene_coverage[i].exon_target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_target_end) ||
+			   (low_cov_genes->gene_coverage[i].exon_target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_target_end) || 
+			   (start_in <= low_cov_genes->gene_coverage[i].exon_target_start && low_cov_genes->gene_coverage[i].exon_target_end <= stop_in))	{
 			processExonArrays(low_cov_genes, i, start_in, stop_in);
 		} else {
 			break;
@@ -530,11 +585,9 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 	// now search backward!
 	for (i=found-1; i>=0; i--) {
-		//if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
-        //       (low_cov_genes->gene_coverage[i].exon_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_end))   {
-		if ((low_cov_genes->gene_coverage[i].target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].target_end) ||
-               (low_cov_genes->gene_coverage[i].target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].target_end) || 
-               (start_in <= low_cov_genes->gene_coverage[i].target_start && low_cov_genes->gene_coverage[i].target_end <= stop_in)) {
+		if ((low_cov_genes->gene_coverage[i].exon_target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_target_end) ||
+               (low_cov_genes->gene_coverage[i].exon_target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].exon_target_end) || 
+               (start_in <= low_cov_genes->gene_coverage[i].exon_target_start && low_cov_genes->gene_coverage[i].exon_target_end <= stop_in)) {
             processExonArrays(low_cov_genes, i, start_in, stop_in);
         } else {
             break;
@@ -544,36 +597,57 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 // This will calculate the number of overlap count
 void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint16_t refseq_exon_index, uint32_t start, uint32_t end) {
-	/*uint32_t exon_start = low_cov_genes->gene_coverage[refseq_exon_index].exon_start;
-	uint32_t exon_end   = low_cov_genes->gene_coverage[refseq_exon_index].exon_end;
+	uint32_t exon_target_start = low_cov_genes->gene_coverage[refseq_exon_index].exon_target_start;
+	uint32_t exon_target_end   = low_cov_genes->gene_coverage[refseq_exon_index].exon_target_end;
+	uint32_t report_string_size = 25;
 
-	if (start <= exon_start && exon_end <= end) {
-		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_end - exon_start + 1;
-
-	} else if (exon_start <= start && end <= exon_end) {
-		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - start + 1; 
-
-	} else if (exon_start <= end && end <= exon_end) {
-		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - exon_start + 1;
-
-	} else if (exon_start <= start && start <= exon_end) {
-		low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_end - start + 1;
+	// now we need to allocate memory space for low_cov_regions string for exon percentage report
+	if (!low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) {
+		low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions = calloc(report_string_size, sizeof(char));
+		strcpy(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "");
+	} else {
+		report_string_size += strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions);
+		char *tmp = realloc(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, report_string_size);
+		if (!tmp) {
+			fprintf(stderr, "Memory re-allocation failed at processExonArrays\n");
+			exit(1);
+		}
+		low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions = tmp;
 	}
-	*/
 
-	uint32_t target_start = low_cov_genes->gene_coverage[refseq_exon_index].target_start;
-	uint32_t target_end   = low_cov_genes->gene_coverage[refseq_exon_index].target_end;
+	if (start <= exon_target_start && exon_target_end <= end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_target_end - exon_target_start + 1;
 
-	if (start <= target_start && target_end <= end) {
-        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += target_end - target_start + 1;
-
-    } else if (target_start <= start && end <= target_end) {
+		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
+			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, exon_target_start, exon_target_end);
+		} else {
+			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), "; %"PRIu32"-%"PRIu32, exon_target_start, exon_target_end);
+		}
+    } else if (exon_target_start <= start && end <= exon_target_end) {
         low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - start + 1; 
 
-    } else if (target_start <= end && end <= target_end) {
-        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - target_start + 1;
+		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, end);
+        } else {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), "; %"PRIu32"-%"PRIu32, start, end);
+        }
 
-    } else if (target_start <= start && start <= target_end) {
-        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += target_end - start + 1;
+    } else if (exon_target_start <= end && end <= exon_target_end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += end - exon_target_start + 1;
+
+		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, exon_target_start, end);
+        } else {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), "; %"PRIu32"-%"PRIu32, exon_target_start, end);
+        }
+
+    } else if (exon_target_start <= start && start <= exon_target_end) {
+        low_cov_genes->gene_coverage[refseq_exon_index].num_of_low_cov_bases += exon_target_end - start + 1;
+
+		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, exon_target_end);
+        } else {
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), "; %"PRIu32"-%"PRIu32, start, exon_target_end);
+        }
     }
 }

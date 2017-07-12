@@ -106,8 +106,8 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Low_Coverage_Genes *low_cov_genes);
 
-uint32_t writeGeneExonDetails(char *chrom_id, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, uint32_t gene_symbol_index, uint16_t exon_count, uint16_t exon_id, char *gene_symbol, char *refseq_name, FILE *exon_fp, FILE *exon_cov_fp, uint32_t start, uint32_t end); 
+void writeTranscriptCoveragePercentage(Transcript_Coverage *transcript_cov,  User_Input *user_inputs);
 
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, MYSQL *con);
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, Transcript_Coverage *transcript_cov, MYSQL *con);
 
 #endif // REPORTS_H

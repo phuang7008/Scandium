@@ -185,19 +185,32 @@ typedef struct {
 	//char *chrom_id;
 	uint32_t refseq_start;		// for the RefSeq transcript
 	uint32_t refseq_end;
-    uint32_t exon_start;		// official exon coordinates from RefSeq database
-    uint32_t exon_end;
+    uint32_t exon_target_start;	// the intersect between the official exon coordinates from RefSeq DB and the target regions from PKv2
+    uint32_t exon_target_end;
 	uint16_t exon_id;
 	uint16_t exon_count;
-	uint32_t target_start;		// capture target coordinates
-	uint32_t target_end;
     uint16_t num_of_low_cov_bases;
+	char *low_cov_regions;
 } Gene_Coverage;
 
 typedef struct {
 	Gene_Coverage *gene_coverage;
 	uint32_t num_of_refseq;
 } Low_Coverage_Genes;
+
+/**
+ * define a data structure to store the information related to transcript percentage coverage
+ */
+typedef struct {
+	char *gene_symbol;
+	char *refseq_name;
+	float refseq_cov_percentage;
+} Transcript_Coverage_Percentage;
+
+typedef struct {
+	Transcript_Coverage_Percentage *transcript_cov_pct;
+	uint32_t num_of_refseq;
+} Transcript_Coverage;
 
 #include "htslib/khash.h"
 
@@ -207,7 +220,6 @@ typedef struct {
 
 // m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
 KHASH_MAP_INIT_INT(m32, uint32_t)
-	char **refseq_name_list;
 //KHASH_MAP_INIT_INT(m32)
 KHASH_MAP_INIT_INT(m16, uint16_t)
 KHASH_MAP_INIT_INT(m8, uint16_t)

@@ -809,14 +809,28 @@ void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
 	}
 }
 
+// this compare is to compare the refseq_name
 int compare(const void *gene_coverage1, const void *gene_coverage2) {
 	Gene_Coverage *gc1 = (Gene_Coverage *) gene_coverage1;
 	Gene_Coverage *gc2 = (Gene_Coverage *) gene_coverage2;
 
 	int compare_result = strcmp(gc1->refseq_name, gc2->refseq_name);
 	if (compare_result == 0) {
-		return gc1->exon_start - gc2->exon_start;
+		return gc1->exon_target_start - gc2->exon_target_start;
 	} else {
 		return compare_result;
 	}
+}
+
+// the following comparison is used to compare the gene_symbol in Transcript_Coverage_Percentage
+int compare2(const void *transcript_cov_pct1, const void *transcript_cov_pct2) {
+	Transcript_Coverage_Percentage *tcp1 = (Transcript_Coverage_Percentage *) transcript_cov_pct1;
+	Transcript_Coverage_Percentage *tcp2 = (Transcript_Coverage_Percentage *) transcript_cov_pct2;
+
+	int compare_result = strcmp(tcp1->gene_symbol, tcp2->gene_symbol);
+    if (compare_result == 0) {
+        return strcmp(tcp1->refseq_name, tcp2->refseq_name);
+    } else {
+        return compare_result;
+    }
 }

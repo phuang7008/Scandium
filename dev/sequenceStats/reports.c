@@ -198,6 +198,7 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 	}
 
 	uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(length) + 0.5);
+	//uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float) length);
 	fprintf(fh_all_sites, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\t", chrom_id, begin, begin+length-1, length, ave_coverage);
 
 	char *annotation = getRegionAnnotation(begin, begin+length-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
@@ -257,6 +258,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
 			//float ave_coverage = (float)cov_total / (float)(end - start);
 			uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
+			//uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start));
 
 			fprintf(fh_low, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\t", chrom_tracking->chromosome_ids[chrom_idx], start, end-1, end-start, ave_coverage);
 
@@ -823,7 +825,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 	}
 }
 
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, MYSQL *con) {
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, Transcript_Coverage *transcript_cov, MYSQL *con) {
 	
     // if the target bed file is available, we will need to calculate percentage of gene bases that are covered
     uint32_t i;
@@ -832,7 +834,6 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		// open file handle for writing/appending
 		FILE *gene_pct_fp = fopen(user_inputs->low_cov_gene_pct_file, "a");
 		FILE *exon_pct_fp = fopen(user_inputs->low_cov_exon_pct_file, "a");
-		FILE *pct_cov_fp  = fopen(user_inputs->low_cov_transcript_file, "a");
 
 		// we need to sort the Gene_Coverage before we could use them as it will make it faster
 		qsort(low_cov_genes->gene_coverage, low_cov_genes->num_of_refseq, sizeof(Gene_Coverage), &compare);
@@ -842,18 +843,15 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 
 		// The following is to output the low coverage report for individual exon (or target). Need to find out which one to use
         for(i = 0; i < low_cov_genes->num_of_refseq; i++) {
-            //uint32_t exon_start = low_cov_genes->gene_coverage[i].exon_start;
-            //uint32_t exon_end   = low_cov_genes->gene_coverage[i].exon_end;
-			uint32_t target_start = low_cov_genes->gene_coverage[i].target_start;
-			uint32_t target_end   = low_cov_genes->gene_coverage[i].target_end;
+			uint32_t exon_target_start = low_cov_genes->gene_coverage[i].exon_target_start;
+			uint32_t exon_target_end   = low_cov_genes->gene_coverage[i].exon_target_end;
 
-            //uint32_t refseq_start = low_cov_genes->gene_coverage[i].refseq_start;
-            //uint32_t refseq_end = low_cov_genes->gene_coverage[i].refseq_end;
-
-			//float pct = (float) ((exon_end - exon_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (exon_end - exon_start + 1);
-			float pct = (float) ((target_end - target_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (target_end - target_start + 1);
-			//fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, exon_start, exon_end, pct);
-			fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, target_start, target_end, pct);
+			float pct = (float) ((exon_target_end - exon_target_start + 1 - low_cov_genes->gene_coverage[i].num_of_low_cov_bases) * 100) / (float) (exon_target_end - exon_target_start + 1);
+			if (low_cov_genes->gene_coverage[i].low_cov_regions) {
+				fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\t%s\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, exon_target_start, exon_target_end, pct, low_cov_genes->gene_coverage[i].low_cov_regions);
+			} else {
+				fprintf(exon_pct_fp, "%s\t%s\t%s\tcds_%"PRIu16"\t%"PRIu32"\t%"PRIu32"\t%0.2f\t%s\n", chrom_id, low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_id, exon_target_start, exon_target_end, pct, ".");
+			}
 		}
 
 		// The following is to output the low coverage report for each refseq/gene
@@ -866,8 +864,10 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		uint32_t prev_refseq_size=0, prev_refseq_low_bases=0;
 		
 		// Some capture targarts come from the same exon, so we need to skip it when accumulate the refseq length
-		uint16_t prev_exon_id=0, exon_count=0;
+		uint16_t exon_count=0;
 		float pct;
+
+		uint32_t transcript_counter=0;
 
 		for (i = 0; i < low_cov_genes->num_of_refseq; i++) {
 
@@ -878,6 +878,15 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				if (i > 0 && prev_gene_symbol) {
 					pct = (float) ((prev_refseq_size - prev_refseq_low_bases) * 100) / (float) (prev_refseq_size);
 					fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_refseq_name, prev_refseq_size, exon_count, pct);
+					// now we need to update the Transcript Coverage Percentage information
+					transcript_cov->transcript_cov_pct[transcript_counter].gene_symbol = calloc(strlen(prev_gene_symbol) + 1, sizeof(char));
+					strcpy(transcript_cov->transcript_cov_pct[transcript_counter].gene_symbol, prev_gene_symbol);
+
+					transcript_cov->transcript_cov_pct[transcript_counter].refseq_name = calloc(strlen(prev_refseq_name) + 1, sizeof(char));
+					strcpy(transcript_cov->transcript_cov_pct[transcript_counter].refseq_name, prev_refseq_name);
+
+					transcript_cov->transcript_cov_pct[transcript_counter].refseq_cov_percentage = pct;
+					transcript_counter++;
 				}
 
 				// free 'previous' info for char*
@@ -896,20 +905,14 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				prev_gene_symbol = calloc(strlen(low_cov_genes->gene_coverage[i].gene_symbol) + 1, sizeof(char));
 				strcpy(prev_gene_symbol, low_cov_genes->gene_coverage[i].gene_symbol);
 
-				//prev_refseq_size = low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
-				prev_refseq_size = low_cov_genes->gene_coverage[i].target_end - low_cov_genes->gene_coverage[i].target_start + 1;
+				prev_refseq_size = low_cov_genes->gene_coverage[i].exon_target_end - low_cov_genes->gene_coverage[i].exon_target_start + 1;	
 				prev_refseq_low_bases = low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
-				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
 				exon_count++;
 
 			} else {
-				// accumulate values if we have a different exon_id than the previous one
-				//if (prev_exon_id != low_cov_genes->gene_coverage[i].exon_id) {
-					//prev_refseq_size += low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
-					prev_refseq_size += low_cov_genes->gene_coverage[i].target_end - low_cov_genes->gene_coverage[i].target_start + 1;
-					prev_refseq_low_bases += low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
-				//}
-				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
+				// accumulate values
+				prev_refseq_size += low_cov_genes->gene_coverage[i].exon_target_end - low_cov_genes->gene_coverage[i].exon_target_start + 1;
+				prev_refseq_low_bases += low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
 				exon_count++;
 			}
 		}
@@ -918,11 +921,61 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		if (prev_gene_symbol) {
 			pct = (float) ((prev_refseq_size - prev_refseq_low_bases) * 100) / (float) (prev_refseq_size);
 			fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_refseq_name, prev_refseq_size, exon_count, pct);
+
+			// now we need to update the Transcript Coverage Percentage information
+            transcript_cov->transcript_cov_pct[transcript_counter].gene_symbol = calloc(strlen(prev_gene_symbol) + 1, sizeof(char));
+            strcpy(transcript_cov->transcript_cov_pct[transcript_counter].gene_symbol, prev_gene_symbol);
+
+            transcript_cov->transcript_cov_pct[transcript_counter].refseq_name = calloc(strlen(prev_refseq_name) + 1, sizeof(char));
+            strcpy(transcript_cov->transcript_cov_pct[transcript_counter].refseq_name, prev_refseq_name);
+
+            transcript_cov->transcript_cov_pct[transcript_counter].refseq_cov_percentage = pct;
 		}
+
+		// now we need to write everything regarding transcript coverage percentage into a file
+		writeTranscriptCoveragePercentage(transcript_cov, user_inputs);
 
 		fclose(gene_pct_fp);
 		fclose(exon_pct_fp);
-		fclose(pct_cov_fp);
-
 	}
+}
+
+void writeTranscriptCoveragePercentage(Transcript_Coverage *transcript_cov,  User_Input *user_inputs) {
+	// we need to sort the transcripts on gene_symbol first
+	qsort(transcript_cov->transcript_cov_pct, transcript_cov->num_of_refseq, sizeof(Transcript_Coverage_Percentage), &compare2);
+	
+	FILE *pct_cov_fp  = fopen(user_inputs->low_cov_transcript_file, "a");
+
+	char *prev_gene_symbol=calloc(50, sizeof(char));
+	strcpy(prev_gene_symbol, "");
+
+	float ave_cov_pct;
+	uint32_t num_of_transcripts, i;
+
+	for (i=0; i<transcript_cov->num_of_refseq; i++) {
+		if (strcmp(prev_gene_symbol, transcript_cov->transcript_cov_pct[i].gene_symbol) != 0) {
+			if (strlen(prev_gene_symbol) != 0) {
+				// first we need to finish the previous gene symbol/refseq_name transcript
+				ave_cov_pct = ave_cov_pct / (float) num_of_transcripts;
+				fprintf(pct_cov_fp, "\t%0.2f\n", ave_cov_pct);
+			}
+
+			// now we need to report the current transcript
+			fprintf(pct_cov_fp, "%s\t%s(%0.2f)", transcript_cov->transcript_cov_pct[i].gene_symbol, transcript_cov->transcript_cov_pct[i].refseq_name, transcript_cov->transcript_cov_pct[i].refseq_cov_percentage);
+
+			strcpy(prev_gene_symbol, transcript_cov->transcript_cov_pct[i].gene_symbol);
+			ave_cov_pct = transcript_cov->transcript_cov_pct[i].refseq_cov_percentage;
+			num_of_transcripts = 1;
+		} else {
+			fprintf(pct_cov_fp, "; %s(%0.2f)", transcript_cov->transcript_cov_pct[i].refseq_name, transcript_cov->transcript_cov_pct[i].refseq_cov_percentage);
+			ave_cov_pct += transcript_cov->transcript_cov_pct[i].refseq_cov_percentage;
+			num_of_transcripts++;
+		}
+	}
+
+	// finish the last one
+	ave_cov_pct = ave_cov_pct / (float) num_of_transcripts;
+	fprintf(pct_cov_fp, "\t%.2f", ave_cov_pct);
+
+	fclose(pct_cov_fp);
 }

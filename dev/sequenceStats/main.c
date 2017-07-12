@@ -111,27 +111,10 @@ int main(int argc, char *argv[]) {
     regionsSkipMySQLInit(con, exon_regions, 3);
 
 	// can't set to be static as openmp won't be able to handle it
-	uint32_t total_chunk_of_reads = 500000;
-	//uint32_t total_chunk_of_reads = 1000000;
-	if (user_inputs->wgs_coverage) {
-		if (user_inputs->num_of_threads == 1) {
-			total_chunk_of_reads = 32000000;
-			total_chunk_of_reads = 16000000;
-		} else if (user_inputs->num_of_threads == 2) {
-            total_chunk_of_reads = 16000000;
-            total_chunk_of_reads = 8000000;
-		} else if (user_inputs->num_of_threads == 4) {
-            total_chunk_of_reads = 8000000;
-            //total_chunk_of_reads = 4000000;
-            total_chunk_of_reads = 500000;
-		} else if (user_inputs->num_of_threads == 6) {
-			total_chunk_of_reads = 5000000;
-		} else if (user_inputs->num_of_threads == 8) {
-            total_chunk_of_reads = 4000000;
-		} else { 
-            total_chunk_of_reads = 3000000;
-		}
-	}
+	uint32_t total_chunk_of_reads = 500000;		// for debugging as app1 has limited resources
+    //total_chunk_of_reads = 3000000;			// Good for 3 threads with 16gb of memory
+    //total_chunk_of_reads = 2200000;			// Good for 3 threads with 9gb  of memory
+    total_chunk_of_reads = 1500000;				// Good for 3 threads with 8gb  of memory
 
 	// try to allocate the bam1_t array here for each thread, so they don't have to create and delete the array at each loop
 	Read_Buffer *read_buff = calloc(user_inputs->num_of_threads, sizeof(Read_Buffer));
@@ -253,13 +236,20 @@ int main(int argc, char *argv[]) {
 			{
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now working on exon percentage calculation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                // For calculating the percentage of gene bases with low coverge for capture only
-                Low_Coverage_Genes *low_cov_genes = calloc(1, sizeof(Low_Coverage_Genes));
-                genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
-				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, con, low_cov_genes);
-				outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, con);
-				genePercentageCoverageDestroy(low_cov_genes, chrom_tracking->chromosome_ids[i]);
 
+                // For calculating the percentage of gene bases with low coverge for capture only
+                Low_Coverage_Genes  *low_cov_genes  = calloc(1, sizeof(Low_Coverage_Genes));
+				Transcript_Coverage *transcript_cov = calloc(1, sizeof(Transcript_Coverage));
+
+                genePercentageCoverageInit(low_cov_genes, chrom_tracking->chromosome_ids[i], con);
+				transcriptPercentageCoverageInit(transcript_cov, chrom_tracking->chromosome_ids[i], con);
+
+				calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, con, low_cov_genes);
+				outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, low_cov_genes, transcript_cov, con);
+
+				// clean-up the memory space
+				genePercentageCoverageDestroy(low_cov_genes);
+				transcriptPercentageCoverageDestroy(transcript_cov);
               }
 			}
           }

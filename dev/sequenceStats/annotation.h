@@ -87,7 +87,7 @@ void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end
  */
 void genePercentageCoverageInit(Low_Coverage_Genes *low_cov_genes, char *chrom_id, MYSQL *con);
 
-void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chrom_id);
+void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes);
 
 void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, Low_Coverage_Genes *low_cov_genes);
 
@@ -98,5 +98,9 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
  * @param con: the MySQL connection object/handler
  */
 char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con, omp_lock_t *query_lock);
+
+void transcriptPercentageCoverageInit(Transcript_Coverage *transcript_cov, char *chrom_id, MYSQL *con);
+
+void transcriptPercentageCoverageDestroy(Transcript_Coverage *transcript_cov);
 
 #endif // ANNOTATION_H
