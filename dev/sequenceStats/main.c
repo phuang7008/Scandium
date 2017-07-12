@@ -77,9 +77,11 @@ int main(int argc, char *argv[]) {
 	int thread_id=0;
 	bool more_to_read=true;
 	uint32_t total_chunk_of_reads = 1000000;
+	short *chromosome_prev = (short *) malloc(1 * sizeof(short));	// array initial initialization
+	short *chromosome_curr = (short *) malloc(1 * sizeof(short));	// array initial initialization
 
 	// setup a tracking variable to track which chromosome each thread is working on
-	Chromosome_Tracking *chrom_tracking = calloc(1, sizeof(Chromosome_Tracking));
+	Chromosome_Tracking *chrom_tracking;
 	chrom_tracking->prev_chromosome = (char *) malloc(sizeof(char) * 12);
 	chrom_tracking->curr_chromosome = (char *) malloc(sizeof(char) * 12);
 	for (i=0; i<NUM_OF_THREADS; i++) {
@@ -112,39 +114,25 @@ int main(int argc, char *argv[]) {
 				num_records = read_bam(sfd, header, more_to_read, read_buff);
 			}
 
-#pragma omp flush(more_to_read, THREAD_BARRIER_ON)
+#pragma omp flush(more_to_read)
 			// flush the shared variable more_to_read to ensure other threads will observe the updated value
 			if (num_records == 0) more_to_read = false;
 			
+//#pragma omp barrier
 			thread_id = omp_get_thread_num();
 			printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
 
 			/* now process alignment reads parallelly */
-			// create a hash table array to store temp calculation results
-			/*Coverage_Hash coverage_hash[4];
-			for (i=0; i<5; i++) {
-				coverage_hash->cov_hash = kh_init(32);
-				strcpy(coverage_hash->chrom_id, "nothing");
-				coverage_hash->status = false;
-			}
+			// create a hash table to store temp calculation results
+			khash_t(32) *coverage_hash = kh_init(32);
 			process_chunk_of_bam(thread_id, chrom_tracking, coverage_hash, header, read_buff);
-			*/
-
-			khash_t(str) *coverage_hash_by_chrom_id = kh_init(str);		// hash_table using string as key
-			process_chunk_of_bam(thread_id, chrom_tracking, coverage_hash_by_chrom_id, header, read_buff);
-
-			// setup a barrier here if THREAD_BARRIER_ON is true
-			if (THREAD_BARRIER_ON)
-			{
-#pragma omp barrier
-			}
 
 #pragma omp critical
 			{
 				//combine_thread_results(chromosome_curr, coverage_hash);
 			}
 
-			// release the allocated chunk of buffer for alignment reads after they have been processed!
+			// release the allocated array for alignment reads after they have been processed!
 			read_buff_destroy(read_buff);
 		}
 		return 0;
@@ -153,5 +141,7 @@ int main(int argc, char *argv[]) {
 	bam_hdr_destroy(header);
 	userInputDestroy(user_inputs);
 
+	free(chromosome_prev);
+	free(chromosome_curr);
 	return 0;
 }

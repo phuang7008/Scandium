@@ -52,8 +52,7 @@ uint32_t read_bam(samFile *sffh, bam_hdr_t *header, bool more_to_read,  Read_Buf
  * @param read_buff_in: the array of Read_Buffer that will be processed by current function
  * @param coverage_hash: the hash table that is used to store temp calculation results
  */
-void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
-//void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, Coverage_Hash *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
+void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, khash_t(32) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
 
 /**
  * This function is used to process individual aligned read and put the results into a hash table where the key is the chromosome location
@@ -61,8 +60,7 @@ void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, kh
  * @param coverage_hash: the hash table used to store the coverage count
  * @rec: the individual alignment record to be processed
  */
-void processRecord(khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec);
-//void processRecord(Coverage_Hash *coverage_hash, int hash_index, bam1_t *rec);
+void processRecord(khash_t(32) *coverage_hash, bam1_t *rec);
 
 /**
  * This function is used to combine each thread coverage results and put them onto a big array with length of each chromosome

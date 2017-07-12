@@ -48,8 +48,8 @@ uint32_t read_bam(samFile *sfin, bam_hdr_t *header, bool more_to_read, Read_Buff
 	return record_idx;
 }
 
-void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in) {
-	uint32_t i, ret, current_chrom_size;
+void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, khash_t(32)  *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in) {
+	uint32_t i, current_chrom_size;
 
 	for (i=0; i<read_buff_in->size; i++) {
 		// we need to check for various flags here before conduction statistics analysis
@@ -95,7 +95,7 @@ void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, kh
 
 		if(core->flag & BAM_FDUP)               /* Read is a Duplicate (either optical or PCR) */
         {
-            TOTAL_DUPLICATE_READS++;
+            DUPLICATE_READS++;
             if(REMOVE_DUPLICATES){continue;}
         }
  
@@ -105,7 +105,7 @@ void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, kh
 
 		strcpy(chrom_tracking->curr_chromosome, header->target_name[core->tid]);
         if (strcmp(chrom_tracking->curr_chromosome, chrom_tracking->prev_chromosome) != 0) {	// 0 means two stings match
-            /*if (strcmp(chrom_tracking->prev_chromosome, "nothing") == 0) {
+            if (strcmp(chrom_tracking->prev_chromosome, "nothing") == 0) {
 				// update the prev_chromosome value to current one
 				strcpy(chrom_tracking->prev_chromosome, chrom_tracking->curr_chromosome);
 
@@ -113,55 +113,33 @@ void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, kh
 				printf("Chromosome %s\n", chrom_tracking->curr_chromosome);
             	current_chrom_size = header->target_len[core->tid];         /* get the chromosome sequence length */
             	//COVERAGE = new short[size];
-            //} else {
-				// the reads related to the previous chromosome has all be processed!
-				// turn on the THREAD_BARRIER_ON and wait all current threads finish before going further!
-				THREAD_BARRIER_ON = true;
-
-				// now need to set the chrom_id for the next item in the coverage_hash array
-				/*for (i=0; i<5; i++) {
-					if ( strcmp(coverage_hash[i].chrom_id, "nothing") == 0) {
-						hash_index = i;
-						strcpy(coverage_hash[i].chrom_id, header->target_name[core->tid]);
-					}
-				}*/
-
-				// Create an instance of Coverage_Hash and initialize it
-				Coverage_Hash *cov_hash = calloc(1, sizeof(Coverage_Hash)); 
-
-				// Create an instance of khash_t(32) and initialize it and assign it to the member of coverage_hash
-				khash_t(32) *tmp_hash = kh_init(32);
-				cov_hash->cov_hash = tmp_hash;
-
-				// Add the instance of Coverage_Hash to the khash_t(str) object (ie coverage_hash) based on the chrom_id
-				khiter_t k_iter = kh_put(str, coverage_hash, header->target_name[core->tid], &ret);    // get key iterator for chrom_id
-				kh_value(coverage_hash, k_iter).cov_hash = cov_hash;
-			//}
+            }
+		} else {
+			printf("They are the same %s and %s in thread %d\n", chrom_tracking->curr_chromosome, chrom_tracking->prev_chromosome, thread_id);
 		}
 		
-        processRecord(coverage_hash, header->target_name[core->tid], read_buff_in->chunk_of_reads[i]);
+        processRecord(coverage_hash, read_buff_in->chunk_of_reads[i]);
     }
 
     printf("Done read bam\n");
+    //getTargetsAndWriteCoverage(prev_chr,  COVERAGE, covFasta,  missTraget,  wgCoverage);
+    //findWhereReadsHit(prev_chr,  COVERAGE,wig);
+    //COVERAGE = null;
 }
 
-void processRecord(khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec) {
+void processRecord(khash_t(32) *coverage_hash, bam1_t *rec) {
+	bam1_core_t *core = &rec->core;
 	int i, ret;
-	uint32_t start = rec->core.pos + 1;		// left most position of alignment in zero based coordinates (as BAM is 0-based)
-	khiter_t k_iter, h_iter;
-	k_iter = kh_put(str, coverage_hash, chrom_id, &ret);	// get key iterator for chrom_id (outer hash table: khash_t(str))
+	long start = rec->core.pos + 1;		// left most position of alignment in zero based coordinates (as BAM is 0-based)
+	khiter_t k_iter;
 
-	for (i=0; i<rec->core.l_qseq; i++) {
+	for (i=0; i<core->l_qseq; i++) {
 		TOTAL_ALIGNED_BASES++;
 
 		int pos = start + i;
-		//k_iter = kh_put(32, coverage_hash[hash_index].cov_hash, pos, &ret);		// set/get the key iter
-		//uint32_t val = kh_value(coverage_hash[hash_index].cov_hash, k_iter);	// get the value
-		//kh_value(coverage_hash[hash_index].cov_hash, k_iter) = val + 1;			// set the value
-
-		h_iter = kh_put(32, kh_value(coverage_hash, k_iter).cov_hash, pos, &ret);	// inner hash table khash_t(32)
-		uint32_t val = kh_value(kh_value(coverage_hash, k_iter).cov_hash, h_iter);
-		kh_value(kh_value(coverage_hash, k_iter).cov_hash, h_iter) = val + 1;
+		k_iter = kh_put(32, coverage_hash, pos, &ret);		// set/get the key iter
+		uint32_t val = kh_value(coverage_hash, k_iter);		// get the value
+		kh_value(coverage_hash, k_iter) = val + 1;			// set the value
 	}
 }
 

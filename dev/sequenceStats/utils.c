@@ -28,17 +28,16 @@ int MIN_MAP_SCORE  = -1;
 int MIN_BASE_SCORE = -1;
 int NUM_OF_THREADS = 8;
 
-uint32_t TOTAL_READS_PAIRED   = 0;
-uint32_t TOTAL_ALIGNED_BASES  = 0;
-uint32_t TOTAL_READS_ALIGNED  = 0;
-uint32_t TOTAL_READS_PRODUCED = 0;
-uint32_t TOTAL_PAIRED_READS_WITH_MAPPED_MATES = 0;
-uint32_t TOTAL_DUPLICATE_READS = 0;
+long TOTAL_READS_PAIRED   = 0;
+long TOTAL_ALIGNED_BASES  = 0;
+long TOTAL_READS_ALIGNED  = 0;
+long TOTAL_READS_PRODUCED = 0;
+long TOTAL_PAIRED_READS_WITH_MAPPED_MATES = 0;
+
+long DUPLICATE_READS = 0;
 bool REMOVE_DUPLICATES = false;
 
 float _PERCENTAGE = 1.0;    // only take this proportion of reads into consideration (for scale back experiments), 1 means all
-
-bool THREAD_BARRIER_ON=false;
 
 // Before open any file for processing, it is always a good idea to make sure that file exists
 //

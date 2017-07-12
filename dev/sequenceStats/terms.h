@@ -49,17 +49,16 @@ extern int MIN_MAP_SCORE;
 extern int MIN_BASE_SCORE;
 extern int NUM_OF_THREADS;
 
-extern uint32_t TOTAL_READS_PAIRED;
-extern uint32_t TOTAL_ALIGNED_BASES;
-extern uint32_t TOTAL_READS_ALIGNED;
-extern uint32_t TOTAL_READS_PRODUCED;
-extern uint32_t TOTAL_PAIRED_READS_WITH_MAPPED_MATES;
-extern uint32_t TOTAL_DUPLICATE_READS;
+extern long TOTAL_READS_PAIRED;
+extern long TOTAL_ALIGNED_BASES;
+extern long TOTAL_READS_ALIGNED;
+extern long TOTAL_READS_PRODUCED;
+extern long TOTAL_PAIRED_READS_WITH_MAPPED_MATES;
+
+extern long DUPLICATE_READS;
 extern bool REMOVE_DUPLICATES;
 
 extern float _PERCENTAGE;	// percentage (fraction) of total bam reads will be used for analysis
-
-extern bool THREAD_BARRIER_ON;
 
 /**
  * define a structure that holds the file strings from user inputs
@@ -86,6 +85,7 @@ typedef struct {
  */
 typedef struct {
 	short thread_id;
+	//bool switched_on;
 	char * prev_chromosome;
 	char * curr_chromosome;
 } Chromosome_Tracking;
@@ -108,17 +108,4 @@ typedef struct {
 KHASH_MAP_INIT_INT(32, int)
 //typedef khash_t(32) Hash_Int32_t;
 
-/**
- * define a structure to hold coverage hash table, which uses position as key and coverage counts as values!
- */
-typedef struct {
-	khash_t(32) *cov_hash;
-} Coverage_Hash;
-
-/**
- * define a khash like structure that has string as key and Coverage_Hash as values
- */
-KHASH_MAP_INIT_STR(str, Coverage_Hash)
-
 #endif //TERMS_H
-
