@@ -192,11 +192,11 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	for (i=0; i<regions_in->chrom_list_size; i++) {
 		// for exon and intronic regions
 		if (type > 1) {
-			for (j=0; j<regions_in->size_r[i]; j++) {
-				if (regions_in->gene[i][j]) free(regions_in->gene[i][j]);
-				if (regions_in->Synonymous[i][j]) free(regions_in->Synonymous[i][j]);
-				if (regions_in->prev_genes[i][j]) free(regions_in->prev_genes[i][j]);
-			}
+			//for (j=0; j<regions_in->size_r[i]; j++) {
+			//	if (regions_in->gene[i][j]) free(regions_in->gene[i][j]);
+			//	if (regions_in->Synonymous[i][j]) free(regions_in->Synonymous[i][j]);
+			//	if (regions_in->prev_genes[i][j]) free(regions_in->prev_genes[i][j]);
+			//}
 
 			if (regions_in->gene[i]) free(regions_in->gene[i]);
 			if (regions_in->Synonymous[i]) free(regions_in->Synonymous[i]);
@@ -501,6 +501,9 @@ void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes, char *chro
 
 // Here we are not going to go through the database, instead, we are going to use the Low_Coverage_Genes stored in heap!!!
 void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, Low_Coverage_Genes *low_cov_genes) {
+	//if (start_in==361459) {
+	//	printf("stop\n");
+	//}
 	// print low_cov_genes for debugging
 	//printLowCoverageGeneStructure(low_cov_genes);
 	int32_t found = binarySearchLowCoverage(low_cov_genes, start_in, 0);
@@ -513,7 +516,7 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	processExonArrays(low_cov_genes, found, start_in, stop_in);
 
 	// since it is possible for more than one refseq have the same coordinates, we need to sliding through each direction one by one
-	uint32_t i;
+	int32_t i;
 	for (i=found+1; i<low_cov_genes->num_of_refseq; i++) {
 		//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_coverage[i].gene_symbol, row[4]);
 		if ((low_cov_genes->gene_coverage[i].exon_start <= start_in && start_in < low_cov_genes->gene_coverage[i].exon_end) ||
