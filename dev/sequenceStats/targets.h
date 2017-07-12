@@ -20,42 +20,52 @@
 #define TARGETS_H
 
 #include <stdbool.h>
+#include <stdio.h>
 #include "htslib/sam.h"
 #include "terms.h"
 
 /**
- * open the input target file and count how many items within the target file, finally it will return the count
- * Note: the target file should be in bed format
- * @param targetFile
- * @return count	=>	Total number of targets
+ * open the input file (bed-formatted) and count how many items within the bed (such as target) files
+ * @param bed_file: file in bed-formatted such as (target file or the Ns regions of reference sequences in bed format)
+ * @return count	=>	Total number of targets or Ns regions
  */
-long getTargetCount(char *target_file);
+uint32_t getLineCount(char *bed_file);
 
 /**
- * open the input target file and then load the target regions into memory and leave them there
- * Note: the target file should be in .bed format
- * @param targetFile
- * @param targetStarts	=> integer array to store all the target starts
- * @param targetStopa	=> integer array to store all the target stops
- * @param targetChrs	=> char array to store all the target chromosome ids (chars as well). so it is an array of string
+ * open the input bed-formated file and then load the coordinate regions into memory and leave them there
+ * Note: the input file should be in .bed format
+ * @param bed_file: file whose format is bed (such as target file or Ns regions of the reference sequences)
  */
-void loadTargets(char * target_file, Target_Coords * targets);
+void loadBedFiles(char * bed_file, Bed_Coords * coords);
 
 /**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup
- * @param target_buffer_lookup_table, which is a type of khash_t(m32)
+ * @param bed_info: the bed information that is stored for the future usage
+ * @param stat_info, statistical information for the reads/bases
+ * @param header, the bam/sam/cram header pointer that hold the length info of each chromosome
+ * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void generateTargetBufferLookupTable(Target_Coords * target_coords, long target_line_count, khash_t(m32) *target_buffer_hash[]);
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
 
 /**
- * Gets the target regions from the target file, and writes over the coverage fasta files, as well as determines many of the coverage statistics.
- * @param chromo  Current chromosome
- * @param COVERAGE The array which contains the coverage of every base in the genome
- * @param covFasta The filewriter for the target-specific coverage
- * @param missTraget  Write a "wig" format file (good for ucsc) which shows you where all off-target regions with high coverage are
- * @param wgCoverage A filewriter for the whole genome coverage... if null, this file won't be written
+ * process bed-formatted file and populate the coordinates and lookup hash table
+ * @param bed_file: file in bed format
+ * @param bed_info: the storage of bed coordinates and the size of the bed file
+ * @param stats_info: a variable that contains various statistical information
+ * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void getTargetsAndWriteCoverage(char * chromo,  short * COVERAGE, char * covFasta, char * missTraget, char * wgCoverage);
+void processBedFiles(char *bed_file, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
+
+/**
+ * just to output some information for debugging
+ */
+void outputForDebugging(Bed_Info *bed_info);
+
+/**
+ * this function is used to free all the memories that are allocated by the program
+ * @param bed_info: the declared Bed_Info variable
+ */
+void cleanBedInfo(Bed_Info *bed_info);
 
 /**
  * 
@@ -65,7 +75,6 @@ void getTargetsAndWriteCoverage(char * chromo,  short * COVERAGE, char * covFast
  * @param target_coords: the struct array that stores the coordinates of targets
  * @return
  */
-void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_buffer_regions, Target_Coords *target_coords);
-
+void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_buffer_regions, Bed_Coords *coords);
 
 #endif //TARGETS_H

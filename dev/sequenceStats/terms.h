@@ -25,7 +25,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
-#include <unistd.h>     // for getopt()
+#include <unistd.h>     // for getopt() and usleep()
 #include <math.h>
 #include <zlib.h>
 
@@ -45,43 +45,61 @@
 
 // We need to declared the followings as glabal since the program will change these values!!!
 // The naming convention for this type of data is CAPTICAL_WORD1_WORD2_WORD3...
-extern int READLENGTH;
-extern int MIN_MAP_SCORE;
-extern int MIN_BASE_SCORE;
-extern int NUM_OF_THREADS;
-
-extern uint32_t TOTAL_READS_PAIRED;
-extern uint32_t TOTAL_ALIGNED_BASES;
-extern uint32_t TOTAL_READS_ALIGNED;
-extern uint32_t TOTAL_READS_PRODUCED;
-extern uint32_t TOTAL_PAIRED_READS_WITH_MAPPED_MATES;
-extern uint32_t TOTAL_DUPLICATE_READS;
-extern uint32_t TOTAL_SUPPLEMENTARY_ALIGNMENTS;
-extern bool REMOVE_DUPLICATES;
-extern bool REMOVE_SUPPLEMENTARY_ALIGNMENTS;
-
-extern float _PERCENTAGE;	// percentage (fraction) of total bam reads will be used for analysis
-
-extern char CURRENT_CHROMOSOME_ID[12];
+extern bool N_FILE_PROVIDED;		// this is the file that contains regions of all Ns in the reference
+extern bool TARGET_FILE_PROVIDED;
 
 /**
  * define a structure that holds the file strings from user inputs
  */
 typedef struct {
-	char * target_file;
+	//file info
 	char * bam_file;
 	char * cov_file;
+	char * missed_targets_file;	// for target regions that have no coverage at all
+	char * n_file;				// provide the regions with Ns in the reference genome in bed format
 	char * out_file;
+	char * target_file;
+	char * wig_file;			// output the off target good hit in wig formatted
+	char * wgs_file;			// output the whole genome coverage information
+
+	//misc
+	int8_t min_map_quality;
+	int8_t min_base_quality;
+	short num_of_threads;
+	float percentage;				// percentage (fraction) of total bam reads will be used for analysis
+	bool remove_duplicate;
+	bool remove_supplementary_alignments;
+	bool wgs_coverage;
+	bool Write_WIG;
+	bool Write_WGS;
 } User_Input;
 
 /**
  * define a structure that holds the target coordinates
  */
 typedef struct {
-    char chr[12];    // some chromosome ID would be quite long, not sure if they will be used though
+    char chrom_id[15];    // some chromosome ID would be quite long
     uint32_t start;
     uint32_t end;
-} Target_Coords;
+} Bed_Coords;
+
+/**
+ * define a structure that holds the size and coordinates info of a bed file
+ */
+typedef struct {
+	Bed_Coords *coords;
+	uint32_t size;
+} Bed_Info;
+
+/**
+ * define a strcuture for quick lookup
+ */
+typedef struct {
+	char chrom_id[15];
+	uint32_t size;
+	int32_t index;
+	uint8_t *status_array;
+} Target_Buffer_Status;
 
 /**
  * define a structure to hold a chunk of read buff to be processed by each thread
@@ -92,38 +110,101 @@ typedef struct {
 } Read_Buffer;
 
 /**
- * define a strcuture that hold the working chromosome ids and complete chromosome ids
+ * data structure to store temp coverage results
  */
 typedef struct {
-	size_t number_tracked;			// the number of chromosomes we are tracking so far!
-	unsigned short **coverage;		// the coverage count info for each base on each chromosome will be stored here!
+	uint32_t size;
+	uint32_t * cov_array;
+} Temp_Coverage_Array;
+
+/**
+ * define a strcuture that hold the chromosome ids status in array 
+ * (that is all of the member variables are array, except number_tracked)
+ */
+typedef struct {
+	uint32_t number_tracked;		// the number of chromosomes we are tracking so far!
+	uint32_t **coverage;			// the coverage count info for each base on each chromosome will be stored here!
 
     char **chromosome_ids;
     uint32_t *chromosome_lengths;
     uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish processing, 3.done writing!
+	bool more_to_read;
 } Chromosome_Tracking;
 
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
-// 32 means the key is 32 bit, while the value is a char type
+// m32 means the key is 32 bit, while the value is a char type
 //KHASH_MAP_INIT_INT(32, char)
 
-// 32 means the key is 32 bit, while the value is of unsigned shortt type
-KHASH_MAP_INIT_INT(m32, unsigned short)
-
-/**
- * define a structure to hold coverage hash table, which uses position as key and coverage counts as values!
- */
-typedef struct {
-	khash_t(m32) *cov_hash;
-	char *chrom_id;
-} Coverage_Hash;
+// m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
+KHASH_MAP_INIT_INT(m32, uint32_t)
+//KHASH_MAP_INIT_INT(m32)
+KHASH_MAP_INIT_INT(m16, uint16_t)
+KHASH_MAP_INIT_INT(m8, uint16_t)
 
 /**
  * define a khash like structure that has string as key and khash_t(m32) as values
  */
+KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
+//KHASH_MAP_INIT_STR(str, khash_t(m32)*)
 //KHASH_SET_INIT_STR(str)
-KHASH_MAP_INIT_STR(str, khash_t(m32)*)
 
+/**
+ * define a coverage statistics structure
+ */
+typedef struct {
+	//base stats
+	uint64_t total_genome_bases;		//total number of bases in Genome
+	uint32_t total_buffer_bases;		//total number of bases in the buffer region
+	uint32_t total_targeted_bases;		//total number of bases targeted
+	uint32_t total_Ns_bases;			//total number of bases that are N (unknown)
+	uint64_t total_aligned_bases;		//total number of aligned bases
+	uint64_t total_target_coverage;		//total number of read bases aligned to the target
+	uint64_t total_genome_coverage;		//total number of read bases aligned to the Genome
+
+	//read stats
+	uint32_t total_reads_paired;			//total number of reads with mate pairs (if any)
+	uint32_t total_reads_aligned;			//total reads aligned to a target region
+	uint32_t total_reads_produced;			//total reads contains in the bam
+	uint32_t total_duplicate_reads;			//total number of duplicate reads
+	uint32_t total_supplementary_reads;		//total number of reads with supplementary flag set
+	uint32_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
+
+	//read stats on target/buffer
+    uint32_t on_target_read_hit_count;		//total number of reads which align to a target region
+    uint32_t off_target_read_hit_count;		//total number of reads which do not align to a target region
+    uint32_t in_buffer_read_hit_count;		//total number of reads which align to the buffer region
+	uint32_t hit_target_count;				//total targets with at least 1 read aligned to them
+	uint32_t hit_target_buffer_only_count;	//total targets with no hits, except in buffer
+	uint32_t non_target_good_hits;			//regions that have high coverage but are not in the target
+
+	//misc
+	uint32_t total_targets;					//total taregted regions
+	uint16_t read_length;					//the sequenced READ Length
+	uint32_t max_coverage;
+	uint32_t base_with_max_coverage;
+	uint16_t median_genome_coverage;
+	uint16_t median_target_coverage;
+} Coverage_Stats;
+
+/**
+ * define a structure to store various information, such as coverage histogram etc
+ */
+typedef struct {
+    khash_t(m32) *target_cov_histogram;             //target coverage histogram
+    khash_t(m32) *genome_cov_histogram;             //coverage histogram for the whole Genome
+
+    khash_t(m32) *targeted_base_with_N_coverage;    // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
+    khash_t(m32) *genome_base_with_N_coverage;      // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
+
+    khash_t(m32) *target_coverage_for_median;       //Used for calculating the median coverage.
+    khash_t(m32) *genome_coverage_for_median;       //Used for calculating the median coverage for Whole Genome.
+
+    uint32_t target_coverage[101];                  //stores data about the coverage across a target
+    uint32_t five_prime[PRIMER_SIZE];              //stores data about coverage upstream of the target 
+    uint32_t three_prime[PRIMER_SIZE];             //stores data about coverage downstream of the target 
+
+    Coverage_Stats *cov_stats;
+} Stats_Info;
 #endif //TERMS_H
