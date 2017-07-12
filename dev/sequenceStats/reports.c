@@ -24,7 +24,7 @@
 #include "reports.h"
 #include "utils.h"
 
-void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *all_site_reports) {
+void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 
     // First, we need to find the index that is used to track current chromosome chrom_id
     int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
@@ -178,7 +178,7 @@ void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info,
 	        FILE *capture_all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
 
 			// For All Sites Report
-			produceCaptureAllSitesReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_all_site_fp, con, all_site_reports);
+			produceCaptureAllSitesReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_all_site_fp, con);
 
 			// For low coverage and high coverage Report
 			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, con, inter_genic_regions, intronic_regions, exon_regions);
@@ -192,12 +192,10 @@ void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info,
 	}
 }
 
-void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, MYSQL *con, Regions_Skip_MySQL *all_site_reports) {
+void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, MYSQL *con) {
 	uint32_t i=0;
 	uint64_t cov_total=0;
 	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
-	//int32_t chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, all_site_reports);
-	//if (chrom_idx > 25) return;
 
 	//if (chrom_idx == -1 || chrom_idr == -1) return;
 	if (chrom_idx == -1) return;
@@ -209,28 +207,12 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 	uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(length) + 0.5);
 	fprintf(fh_all_sites, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"", chrom_tracking->chromosome_ids[chrom_idx], begin, begin+length-1, length, ave_coverage);
 
-	/*int32_t prev_report_location = 0;
-	if (all_site_reports) {
-		int32_t report_location = binary_search(all_site_reports, begin, begin+length-1, chrom_idr, prev_report_location);
-		if (report_location == -1) {
-			fprintf(stderr, "Search return -1 for %"PRIu32" and %"PRIu32" and chromosome id is %s\n", begin, begin+length-1, chrom_id);
-			return;
-		}
-
-		if (prev_report_location < report_location) prev_report_location = report_location;
-		fprintf(fh_all_sites, "\t%s\n", all_site_reports->gene[chrom_idr][report_location]);
-	} else {
-		char *annotation = produceGeneAnnotations(begin, begin+length-1, chrom_tracking->chromosome_ids[chrom_idx], con);
-		fprintf(fh_all_sites, "\t%s\n", annotation);
-		if (annotation) free(annotation);
-	}*/
-
 	char *annotation = produceGeneAnnotations(begin, begin+length-1, chrom_tracking->chromosome_ids[chrom_idx], con);
     fprintf(fh_all_sites, "\t%s\n", annotation);
-    if (annotation) free(annotation);
+    if (annotation) { free(annotation); annotation = NULL; }
 }
 
-void writeAnnotations(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *all_site_reports) {
+void writeAnnotations(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 	// First, we need to find the index that is used to track current chromosome chrom_id
     int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 
@@ -365,7 +347,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 					if (index_inter_genic_location == -1 && index_intronic_location == -1) {
 						char *annotation = produceGeneAnnotations(start, end-1, chrom_tracking->chromosome_ids[chrom_idx], con);
 						fprintf(fh_low, "\t%s\n", annotation);
-						if (annotation) free(annotation);
+						if (annotation) { free(annotation); annotation = NULL; }
 					}
 				}
 			} else {
@@ -402,8 +384,8 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 		//fflush(fh_high);
     }
 
-	if (intronic_info) free(intronic_info); 
-	if (exon_info) free(exon_info); 
+	if (intronic_info) { free(intronic_info); intronic_info = NULL; }
+	if (exon_info) { free(exon_info); exon_info = NULL; } 
 
 	return i;
 }
@@ -586,7 +568,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "\n");
 
 		fclose(out_fp);
-		free(file_name);
+		if (file_name) { free(file_name); file_name = NULL; }
 	}
 
 	// Now we need to process target information if target bed file is provided
@@ -674,7 +656,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 
 		//printf("Before free the file name second time\n");
 		fclose(trt_fp);
-		free(file_name);
+		if (file_name) { free(file_name); file_name = NULL; }
 	}
 }
 

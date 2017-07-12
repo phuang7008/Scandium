@@ -15,7 +15,8 @@ INCLUDES= -I$(IDIR) -I$(HTSDIR) -I$(MYSQLDIR)
 LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 
 # define any libraries to be link into executables:
-LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
+#LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
+LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl
 
 # define dependent header files
 _DEPS = stats.h  targets.h  terms.h  utils.h for_mysql.h reports.h

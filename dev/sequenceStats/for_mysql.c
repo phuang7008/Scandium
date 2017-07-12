@@ -60,6 +60,7 @@ uint32_t fetchTotalCount(uint8_t type, MYSQL *con, char *chrom_id) {
 			count = (uint32_t) atol(row[0]);
 	}
 	free(pre_sql);
+	pre_sql = NULL;
 
 	return count;
 }
@@ -135,14 +136,14 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 			}
 
 			for (j=0; j<regions_in->size_r[i]; j++) {
-				regions_in->gene[i][j] = NULL;
-				//regions_in->gene[i][j] = calloc(500, sizeof(char));
+				//regions_in->gene[i][j] = NULL;
+				regions_in->gene[i][j] = calloc(1, sizeof(char));
 
 				if (type < 4) {
-					//regions_in->Synonymous[i][j] = calloc(250, sizeof(char));
-					regions_in->Synonymous[i][j] = NULL;
-				    //regions_in->prev_genes[i][j] = calloc(250, sizeof(char));
-				    regions_in->prev_genes[i][j] = NULL;
+					regions_in->Synonymous[i][j] = calloc(1, sizeof(char));
+					//regions_in->Synonymous[i][j] = NULL;
+				    regions_in->prev_genes[i][j] = calloc(1, sizeof(char));
+				    //regions_in->prev_genes[i][j] = NULL;
 				}
 			}
 
@@ -151,8 +152,8 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 				regions_in->exon_info[i] = calloc(regions_in->size_r[i], sizeof(char*));
 
 				for (j=0; j<regions_in->size_r[i]; j++) {
-					regions_in->exon_info[i][j] = NULL;
-					//regions_in->exon_info[i][j] = calloc(500, sizeof(char));
+					//regions_in->exon_info[i][j] = NULL;
+					regions_in->exon_info[i][j] = calloc(1, sizeof(char));
 				}
 			}
 		}
@@ -257,16 +258,20 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 
 			if (type == 3) {
 				uint16_t exon_id = (uint16_t) atoi(row[6]);
-				char *tmp = calloc(strlen(row[5]) + CHAR_BIT *sizeof(uint16_t) + 1, sizeof(char));
+				char *tmp = calloc(strlen(row[5]) + CHAR_BIT *sizeof(uint16_t) + 20, sizeof(char));
 				sprintf(tmp, "%s_exon_%"PRIu16"", row[5], exon_id);
 				regions_in->exon_info[index][count] = dynamicStringAllocation(tmp, regions_in->exon_info[index][count]);
-				if (tmp) free(tmp);
+				if (tmp) {
+					free(tmp);
+					tmp = NULL;
+				}
 			}
 		}
 
 		count++;
 	}
     free(sql);
+	sql = NULL;
 }
 
 // As the array is sorted, I am going to use binary search for find the location
@@ -383,16 +388,17 @@ void fromStringToIntArray(char *str_in, uint32_t *array_in) {
     pch = strtok(str_in, ",|\"");
     while (pch != NULL) {
         if (strcmp(pch, "\"") != 0) {
-            array_in[counter] = (uint32_t) atol(pch);
+            //array_in[counter] = (uint32_t) atol(pch);
+            array_in[counter] = (uint32_t) strtol(pch, NULL, 10);
             //printf("value is %s and counter is %d\n", pch, counter);
             counter++;
         }
-        pch = strtok(NULL, ",|");
+        pch = strtok(NULL, ",|\"");
     }
 }
 
 void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exon_ends, char *gene_name, uint32_t pos, khash_t(str) *ret_hash) {
-    char string_to_add[100]="";
+    char *string_to_add = calloc(1, sizeof(char));
     uint16_t i = 0;
 	int ret;
 	khiter_t k_iter;
@@ -406,16 +412,28 @@ void processExonArrays(uint16_t exon_count, uint32_t *exon_starts, uint32_t *exo
     for (i=0; i<exon_count; i++) {
         if (exon_starts[i] <= pos && pos <= exon_ends[i]) {
             //printf("Found with exon start at %d and end at %d with iteration of %d\n", exonStarts[i], exonEnds[i], i);
+			if (strlen(string_to_add) < (strlen(gene_name) + CHAR_BIT *sizeof(uint16_t) + 20)) {
+				char *tmp = realloc(string_to_add, strlen(gene_name) + CHAR_BIT *sizeof(uint16_t) + 20);
+				if (!tmp) {
+					fprintf(stderr, "Dynamic memory allocation failed inside processExonArrays function");
+					exit(1);
+				}
+				string_to_add = tmp;
+			}
             sprintf(string_to_add, "%s_exon_%d", gene_name, i);
 
 			// create the key
-			k_iter = kh_put(str, ret_hash, string_to_add, &ret);
-			if (ret)
-				kh_key(ret_hash, k_iter) = strdup(string_to_add);
-            //kh_value(coverage_hash, k_iter) = temp_cov_array;
+			k_iter = kh_put(str, ret_hash, strdup(string_to_add), &ret);
+			//if (ret)
+			//	kh_key(ret_hash, k_iter) = strdup(string_to_add);
         }
 		strcpy(string_to_add, "");
     }
+
+	if (string_to_add) {
+		free(string_to_add);
+		string_to_add = NULL;
+	}
 }
 
 char* combinedEachAnnotation(khash_t(str) *hash_in) {
@@ -446,7 +464,7 @@ char* combinedEachAnnotation(khash_t(str) *hash_in) {
     	            }
             	    ret_string = tmp;
 				}
-                strcat(ret_string, ",");
+                strcat(ret_string, ";");
                 strcat(ret_string, kh_key(hash_in, k_iter));
             }
         }
@@ -475,7 +493,8 @@ void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end
     while ((row = mysql_fetch_row(result))) {
         // here I need to locate which exon it is part of and process them accordingly
         exon_count = (uint16_t) atoi(row[3]);
-        uint32_t exon_starts[exon_count], exon_ends[exon_count];
+        uint32_t *exon_starts = calloc(exon_count, sizeof(uint32_t));
+		uint32_t *exon_ends = calloc(exon_count, sizeof(uint32_t));
         fromStringToIntArray(row[4], exon_starts);
         fromStringToIntArray(row[5], exon_ends);
 
@@ -491,29 +510,36 @@ void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end
                 strcpy(gene, row[6]);
             } else {
                 if (strcmp(gene, row[6]) != 0 && strcmp(gene, ".") != 0) {
-                    Synonymous_iter = kh_put(str, Synonymous, row[6], &absent);
-					if (absent)
-						kh_key(Synonymous, Synonymous_iter) = strdup(row[6]);
+                    Synonymous_iter = kh_put(str, Synonymous, strdup(row[6]), &absent);
+					//if (absent)
+					//	kh_key(Synonymous, Synonymous_iter) = strdup(row[6]);
                 }
             }
         }
 
-		/*
-		if (row[7] && strlen(row[7]) > 0 && strcmp(row[7], "NULL") != 0) {
-            Synonymous_iter = kh_put(str, Synonymous, row[7], &absent);
-            if (absent)
-				kh_key(Synonymous, Synonymous_iter) = strdup(row[7]);
-		}*/
-
         if (row[8] && strlen(row[8]) > 0 && strcmp(row[8], "NULL") != 0) {
-            prev_gene_iter = kh_put(str, prev_gene, row[8], &absent);
-			if (absent)
-				kh_key(prev_gene, prev_gene_iter) = strdup(row[8]);
+            prev_gene_iter = kh_put(str, prev_gene, strdup(row[8]), &absent);
+			//if (absent)
+			//	kh_key(prev_gene, prev_gene_iter) = strdup(row[8]);
         }
+
+		// clean up the memory
+		if (exon_starts) {
+			free(exon_starts);
+			exon_starts = NULL;
+		}
+
+		if (exon_ends) {
+			free(exon_ends);
+			exon_ends = NULL;
+		}
 	}
 
 	// Need to clean it here otherwise, valgrind will give possible memory leak error
-	if (result) mysql_free_result(result);
+	if (result) {
+		mysql_free_result(result);
+		result = NULL;
+	}
 }
 
 char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, MYSQL *con) {
@@ -522,12 +548,11 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
     sprintf(mid_sql,  " chrom='%s' AND ((start <= %"PRIu32" AND %"PRIu32" <= end) OR (start <= %"PRIu32" AND %"PRIu32" <= end))", chrom_id, start_in, start_in, stop_in, stop_in);
 
 	// for debugging
-	/*
 	//if (strcmp(chrom_id, "1") == 0)
 	//	return;
 
-	//if (start_in < 70276350) {
-	if (start_in < 53676957) {
+	/*if (start_in < 103983252) {
+	//if (start_in < 61019535) {
 		//printf("%s\n", sql);
 		return;
 	} else {
@@ -537,7 +562,8 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 		printf("%s\n", mid_sql);
 	}*/
 
-    char gene[100]="";
+    char *gene = calloc(100, sizeof(char));
+	strcpy(gene, "");
 	khash_t(str) *refseq     = kh_init(str);     // hash_table using string as key
 	khash_t(str) *ccds       = kh_init(str);     // hash_table using string as key
 	khash_t(str) *vega       = kh_init(str);     // hash_table using string as key
@@ -546,29 +572,33 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 	khash_t(str) *miRNA      = kh_init(str);     // hash_table using string as key
 
 	// for refseq
-	char *sql = calloc(strlen(prev_sql) + strlen(mid_sql) + 75, sizeof(char));
+	char *sql = calloc(strlen(prev_sql) + strlen(mid_sql) + 200, sizeof(char));
     sprintf(sql, "SELECT DISTINCT refseq_name, %s FROM RefSeq_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
     processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, refseq);
-	memset(sql,0,strlen(sql));	 
+	strcpy(sql, "");
+	//memset(sql,0,strlen(sql));	 
 
     // for ccds
     sprintf(sql, "SELECT DISTINCT ccds_name, %s FROM CCDS_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
     processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, ccds);
-	memset(sql,0,strlen(sql));	
+	strcpy(sql, "");
+	//memset(sql,0,strlen(sql));	
 
     // for vega
     sprintf(sql, "SELECT DISTINCT vega_name, %s FROM VEGA_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
     processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, vega);
-	memset(sql,0,strlen(sql));	 
+	strcpy(sql, "");
+	//memset(sql,0,strlen(sql));	 
 
     // now for miRNA
     sprintf(sql, "SELECT DISTINCT miRNA_name, %s FROM miRNA_annotation WHERE %s ", prev_sql, mid_sql);
     //printf("%s\n", sql);
     processingMySQL(con, sql, start_in, stop_in, gene, prev_gene, Synonymous, miRNA);
-	memset(sql,0,strlen(sql));	 
+	strcpy(sql, "");
+	//memset(sql,0,strlen(sql));	 
 
     // now we need to combine everything together
 	char *refseq_str = combinedEachAnnotation(refseq);
@@ -578,8 +608,8 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 	char *prev_gene_str  = combinedEachAnnotation(prev_gene);
 	char *Synonymous_str = combinedEachAnnotation(Synonymous);
 
-	if (strlen(gene) == 0)
-		strcpy(gene, ".");
+	//if (strlen(gene) == 0)
+	//	strcpy(gene, ".");
 	uint16_t annotation_size = strlen(gene) + strlen(prev_gene_str) + strlen(Synonymous_str) + strlen(refseq_str) + strlen(ccds_str) 
 								+ strlen(vega_str) + strlen(miRNA_str);
 	char *annotation = calloc(annotation_size + 50, sizeof(char));
@@ -597,18 +627,18 @@ char * produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_i
 	//fflush(stdout);
 
 	// properly empty/reset the strings I declared
-	if (sql) free(sql);
+	if (sql) { free(sql); sql = NULL; }
 	//free(prev_sql);
-	if (mid_sql) free(mid_sql);
+	if (mid_sql) { free(mid_sql); mid_sql = NULL; }
 
-	memset(gene,0,sizeof(gene));
-	if (refseq_str) free(refseq_str);
-	if (prev_gene_str) free(prev_gene_str);
-	if (Synonymous_str) free(Synonymous_str);
-	if (ccds_str) free(ccds_str);
-	if (vega_str) free(vega_str);
-	if (miRNA_str) free(miRNA_str);
-	//memset(,0,sizeof());
+	//memset(gene,0,sizeof(gene));
+	if (gene) { free(gene); gene = NULL; }
+	if (refseq_str) { free(refseq_str); refseq_str = NULL; }
+	if (prev_gene_str)  { free(prev_gene_str); prev_gene_str = NULL; }
+	if (Synonymous_str) { free(Synonymous_str); Synonymous_str = NULL; }
+	if (ccds_str)  { free(ccds_str); ccds_str = NULL; }
+	if (vega_str)  { free(vega_str); vega_str = NULL; }
+	if (miRNA_str) { free(miRNA_str); miRNA_str = NULL; }
 	//printf("return produceGeneAnnations %d\n", start_in);
 	
 	return annotation;

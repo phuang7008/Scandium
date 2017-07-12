@@ -378,18 +378,6 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type) {
 	//printf("after clean hash string\n");
 }
 
-/*
-void dynamicStringAllocation(char *str_in, uint16_t size_in) {
-	if (str_in == NULL) {
-		str_in = calloc(size_in, sizeof(str_in));
-	} else {
-		char *tmp = NULL;
-		tmp = realloc(str_in, strlen(str_in) + size_in);
-		str_in = tmp;
-	}
-}
-*/
-
 uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id) {
 	uint32_t i=0;
 	for(i=0; i<header->n_targets; i++) {
@@ -640,7 +628,7 @@ void statsInfoDestroy(Stats_Info *stats_info) {
 	//free(stats_info->three_prime);
 
 	free(stats_info->cov_stats);
-	if (stats_info) free(stats_info);
+	if (stats_info) { free(stats_info); stats_info=NULL; }
 }
 
 /*
