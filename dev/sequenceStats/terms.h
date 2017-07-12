@@ -76,7 +76,7 @@ typedef struct {
  * define a structure that holds the target coordinates
  */
 typedef struct {
-    char chr[15];    // some chromosome ID would be quite long
+    char chrom_id[15];    // some chromosome ID would be quite long
     uint32_t start;
     uint32_t end;
 } Bed_Coords;
@@ -90,12 +90,29 @@ typedef struct {
 } Bed_Info;
 
 /**
+ * define a strcuture for quick lookup
+ */
+typedef struct {
+	char chrom_id[15];
+	uint32_t size;
+	uint8_t *status_array;
+} Target_Buffer_Status;
+
+/**
  * define a structure to hold a chunk of read buff to be processed by each thread
  */
 typedef struct {
 	bam1_t **chunk_of_reads;
 	uint32_t size;
 } Read_Buffer;
+
+/**
+ * data structure to store temp coverage results
+ */
+typedef struct {
+	uint32_t size;
+	uint16_t * cov_array;
+} Temp_Coverage_Array;
 
 /**
  * define a strcuture that hold the chromosome ids status in array 
@@ -134,7 +151,8 @@ KHASH_MAP_INIT_INT(m8, uint16_t)
 /**
  * define a khash like structure that has string as key and khash_t(m32) as values
  */
-KHASH_MAP_INIT_STR(str, khash_t(m32)*)
+KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
+//KHASH_MAP_INIT_STR(str, khash_t(m32)*)
 //KHASH_SET_INIT_STR(str)
 
 /**

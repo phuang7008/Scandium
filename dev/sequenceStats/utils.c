@@ -268,11 +268,13 @@ void cleanKhashStr(khash_t(str) *hash_to_clean) {
 	khint_t k;
 	for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k) {
 		if (kh_exist(hash_to_clean, k)) {
-			// clean the inner khash if the key exist
+			// clean key if the key exist
 			if (kh_key(hash_to_clean, k)) free((char *) kh_key(hash_to_clean, k));
-			cleanKhashInt(kh_value(hash_to_clean, k));
-			kh_del(str, hash_to_clean, k);
-			//free(kh_value(hash_to_clean, k));		// already cleaned by cleanKhashInt()
+
+			// clean Temp_Coverage_Array
+			free(kh_value(hash_to_clean, k)->cov_array);
+			free(kh_value(hash_to_clean, k));
+			//kh_del(str, hash_to_clean, k);
 		}
 	}
 	//printf("before clean hash string\n");
@@ -539,7 +541,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
    	uint32_t i=0,j=0;
 
 	for (i=0; i<Ns_info->size; i++) {
-		if (strcmp(Ns_info->coords[i].chr, chrom_id) == 0) {
+		if (strcmp(Ns_info->coords[i].chrom_id, chrom_id) == 0) {
 			//printf("%s\t%"PRIu32"\t%"PRIu32"\n", Ns_info->coords[i].chr, Ns_info->coords[i].start, Ns_info->coords[i].end);
 			for (j=Ns_info->coords[i].start; j<=Ns_info->coords[i].end; j++) {
 				//printf("value of j is %d\n", j);

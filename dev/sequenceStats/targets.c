@@ -70,7 +70,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 		p_token = strtok(line, " \t");
 		while (p_token != NULL) {
 			if (num == 0) 
-				strcpy(coords[count].chr,  p_token);
+				strcpy(coords[count].chrom_id,  p_token);
 			else if (num == 1)
 				coords[count].start = atoi(p_token);
 			else if (num == 2) {
@@ -93,7 +93,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 		free(p_token);
 }
 
-void processBedFiles(char *bed_file, Bed_Info *bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, bam_hdr_t *header, short type) {
+void processBedFiles(char *bed_file, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, short type) {
 	// First, let's get the total number of lines(items or count) within the target file
 	bed_info->size = getLineCount(bed_file);
 
@@ -109,92 +109,44 @@ void processBedFiles(char *bed_file, Bed_Info *bed_info, khash_t(str) *bed_buffe
     // we will have 22 + X + Y = 24 chromosomes, Here X=23 and Y will be 24
 	// Right now, we only need to do it for target file. 
 	if (type == 1)
-		generateBedBufferLookupTable(bed_info, bed_buffer_hash, stats_info, header, type);
+		generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, type);
 }
 
-void outputForDebugging(Bed_Info *bed_info, khash_t(str) *bed_buffer_hash) {
-	// Check to see if target and buffer is set correctly
-    khiter_t outer_iter, inner_iter;
-    
-    for (outer_iter=kh_begin(bed_buffer_hash); outer_iter!=kh_end(bed_buffer_hash); outer_iter++) {
-        if (kh_exist(bed_buffer_hash, outer_iter)) {
-            // find the key
-            printf("Current key is %s\n", kh_key(bed_buffer_hash, outer_iter));
-            if (strcmp("1", kh_key(bed_buffer_hash, outer_iter)) == 0) {
-                for (inner_iter=kh_begin(kh_value(bed_buffer_hash, outer_iter));
-                            inner_iter!=kh_end(kh_value(bed_buffer_hash, outer_iter));
-                                inner_iter++) {
-					if (kh_exist(kh_value(bed_buffer_hash, outer_iter), inner_iter)) {
-						uint32_t pos = kh_key(kh_value(bed_buffer_hash, outer_iter), inner_iter);
-						//if ( (pos >= 1219000) && (pos<=1220290) )  {        // for region: 1220086 1220186
-							printf("%"PRIu32"\t%d %s\n",pos, kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter), kh_key(bed_buffer_hash, outer_iter));
-						//}
-                    }
-                }
-				printf("Finished writing...\n");
-            }
-        }
-    }
-
+void outputForDebugging(Bed_Info *bed_info) {
 	// Output stored coordinates for verification
     uint32_t i=0;
     for (i=0; i<bed_info->size; i++) {
-        printf("%s\t%"PRIu32"\t%"PRIu32"\n", bed_info->coords[i].chr, bed_info->coords[i].start, bed_info->coords[i].end);
+        printf("%s\t%"PRIu32"\t%"PRIu32"\n", bed_info->coords[i].chrom_id, bed_info->coords[i].start, bed_info->coords[i].end);
     }
 }
 
-void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_hash, Stats_Info *stats_info, bam_hdr_t *header, short type) {
-	int ret=0, absent=0;
-	uint32_t i=0, j=0, chrom_len=0;
-	khiter_t outer_iter, inner_iter;
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, short type) {
+	uint32_t i=0, j=0, k=0, idx = 0, chrom_len=0;
 	char cur_chrom_id[50];
 	strcpy(cur_chrom_id, "something");
 
 	for (i = 0; i < bed_info->size; i++) {
-		//printf("Processing id %d\n", i);
+        if (strcmp(bed_info->coords[i].chrom_id, cur_chrom_id) != 0) {
+			strcpy(cur_chrom_id, bed_info->coords[i].chrom_id);
 
-		// check to see if we need to initialize the hash for current chromosome
-		if (strcmp(bed_info->coords[i].chr, cur_chrom_id) != 0) {
-			khash_t(m32) *tmp_hash = kh_init(m32);
-			//outer_iter = kh_put(str, bed_buffer_hash, bed_info->coords[i].chr, &absent);
-			//if (absent)		// insert the key if there is no key
-			//	kh_key(bed_buffer_hash, outer_iter) = strdup(bed_info->coords[i].chr);
-			outer_iter = kh_put(str, bed_buffer_hash, strdup(bed_info->coords[i].chr), &absent);
-			kh_value(bed_buffer_hash, outer_iter) = tmp_hash;
-
-			strcpy(cur_chrom_id, bed_info->coords[i].chr);
-			//printf("hash is added for chromosome: %s\n", coords[i].chr);
-
-			// get the current chromosome id's length from header file
-    		for (j=0; j<header->n_targets; j++) {
-		        if (strcmp(cur_chrom_id, header->target_name[j]) == 0) {
-        		    chrom_len = header->target_len[j];
-					//printf("Get Chromosome %s length %"PRIu32"\n", header->target_name[j], chrom_len);
+			// get the index for the target_buffer_status
+			for(k=0; k<25; k++) {
+				if (strcmp(target_buffer_status[k].chrom_id, cur_chrom_id) == 0) {
+					idx = k;
+					chrom_len = target_buffer_status[k].size;
 					break;
-        		}
-    		}
-		}
+				}
+			}
 
-		// now get the hash table for current chromosome id
-		outer_iter = kh_put(str, bed_buffer_hash, bed_info->coords[i].chr, &ret);
-		if (ret)
-			fprintf(stderr, "Something went wrong, has key for %s is not added", bed_info->coords[i].chr);
+        }
 
-		// type == 1 for target, type == 2 for Ns regions in the reference sequence
 		uint8_t c_type = type == 1 ? 1 : 3;
 
 		// for positions on targets or Ns
 		for (j=bed_info->coords[i].start; j<=bed_info->coords[i].end; j++) {
 			if (j > chrom_len) continue;
 
-			inner_iter = kh_put(m32, kh_value(bed_buffer_hash, outer_iter), j, &ret);	// add the key
-			kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) = c_type;		// add the value
-
-			if (type == 1)
-				stats_info->cov_stats->total_targeted_bases += 1;
-
-			if (type == 2)
-				stats_info->cov_stats->total_Ns_bases += 1;
+			target_buffer_status[idx].status_array[j] = c_type;
 		}
 
 		if (type == 1) {
@@ -202,50 +154,32 @@ void generateBedBufferLookupTable(Bed_Info * bed_info, khash_t(str) *bed_buffer_
 			for (j=bed_info->coords[i].start-BUFFER; j < bed_info->coords[i].start; j++) {
 				if (j < 0) continue;
 
-				inner_iter = kh_put(m32, kh_value(bed_buffer_hash, outer_iter), j, &ret);
-				if (ret == 1) {
-					kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) = 2;
-                    //stats_info->cov_stats->total_buffer_bases += 1;
-				} else if (kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) == 2) {
-					continue;
-				} else if (kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) != 1) {
-					kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) = 2;
-					//stats_info->cov_stats->total_buffer_bases += 1;
-				}
+				if (target_buffer_status[idx].status_array[j] == 0)
+					target_buffer_status[idx].status_array[j] = 2;
 			}
 
 			// for positions on the buffer at the right side
 			for (j=bed_info->coords[i].end+1; j <= bed_info->coords[i].end+BUFFER; j++ ) {
 				if (j >= chrom_len) continue;
-
-				inner_iter = kh_put(m32, kh_value(bed_buffer_hash, outer_iter), j, &ret);
-				if (ret == 1) {
-					kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) = 2;
-                    //stats_info->cov_stats->total_buffer_bases += 1;
-				} else if (kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) == 2) {
-					continue;
-				} else if (kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) != 1) {
-					kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) = 2;
-					//stats_info->cov_stats->total_buffer_bases += 1;
-				}
+				
+				if (target_buffer_status[idx].status_array[j] == 0)
+					target_buffer_status[idx].status_array[j] = 2;
 			}
 		}
 	}
 
-	// now need to find out the number of buffer bases
-	if (type == 1) {
-		for(outer_iter = kh_begin(bed_buffer_hash); outer_iter!=kh_end(bed_buffer_hash); outer_iter++) {
-			if (kh_exist(bed_buffer_hash, outer_iter)) {
-				for (inner_iter = kh_begin(kh_value(bed_buffer_hash, outer_iter)); 
-						inner_iter != kh_end(kh_value(bed_buffer_hash, outer_iter));
-							inner_iter++) {
-					if (kh_exist(kh_value(bed_buffer_hash, outer_iter), inner_iter)) {
-						if (kh_value(kh_value(bed_buffer_hash, outer_iter), inner_iter) == 2)
-							stats_info->cov_stats->total_buffer_bases += 1;
-					}
-				}
-			}
-		}
+	for (i=0; i<25; i++) {
+		for (j=0; j<=target_buffer_status[i].size; j++) {
+		   	// now update the target/buffer/Ns stats here
+        	if (target_buffer_status[i].status_array[j] == 1)
+            	stats_info->cov_stats->total_targeted_bases += 1;
+
+        	if (target_buffer_status[i].status_array[j] == 2)
+            	stats_info->cov_stats->total_buffer_bases += 1;
+
+        	if (target_buffer_status[i].status_array[j] == 3)
+            	stats_info->cov_stats->total_Ns_bases += 1;
+    	}
 	}
 }
 

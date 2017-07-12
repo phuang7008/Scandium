@@ -54,7 +54,7 @@ uint32_t readBam(samFile *sffh, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
  * @param header: bam file header information
  * @param read_buff_in: the array of Read_Buffer that will be processed by current function
  */
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, khash_t(str) *bed_buffer_hash, int thread_id);
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id);
 //void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, Coverage_Hash *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
 
 /**
@@ -66,7 +66,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
  * @param chrom_id
  * @param rec: the individual alignment record to be processed
  */
-void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, khash_t(str) *bed_buffer_hash);
+void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status);
 //void processRecord(Coverage_Hash *coverage_hash, int hash_index, bam1_t *rec);
 
 /**

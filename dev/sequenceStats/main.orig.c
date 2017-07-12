@@ -83,15 +83,7 @@ int main(int argc, char *argv[]) {
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 1000000;
 	if (user_inputs->wgs_coverage)
-		total_chunk_of_reads = 5000000;
-
-	// try to allocate the bam1_t array here for each thread, so they don't have to create and delete the array at each loop
-	Read_Buffer *read_buff = calloc(user_inputs->num_of_threads, sizeof(Read_Buffer));
-	for (i=0; i<user_inputs->num_of_threads; i++) {
-		read_buff[i].chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
-		read_buff[i].size = total_chunk_of_reads;
-		//readBufferInit(&read_buff[i]);
-	}
+		total_chunk_of_reads = 4000000;
 
 	fflush(stdout);
 
@@ -105,24 +97,24 @@ int main(int argc, char *argv[]) {
 			int thread_id = omp_get_thread_num();
 			//printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
 
-			//Read_Buffer *read_buff;
-			//read_buff = malloc(sizeof(Read_Buffer));
-			//read_buff->chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
-			//read_buff->size = total_chunk_of_reads;
-			readBufferInit(&read_buff[thread_id]);
+			Read_Buffer *read_buff;
+			read_buff = malloc(sizeof(Read_Buffer));
+			read_buff->chunk_of_reads = calloc(total_chunk_of_reads, sizeof(bam1_t));
+			read_buff->size = total_chunk_of_reads;
+			readBufferInit(read_buff);
 			uint32_t num_records = 0;
 
 #pragma omp critical 
 			{
 				// this part of the code need to run atomically, that is only one thread should allow access to read
-				num_records = readBam(sfd, header, chrom_tracking, &read_buff[thread_id]);
-				read_buff[thread_id].size = num_records;
+				num_records = readBam(sfd, header, chrom_tracking, read_buff);
+				read_buff->size = num_records;
 			}
 			//printf("First Critical position for thread %d\n", thread_id);
 
 			if (num_records == 0) {
 				printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
-				readBufferDestroy(&read_buff[thread_id]);
+				readBufferDestroy(read_buff);
 				if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
 			}
 
@@ -133,11 +125,11 @@ int main(int argc, char *argv[]) {
 				khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
 				printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
 
-				processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id);
+				processBamChunk(user_inputs, cov_stats, coverage_hash, header, read_buff, target_buffer_status, thread_id);
 
 				// release the allocated chunk of buffer for alignment reads after they have been processed!
 			    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
-				readBufferDestroy(&read_buff[thread_id]);
+				readBufferDestroy(read_buff);
 
 				printf("Before Second Critical position for thread %d\n", thread_id);
 #pragma omp critical
