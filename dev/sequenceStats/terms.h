@@ -149,7 +149,8 @@ typedef struct {
 	uint32_t *size_r;		// this is the total number of regions on each chromosome
 	uint32_t **starts;
 	uint32_t **ends;
-	//uint32_t **size_i;		// this is for the size of each inter-genic region or intronic regions
+	uint32_t prev_search_loc_index;		// this is to avoid search starts from beginning
+	uint32_t prev_search_chrom_index;	// need to make sure we skip search for the previous same chromosome
 
 	char ***gene;				// For All Site Reports, annotation info will be store inside gene
 	char ***Synonymous;

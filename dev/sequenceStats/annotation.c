@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  for_mysql.c
+ *       Filename:  annotation.c
  *
  *    Description:  the detailed implementation of sequencing statistics
  *
@@ -71,6 +71,9 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 	regions_in->ends   = calloc(25, sizeof(uint32_t*));
 	regions_in->size_r = calloc(25, sizeof(uint32_t));
 	regions_in->chromosome_ids = calloc(25, sizeof(char*));
+
+	regions_in->prev_search_loc_index   = 0;
+	regions_in->prev_search_chrom_index = 0;
 
 	// for exon and intronic regions
 	if (type > 1) {
@@ -156,9 +159,9 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions, type 4 for all_site_reports 
 void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
-	uint32_t i, j;
+	//uint32_t i, j;
 
-	for (i=0; i<25; i++) {
+	/*for (i=0; i<25; i++) {
 		// for exon and intronic regions
 		if (type > 1) {
 			for (j=0; j<regions_in->size_r[i]; j++) {
@@ -183,7 +186,7 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 		if (regions_in->starts[i]) free(regions_in->starts[i]);
 		if (regions_in->ends[i])   free(regions_in->ends[i]);
 		if (regions_in->chromosome_ids[i])   free(regions_in->chromosome_ids[i]);
-	}
+	}*/
 
 	if (regions_in->starts) free(regions_in->starts);
 	if (regions_in->ends)   free(regions_in->ends);
@@ -205,7 +208,7 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 }
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions, type 4 for all_site_reports 
-void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL *con, char *chrom_id, uint32_t index, uint8_t type) {
+void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL *con, char *chrom_id, uint32_t chrom_idx, uint8_t type) {
 	char *sql = calloc(250, sizeof(char));
 	if (type == 1) {
 		sprintf(sql, "SELECT start, end from Intergenic_Regions WHERE chrom='%s' ORDER BY start", chrom_id);
@@ -226,18 +229,18 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
     MYSQL_ROW row;
     uint32_t count=0;
 	while ((row = mysql_fetch_row(result))) {
-        regions_in->starts[index][count] = (uint32_t) atol(row[0]);
-        regions_in->ends[index][count] = (uint32_t) atol(row[1]);
+        regions_in->starts[chrom_idx][count] = (uint32_t) atol(row[0]);
+        regions_in->ends[chrom_idx][count] = (uint32_t) atol(row[1]);
 
 		if (type > 1) {
-			regions_in->gene[index][count] = dynamicStringAllocation(row[2], regions_in->gene[index][count]) ;
-			regions_in->Synonymous[index][count] = dynamicStringAllocation(row[3], regions_in->Synonymous[index][count]);
-			regions_in->prev_genes[index][count] = dynamicStringAllocation(row[4], regions_in->prev_genes[index][count]);
+			regions_in->gene[chrom_idx][count] = dynamicStringAllocation(row[2], regions_in->gene[chrom_idx][count]) ;
+			regions_in->Synonymous[chrom_idx][count] = dynamicStringAllocation(row[3], regions_in->Synonymous[chrom_idx][count]);
+			regions_in->prev_genes[chrom_idx][count] = dynamicStringAllocation(row[4], regions_in->prev_genes[chrom_idx][count]);
 
 			if (type == 3) {
 				char *tmp = calloc(strlen(row[5]) + 50, sizeof(char));
 				sprintf(tmp, "%s", row[5]);
-				regions_in->exon_info[index][count] = dynamicStringAllocation(tmp, regions_in->exon_info[index][count]);
+				regions_in->exon_info[chrom_idx][count] = dynamicStringAllocation(tmp, regions_in->exon_info[chrom_idx][count]);
 				if (tmp) {
 					free(tmp);
 					tmp = NULL;
@@ -252,28 +255,26 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
 }
 
 // As the array is sorted, I am going to use binary search for find the location
-// here index is the chromosome index
-int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, uint32_t low_index) {
-	int32_t found = binary_search(regions_in, start, index, low_index);
+int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index) {
+	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
 
 	if (found == -1 && end > start) 
-		found = binary_search(regions_in, end, index, low_index);
+		found = binary_search(regions_in, end, chrom_idx, low_search_index);
 
 	return found;
 }
 
-// here index is the chromosome index
 // Note: for bed file format, the end position is not part of the region to be checked!
-int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t index, uint32_t low_index) {
-	int32_t low = low_index;
-	int32_t high = regions_in->size_r[index] - 1;
+int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t chrom_idx, uint32_t low_search_index) {
+	int32_t low = low_search_index;
+	int32_t high = regions_in->size_r[chrom_idx] - 1;
 	int32_t middle = (low + high)/2;
 
 	while (low <= high) {
-		if (regions_in->starts[index][middle] <= pos && pos < regions_in->ends[index][middle]) {
+		if (regions_in->starts[chrom_idx][middle] <= pos && pos < regions_in->ends[chrom_idx][middle]) {
 			return middle;
 		} else {
-			if (regions_in->starts[index][middle] < pos) {
+			if (regions_in->starts[chrom_idx][middle] < pos) {
 				low = middle + 1;
 			} else {
 				high = middle - 1;
@@ -291,16 +292,15 @@ int32_t binary_search(Regions_Skip_MySQL *regions_in, uint32_t pos, uint32_t ind
 }
 
 // As the array is sorted, I am going to use binary search for find the location
-// here index is the chromosome index
-int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index) {
-	int32_t found = binary_search(regions_in, start, index, low_index);
+int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
+	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
 	if (found == -1 && end > start) {
-		found = binary_search(regions_in, end, index, low_index);
+		found = binary_search(regions_in, end, chrom_idx, low_search_index);
 	}
 
 	if (found != -1) {
 		uint16_t orig_str_len = strlen(*info_in_and_out);
-		uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + 50;
+		uint16_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
 		
 		if (str_len_needed > orig_str_len) {
 			char *tmp = realloc(*info_in_and_out, str_len_needed);
@@ -313,24 +313,24 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 		} 
 
 		// for debugging only
-		if (strcmp(regions_in->gene[index][found], ".") == 0) 
-			regions_in->gene[index][found] = "";
-		sprintf(*info_in_and_out, "%s\t%s\t%s", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found]);
+		if (strcmp(regions_in->gene[chrom_idx][found], ".") == 0) 
+			regions_in->gene[chrom_idx][found] = "";
+		sprintf(*info_in_and_out, "%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found]);
 	}
 
 	return found;
 }
 
-int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index) {
-	int32_t found = binary_search(regions_in, start, index, low_index);
+int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
+	int32_t found = binary_search(regions_in, start, chrom_idx, low_search_index);
 
 	if (found == -1 && end > start) {
-		found = binary_search(regions_in, end, index, low_index);
+		found = binary_search(regions_in, end, chrom_idx, low_search_index);
 	}
 
     if (found != -1) {
         uint16_t orig_str_len = strlen(*info_in_and_out);
-        uint16_t str_len_needed = strlen(regions_in->gene[index][found]) + strlen(regions_in->Synonymous[index][found]) + strlen(regions_in->prev_genes[index][found]) + strlen(regions_in->exon_info[index][found]) + 50;
+        uint16_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + strlen(regions_in->exon_info[chrom_idx][found]) + 50;
 
         if (str_len_needed > orig_str_len) {
             char *tmp = realloc(*info_in_and_out, str_len_needed);
@@ -343,11 +343,11 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
         }
 
         // for debugging only
-        if (strcmp(regions_in->gene[index][found], ".") == 0)
-            regions_in->gene[index][found] = "";
+        if (strcmp(regions_in->gene[chrom_idx][found], ".") == 0)
+            regions_in->gene[chrom_idx][found] = "";
 
-		if (strlen(regions_in->exon_info[index][found]) > 1) {
-			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s\t.\t.\t.", regions_in->gene[index][found], regions_in->prev_genes[index][found], regions_in->Synonymous[index][found], regions_in->exon_info[index][found]);
+		if (strlen(regions_in->exon_info[chrom_idx][found]) > 1) {
+			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found], regions_in->exon_info[chrom_idx][found]);
 		}
     }
 
@@ -357,7 +357,9 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index) {
 	if (location_index >= regions_in->size_r[chrom_idx]) return false;
 
-	if (regions_in->starts[chrom_idx][location_index] <= start && regions_in->ends[chrom_idx][location_index] >= end) {
+	if (regions_in->starts[chrom_idx][location_index] <= start && regions_in->ends[chrom_idx][location_index] > start) {
+		return true;
+	} else if (regions_in->starts[chrom_idx][location_index] <= end && regions_in->ends[chrom_idx][location_index] > end) {
 		return true;
 	} else {
 		return false;

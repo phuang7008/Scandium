@@ -28,7 +28,7 @@
 #include "stats.h"
 #include "utils.h"
 #include "targets.h"
-#include "for_mysql.h"
+#include "annotation.h"
 #include "reports.h"
 
 int main(int argc, char *argv[]) {
@@ -88,29 +88,29 @@ int main(int argc, char *argv[]) {
     //fflush(stdout);
     //return 0;
 
-	// for MySQL connection, need 2 (one for each thread)
+	// for MySQL connection
 	MYSQL *con = mysql_init(NULL);
     if (con == NULL)
         finish_with_error(con);
 
+	if (mysql_library_init(0, NULL, NULL)) {
+		fprintf(stderr, "could not initialize MySQL library\n");
+		exit(1);
+	}
+
     if (mysql_real_connect(con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
         finish_with_error(con);
 
-	MYSQL *con2 = mysql_init(NULL);
-    if (con2 == NULL)
-        finish_with_error(con2);
-
-    if (mysql_real_connect(con2, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
-        finish_with_error(con2);
-
 	// fetch regions that shouldn't use MySQL query
-    Regions_Skip_MySQL *unique_exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *inter_genic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
-    Regions_Skip_MySQL *intronic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *intronic_regions    = calloc(1, sizeof(Regions_Skip_MySQL));
+    Regions_Skip_MySQL *exon_regions        = calloc(1, sizeof(Regions_Skip_MySQL));
 
     regionsSkipMySQLInit(con, inter_genic_regions, header, 1);
-    regionsSkipMySQLInit(con, unique_exon_regions, header, 3);
-    regionsSkipMySQLInit(con, intronic_regions, header, 2);
+    regionsSkipMySQLInit(con, intronic_regions,    header, 2);
+    regionsSkipMySQLInit(con, exon_regions,        header, 3);
+	mysql_close(con);
+	mysql_library_end();
 
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 500000;
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
             //total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
             total_chunk_of_reads = 8000000;
-            //total_chunk_of_reads = 500000;
+     //       total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
@@ -222,8 +222,9 @@ int main(int argc, char *argv[]) {
 
 		i = 0;
 		while (i<header->n_targets) {
-			if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2)
+          if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
               printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
+            }
 
 #pragma omp sections
           {
@@ -232,7 +233,7 @@ int main(int argc, char *argv[]) {
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now producing coverage information for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con, inter_genic_regions, intronic_regions, unique_exon_regions);
+                writeCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, inter_genic_regions, intronic_regions, exon_regions);
 						
                 // now write the off targets into a wig file
                 if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
@@ -244,7 +245,7 @@ int main(int argc, char *argv[]) {
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 printf("Thread %d is now writing annotation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                writeAnnotations(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con2, inter_genic_regions, intronic_regions, unique_exon_regions);
+                writeAnnotations(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, inter_genic_regions, intronic_regions, exon_regions);
               }
             }
           }
@@ -316,16 +317,11 @@ int main(int argc, char *argv[]) {
 
 	// do some cleanup
 	regionsSkipMySQLDestroy(inter_genic_regions, 1);
-	regionsSkipMySQLDestroy(unique_exon_regions, 3);
 	regionsSkipMySQLDestroy(intronic_regions, 2);
+	regionsSkipMySQLDestroy(exon_regions, 3);
 
 	userInputDestroy(user_inputs);
 	bam_hdr_destroy(header);
-
-	// MySQL disconnection
-	mysql_close(con);
-	mysql_close(con2);
-	mysql_library_end();
 
 	return 0;
 }
