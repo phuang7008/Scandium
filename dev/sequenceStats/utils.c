@@ -808,3 +808,15 @@ void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
 		printf("Gene: %s\tRefSeq: %s\n", low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].refseq_name);
 	}
 }
+
+int compare(const void *gene_coverage1, const void *gene_coverage2) {
+	Gene_Coverage *gc1 = (Gene_Coverage *) gene_coverage1;
+	Gene_Coverage *gc2 = (Gene_Coverage *) gene_coverage2;
+
+	int compare_result = strcmp(gc1->refseq_name, gc2->refseq_name);
+	if (compare_result == 0) {
+		return gc1->exon_start - gc2->exon_start;
+	} else {
+		return compare_result;
+	}
+}

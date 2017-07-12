@@ -834,6 +834,12 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		FILE *exon_pct_fp = fopen(user_inputs->low_cov_exon_pct_file, "a");
 		FILE *pct_cov_fp  = fopen(user_inputs->low_cov_transcript_file, "a");
 
+		// we need to sort the Gene_Coverage before we could use them as it will make it faster
+		qsort(low_cov_genes->gene_coverage, low_cov_genes->num_of_refseq, sizeof(Gene_Coverage), &compare);
+		//for(i = 0; i < low_cov_genes->num_of_refseq; i++) {
+		//	printf("%s\t%"PRIu32"\n", low_cov_genes->gene_coverage[i].refseq_name, low_cov_genes->gene_coverage[i].exon_start);
+		//}
+
 		// The following is to output the low coverage report for individual exon
         for(i = 0; i < low_cov_genes->num_of_refseq; i++) {
             uint32_t exon_start = low_cov_genes->gene_coverage[i].exon_start;
@@ -848,30 +854,38 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 
 		// The following is to output the low coverage report for each refseq/gene
 		// Since multiple refseq could be start at the same position, we need to record previous gene/refseq name
-		char *prev_refseq_name = NULL;
+		char *prev_refseq_name = calloc(50, sizeof(char));
 		char *prev_gene_symbol = NULL;
+		strcpy(prev_refseq_name, ",");
 
 		// declare prev_refseq_size and low base count here as they need to be accumulated
 		uint32_t prev_refseq_size=0, prev_refseq_low_bases=0;
 		
 		// Some capture targarts come from the same exon, so we need to skip it when accumulate the refseq length
-		uint16_t prev_exon_id=0;
-
-		// if the current refseq name is different from the previous one, we need to roll back once the previous refseq is done!
-		uint32_t roll_back_index=0, prev_refseq_done_flag=0, exon_count=0;
-
-		// need to record finished gene/refseq list. They are separated by comma ',', and use strstr() for the search
-		uint32_t refseq_done_list_size = 200000;
-		char *refseq_done_list = calloc(refseq_done_list_size, sizeof(char));
-		strcpy(refseq_done_list, ",");
+		uint16_t prev_exon_id=0, exon_count=0;
+		float pct;
 
 		for (i = 0; i < low_cov_genes->num_of_refseq; i++) {
-			// here we need to check if we have handled current refseq before, if so, just skip!
-			if (strstr(refseq_done_list, low_cov_genes->gene_coverage[i].refseq_name)) 
-				continue;
 
-			//printf("current index is %"PRIu32" and roll back value is %"PRIu32"\n", i, roll_back_index);
-			if (!prev_refseq_name) {
+			// Check to see if refseq transcript name has changed???
+			if (strcmp(prev_refseq_name, low_cov_genes->gene_coverage[i].refseq_name) != 0) {
+				// begining of a new refseq
+				// need to output current gene/refseq info if it is not the first item!
+				if (i > 0 && prev_gene_symbol) {
+					pct = (float) ((prev_refseq_size - prev_refseq_low_bases) * 100) / (float) (prev_refseq_size);
+					fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_refseq_name, prev_refseq_size, exon_count, pct);
+				}
+
+				// free 'previous' info for char*
+				free(prev_refseq_name);
+				prev_refseq_name=NULL;
+
+				free(prev_gene_symbol);
+				prev_gene_symbol=NULL;
+
+				exon_count = 0;
+
+				// now reset all the 'previous' information
 				prev_refseq_name = calloc(strlen(low_cov_genes->gene_coverage[i].refseq_name) + 1, sizeof(char));
 				strcpy(prev_refseq_name, low_cov_genes->gene_coverage[i].refseq_name);
 
@@ -883,83 +897,23 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
 				exon_count++;
 
-				if (strcmp(prev_refseq_name, "NR_026818-1") == 0) {
-					printf("stop\n");
-				}
-
-				// need to check if previous refseq is done!
-				// Note: First Case:  Some capture regions split the annotated exon into several smaller regions
-				//		 Second Case: Some capture regions have less exons included (some exons are excluded)
-				if ((low_cov_genes->gene_coverage[i].refseq_end <= low_cov_genes->gene_coverage[i].exon_end + 3) || 
-						(exon_count == low_cov_genes->gene_coverage[i].exon_count))
-					prev_refseq_done_flag = 1;
-
-				roll_back_index = 0;
 			} else {
-				// check to see if current refseq name is still the same
-				if (strcmp(prev_refseq_name, low_cov_genes->gene_coverage[i].refseq_name) == 0) {
-					// accumulate values if we have a different exon_id than the previous one
-					if (prev_exon_id != low_cov_genes->gene_coverage[i].exon_id) {
-						prev_refseq_size += low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
-						prev_refseq_low_bases += low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
-					}
-					prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
-					exon_count++;
-
-					// same as before, we exit if the condition met!
-					if ((low_cov_genes->gene_coverage[i].refseq_end <= low_cov_genes->gene_coverage[i].exon_end + 2) ||
-							(exon_count == low_cov_genes->gene_coverage[i].exon_count))
-						prev_refseq_done_flag = 1;
-				} else {
-					// see another refseq, roll back to the index needed
-					if (roll_back_index == 0) {
-						// check to see if we have finished this one already
-						char *tmp_refseq_name = calloc(strlen(low_cov_genes->gene_coverage[i].refseq_name)+5, sizeof(char));
-						sprintf(tmp_refseq_name, ",%s,", low_cov_genes->gene_coverage[i].refseq_name);
-						if (!strstr(refseq_done_list, tmp_refseq_name))
-							roll_back_index = i;
-
-						free(tmp_refseq_name);
-						tmp_refseq_name=NULL;
-					}
+				// accumulate values if we have a different exon_id than the previous one
+				if (prev_exon_id != low_cov_genes->gene_coverage[i].exon_id) {
+					prev_refseq_size += low_cov_genes->gene_coverage[i].exon_end - low_cov_genes->gene_coverage[i].exon_start + 1;
+					prev_refseq_low_bases += low_cov_genes->gene_coverage[i].num_of_low_cov_bases;
 				}
-			}
-
-			if (prev_refseq_done_flag == 1) {
-				// need to output current gene/refseq info
-				float pct = (float) ((prev_refseq_size - prev_refseq_low_bases) * 100) / (float) (prev_refseq_size);
-				fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_refseq_name, prev_refseq_size, exon_count, pct);
-
-				// record this refseq name in the done list, but first we need to make sure we have enough storage room!
-				if ((strlen(refseq_done_list) + 100) > refseq_done_list_size) {
-					refseq_done_list_size += 50000;
-					char *tmp = realloc(refseq_done_list, refseq_done_list_size);
-					if (!tmp) {
-						fprintf(stderr, "Memory re-allocation for string failed in outputGenePercentageCoverage\n");
-						exit(1);
-					}
-					refseq_done_list = tmp;
-				}
-				strcat(refseq_done_list, prev_refseq_name);
-				strcat(refseq_done_list, ",");
-
-				prev_refseq_done_flag = 0;
-				free(prev_refseq_name);
-				prev_refseq_name=NULL;
-				free(prev_gene_symbol);
-				prev_gene_symbol=NULL;
-				exon_count = 0;
-			
-				if (roll_back_index > 0)
-					i = roll_back_index - 1;	// -1 is needed as the loop will automatically add one!
+				prev_exon_id = low_cov_genes->gene_coverage[i].exon_id;
+				exon_count++;
 			}
 		}
 
-		if (refseq_done_list) {
-			free(refseq_done_list);
-			refseq_done_list=NULL;
+		// output the last one
+		if (prev_gene_symbol) {
+			pct = (float) ((prev_refseq_size - prev_refseq_low_bases) * 100) / (float) (prev_refseq_size);
+			fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_refseq_name, prev_refseq_size, exon_count, pct);
 		}
-		
+
 		fclose(gene_pct_fp);
 		fclose(exon_pct_fp);
 		fclose(pct_cov_fp);

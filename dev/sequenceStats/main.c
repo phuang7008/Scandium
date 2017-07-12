@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
             //total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
             total_chunk_of_reads = 8000000;
-            //total_chunk_of_reads = 500000;
+            total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {

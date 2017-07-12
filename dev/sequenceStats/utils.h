@@ -219,4 +219,7 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
 
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
 
+//int compare(const Gene_Coverage *gene_coverage1, const Gene_Coverage *gene_coverage2);
+int compare(const void *gene_coverage1, const void *gene_coverage2);
+
 #endif //UTILS_H
