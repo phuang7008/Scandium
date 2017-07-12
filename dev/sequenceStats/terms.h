@@ -61,12 +61,19 @@ typedef struct {
 	char * target_file;
 	char * wig_file;			// output the off target good hit in wig formatted
 	char * wgs_file;			// output the whole genome coverage information
+	char * capture_low_cov_file;
+	char * capture_high_cov_file;
+	char * wgs_low_cov_file;
+	char * wgs_high_cov_file;
 
 	//misc
 	int8_t min_map_quality;
 	int8_t min_base_quality;
+	uint8_t low_coverage_to_report;		// default 20, users are allowed to change it as an input option
+	uint16_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
+	int16_t upper_bound_to_report;		// default -1. It is used to set the coverage upper bound to report. it is used with high_coverage_to_report for a range to report
 	short num_of_threads;
-	float percentage;				// percentage (fraction) of total bam reads will be used for analysis
+	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
 	bool remove_duplicate;
 	bool remove_supplementary_alignments;
 	bool wgs_coverage;

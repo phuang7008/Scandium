@@ -48,7 +48,10 @@ void usage() {
 	printf("\t-m <minimun mapping quality score: to filter out any reads with mapQ less than -m>\n");
 	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis>\n");
+	printf("\t-H <the score for regions with too high coverage>\n");
+	printf("\t-L <the score for regions with low coverage>\n");
 	printf("\t-T <the number of threads>\n");
+	printf("\t-u <the score for the upper bound cut off when reporting the extreme coverage (it's associated with -H to form an interval to report) >\n");
 	printf("\t[-d] Remove Duplicates and DO NOT use them for statistics\n");
 	printf("\t[-G] Write/Dump the WIG formatted file\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics\n");
@@ -100,7 +103,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	int arg;
 
 	//When getopt returns -1, no more options available
-	while ((arg = getopt(argc, argv, "b:dGi:m:n:o:p:st:T:wWh")) != -1) {
+	while ((arg = getopt(argc, argv, "b:dGH:i:L:m:n:o:p:st:T:u:wWh")) != -1) {
 		printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'b':
@@ -114,10 +117,26 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'd': user_inputs->remove_duplicate = true; break;
             case 'G': user_inputs->Write_WIG = true; break;
             case 'h': usage(); exit(1);
+			case 'H':
+				if (!isNumber(optarg)) {
+                    fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
+                    usage();
+                    exit(1);
+                }
+                user_inputs->high_coverage_to_report = atoi(optarg);
+                break;
             case 'i':
 				user_inputs->bam_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
 
                 strcpy(user_inputs->bam_file, optarg);
+                break;
+			case 'L':
+				if (!isNumber(optarg)) {
+                    fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
+                    usage();
+                    exit(1);
+                }
+                user_inputs->low_coverage_to_report = atoi(optarg);
                 break;
             case 'm':
                 if (!isNumber(optarg)) {
@@ -151,6 +170,13 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->num_of_threads = atoi(optarg);
 				break;
+			case 'u':
+				if (!isNumber(optarg)) {
+                    fprintf (stderr, "Entered number of threads %s is not a number\n", optarg);
+                    usage();
+                    exit(1);
+                }
+                user_inputs->upper_bound_to_report = atoi(optarg);
             case 'w': user_inputs->wgs_coverage = true; break;
             case 'W': user_inputs->Write_WGS = true; break;
             case '?':
@@ -177,6 +203,12 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		exit(1);
 	}
 
+	if ((user_inputs->upper_bound_to_report > 0) && 
+		(user_inputs->upper_bound_to_report < user_inputs->high_coverage_to_report)) {
+		printf("-u option should be larger than -H option (default -H option is 10000)");
+		exit(1);
+	}
+
 	// Need to check out that all files user provided exist before proceeding
     if (user_inputs->bam_file) checkFile(user_inputs->bam_file);
     if (N_FILE_PROVIDED) checkFile(user_inputs->n_file);
@@ -197,11 +229,38 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		createFileName(user_inputs->bam_file, &user_inputs->wgs_file, ".wgs.fasta");
 		//printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	}
+
+	// output low coverage regions for target (capture)
+	char string_to_add[50];
+	sprintf(string_to_add, ".below%dx_Capture_REPORT.txt", user_inputs->low_coverage_to_report);
+	createFileName(user_inputs->bam_file, &user_inputs->capture_low_cov_file, string_to_add);
+
+	// output too high coverage regions for target (capture)
+	if (user_inputs->upper_bound_to_report == -1) {
+		sprintf(string_to_add, ".above%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report);
+	} else {
+		sprintf(string_to_add, ".between%dx_%dx_Capture_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
+	}
+    createFileName(user_inputs->bam_file, &user_inputs->capture_high_cov_file, string_to_add);
+
+	if (user_inputs->wgs_coverage) {
+		// output low coverage regions for WGS
+		sprintf(string_to_add, ".below%dx_WGS_REPORT.txt", user_inputs->low_coverage_to_report);
+    	createFileName(user_inputs->bam_file, &user_inputs->wgs_low_cov_file, string_to_add);
+
+	    // output too high coverage regions for target (capture)
+		if (user_inputs->upper_bound_to_report == -1) {
+			sprintf(string_to_add, ".above%dx_WGS_REPORT.txt", user_inputs->high_coverage_to_report);
+		} else {
+			sprintf(string_to_add, ".between%dx_%dx_WGS_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
+		}
+	    createFileName(user_inputs->bam_file, &user_inputs->wgs_high_cov_file, string_to_add);
+	}
 }
 
 //Here I need to pass in file_in name string as reference, otherwise, it will be by value and will get segmentation fault
 void createFileName(char *base_name, char **file_in, char *string_to_append) {
-	*file_in = calloc(strlen(base_name)+30,  sizeof(char));
+	*file_in = calloc(strlen(base_name)+50,  sizeof(char));
 	strcpy(*file_in, base_name);
 	strcat(*file_in, string_to_append);
 }
@@ -215,6 +274,9 @@ User_Input * userInputInit() {
 
 	user_inputs->min_map_quality  = -1;
 	user_inputs->min_base_quality = -1;
+	user_inputs->low_coverage_to_report = 20;
+	user_inputs->high_coverage_to_report = 10000;
+	user_inputs->upper_bound_to_report = -1;
 	user_inputs->num_of_threads   = 4;
 	user_inputs->percentage = 1.0;
 	user_inputs->wgs_coverage = false;
@@ -250,6 +312,18 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->wgs_file)
 		free(user_inputs->wgs_file);
+
+	if (user_inputs->capture_low_cov_file)
+		free(user_inputs->capture_low_cov_file);
+
+	if (user_inputs->capture_high_cov_file)
+        free(user_inputs->capture_high_cov_file);
+
+	if (user_inputs->wgs_low_cov_file)
+        free(user_inputs->wgs_low_cov_file);
+
+	if (user_inputs->wgs_high_cov_file)
+        free(user_inputs->wgs_high_cov_file);
 
 	if (user_inputs)
 		free(user_inputs);

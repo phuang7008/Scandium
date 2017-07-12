@@ -129,4 +129,16 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
  */
 void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info);
 
+/**
+ * output those regions with lower than or higher than user specified coverage values
+ * @param begin: the start position of the region to check
+ * @param length: the length of the regions to be inspected
+ * @param chrom_tracking: contains the coverage information for the current chromosome
+ * @param chrom_idx: the chromosome index
+ * @maram fh_low: the opened file handle for lower coverage report file
+ * @param fh_high: the opend file handle for higher coverage report file
+ * @return the end position of the region with lower or higher base coverage
+ */
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_low, FILE *fh_high);
+
 #endif // STATS_H

@@ -187,7 +187,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 
 			for (j=0; j<cln; ++j) {
 				cov_stats->total_aligned_bases++;
-				uint32_t pos = start + qual_pos + 1;
+				uint32_t pos = start + qual_pos + 1;	// left most position of alignment in zero based coordinates (as BAM is 0-based)
 
 				if (pos < 0) continue;
 				if (pos >= chrom_len) break;
@@ -332,8 +332,39 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 
 		//fprintf(wgs_low_x_fp,  "Chr\tStart\tStop\tLength\tCoverage\n");
 		//fprintf(wgs_high_x_fp, "Chr\tStart\tStop\tLength\tCoverage\n");
-		writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[idx], chrom_tracking, idx, user_inputs, wgs_low_x_fp, wgs_high_x_fp);
 
+		for (i = 1; i < chrom_tracking->chromosome_lengths[idx]; i++) {
+			uint32_t start=0, end=0; 
+			uint64_t cov_total=0;
+
+			// for low coverage
+			if (chrom_tracking->coverage[idx][i] < user_inputs->low_coverage_to_report) {
+				start = i;
+
+				while(i < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][i] < user_inputs->low_coverage_to_report) {
+					cov_total += chrom_tracking->coverage[idx][i];
+					i++;
+				}
+				end = i;
+				float ave_coverage = (float)cov_total / (float)(end - start);
+
+				fprintf(wgs_low_x_fp, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[idx], start, end-1, end-start, ave_coverage);
+			}
+
+			// for high coverage
+			if (chrom_tracking->coverage[idx][i] >= user_inputs->high_coverage_to_report) {
+                start = i;
+
+                while(i < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][i] >= user_inputs->high_coverage_to_report) {
+                    cov_total += chrom_tracking->coverage[idx][i];
+                    i++;
+                }
+                end = i;
+				float ave_coverage = (float)cov_total / (float)(end - start);
+                
+				fprintf(wgs_high_x_fp, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[idx], start, end-1, end-start, ave_coverage);
+            }
+        }
 		fclose(wgs_low_x_fp);
 		fclose(wgs_high_x_fp);
     }
@@ -455,8 +486,40 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 
     	    //fprintf(capture_low_x_fp,  "Chr\tStart\tStop\tLength\tCoverage\n");
         	//fprintf(capture_high_x_fp, "Chr\tStart\tStop\tLength\tCoverage\n");
-			writeLow_HighCoverageReport(start, length, chrom_tracking, idx, user_inputs, capture_low_x_fp, capture_high_x_fp);
+			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, capture_low_x_fp, capture_high_x_fp)
 
+	        for (j=0; j<length; j++) {
+    	        uint32_t tmp_start=0, tmp_end=0;
+        	    uint64_t cov_total=0;
+
+            	// for low coverage
+	            if (chrom_tracking->coverage[idx][j+start] < user_inputs->low_coverage_to_report) {
+    	            tmp_start = j+start;
+
+        	        while(j < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][j+start] < user_inputs->low_coverage_to_report) {
+            	        cov_total += chrom_tracking->coverage[idx][j+start];
+                	    j++;
+                	}
+	                tmp_end = j + start;
+    	            float ave_coverage = (float)cov_total / (float)(tmp_end - tmp_start);
+
+    	            fprintf(capture_low_x_fp, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[idx], tmp_start, tmp_end-1, tmp_end-tmp_start, ave_coverage);
+	            }
+
+    	        // for high coverage
+        	    if (chrom_tracking->coverage[idx][j] >= user_inputs->high_coverage_to_report) {
+            	    tmp_start = j+start;
+
+                	while(i < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][j+start] >= user_inputs->high_coverage_to_report) {
+                    	cov_total += chrom_tracking->coverage[idx][j+start];
+	                    j++;
+    	            }
+					tmp_end = j + tmp_start;
+	                float ave_coverage = (float)cov_total / (float)(tmp_end - tmp_start);
+
+    	            fprintf(capture_high_x_fp, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[idx], tmp_start, tmp_end-1, tmp_end-tmp_start, ave_coverage);
+        	    }
+        	}
 	        fclose(capture_low_x_fp);
     	    fclose(capture_high_x_fp);
 		}
@@ -465,52 +528,39 @@ void writeCoverage(char * chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info
 	}
 }
 
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs,FILE *fh_low, FILE *fh_high) {
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, FILE *fh_low, FILE *fh_high) {
 	uint32_t i=0;
 
-	for (i = begin; i < begin+length; i++) {
+	for (i = begin; i < length; i++) {
         uint32_t start=0, end=0;
         uint64_t cov_total=0;
 
         // for low coverage
-        if (chrom_tracking->coverage[chrom_idx][i] < user_inputs->low_coverage_to_report) {
+        if (chrom_tracking->coverage[idx][i] < user_inputs->low_coverage_to_report) {
             start = i;
 
-            while(i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->low_coverage_to_report) {
-                cov_total += chrom_tracking->coverage[chrom_idx][i];
+            while(i < length && chrom_tracking->coverage[idx][i] < user_inputs->low_coverage_to_report) {
+                cov_total += chrom_tracking->coverage[idx][i];
                 i++;
             }
             end = i;
-			if (start == end) continue;
+            float ave_coverage = (float)cov_total / (float)(end - start);
 
-            //float ave_coverage = (float)cov_total / (float)(end - start);
-            uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
-
-            //fprintf(fh_low, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[chrom_idx], start, end-1, end-start, ave_coverage);
-            fprintf(fh_low, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end-1, end-start, ave_coverage);
+            fprintf(fh_low, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_id, start, end-1, end-start, ave_coverage);
         }
 
         // for high coverage
-        if (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
+        if (chrom_tracking->coverage[idx][i] >= user_inputs->high_coverage_to_report) {
             start = i;
 
-            while( i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
-				if ( (user_inputs->upper_bound_to_report == -1 ) || 
-						(user_inputs->upper_bound_to_report > -1 && chrom_tracking->coverage[chrom_idx][i] < user_inputs->upper_bound_to_report)) {
-					cov_total += chrom_tracking->coverage[chrom_idx][i];
-					i++;
-				} else {
-					break;
-				}
+            while(i < length && chrom_tracking->coverage[idx][i] >= user_inputs->high_coverage_to_report) {
+                cov_total += chrom_tracking->coverage[idx][i];
+                i++;
             }
             end = i;
-			if (start == end) continue;
+            float ave_coverage = (float)cov_total / (float)(end - start);
 
-            //float ave_coverage = (float)cov_total / (float)(end - start);
-            uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
-
-            //fprintf(fh_low, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_tracking->chromosome_ids[chrom_idx], start, end-1, end-start, ave_coverage);
-            fprintf(fh_high, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end-1, end-start, ave_coverage);
+            fprintf(fh_high, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%.2f\n", chrom_id, start, end-1, end-start, ave_coverage);
         }
     }
 
@@ -696,6 +746,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 
 		fclose(out_fp);
 		free(file_name);
+		//printf("After free the filename\n");
 	}
 
 	// Now we need to process target information if target bed file is provided
@@ -857,7 +908,7 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 	}
 
 	// once captured area + BUFFER is initialized to 0, we want to check if there is any coverage > 20 in off-target regions
-	for(i=0; i<chrom_tracking->chromosome_lengths[idx]; i++) {
+	for(i=1; i<chrom_tracking->chromosome_lengths[idx]; i++) {
 		if (chrom_tracking->coverage[idx][i] > 20) {
 			j = i;
 			stats_info->cov_stats->non_target_good_hits += 1;
