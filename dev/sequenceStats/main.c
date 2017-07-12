@@ -86,21 +86,29 @@ int main(int argc, char *argv[]) {
     //fflush(stdout);
     //return 0;
 
+	// for MySQL connection
+	MYSQL *con = mysql_init(NULL);
+    if (con == NULL)
+        finish_with_error(con);
+
+    if (mysql_real_connect(con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
+        finish_with_error(con);
+
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 1000000;
 	if (user_inputs->wgs_coverage) {
 		if (user_inputs->num_of_threads == 1) {
-			total_chunk_of_reads = 45000000;
+			total_chunk_of_reads = 40000000;
 		} else if (user_inputs->num_of_threads == 2) {
-            total_chunk_of_reads = 25000000;
+            total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
-            total_chunk_of_reads = 12000000;
+            total_chunk_of_reads = 10000000;
 		} else if (user_inputs->num_of_threads == 6) {
-			total_chunk_of_reads = 8500000;
+			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
-            total_chunk_of_reads = 5000000;
+            total_chunk_of_reads = 3000000;
 		} else { 
-            total_chunk_of_reads = 4000000;
+            total_chunk_of_reads = 2500000;
 		}
 	}
 
@@ -115,7 +123,7 @@ int main(int argc, char *argv[]) {
 
 	// now let's do the parallelism
 	while(chrom_tracking->more_to_read) {
-#pragma omp parallel num_threads(user_inputs->num_of_threads)
+#pragma omp parallel shared(read_buff) num_threads(user_inputs->num_of_threads)
 		{
 			int num_of_threads = omp_get_num_threads();	
 			int thread_id = omp_get_thread_num();
@@ -133,7 +141,7 @@ int main(int argc, char *argv[]) {
 
 			if (num_records == 0) {
 				printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
-				readBufferDestroy(&read_buff[thread_id]);
+				//readBufferDestroy(&read_buff[thread_id]);
 				if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
 			}
 
@@ -145,12 +153,12 @@ int main(int argc, char *argv[]) {
 				printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
 
 				processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id);
-
-				// release the allocated chunk of buffer for alignment reads after they have been processed!
-			    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
-				readBufferDestroy(&read_buff[thread_id]);
 			}
-				//printf("Before Second Critical position for thread %d\n", thread_id);
+
+			// release the allocated chunk of buffer for alignment reads after they have been processed!
+		    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
+			readBufferDestroy(&read_buff[thread_id]);
+			//printf("Before Second Critical position for thread %d\n", thread_id);
 #pragma omp critical
 			if (num_records > 0) {
 				//printf("Before writing to the coverage array for Thread %d\n", thread_id);
@@ -158,7 +166,7 @@ int main(int argc, char *argv[]) {
 				combineCoverageStats(stats_info, cov_stats);
 				//printf("after writing to the coverage array for Thread %d\n", thread_id);
 
-				cleanKhashStr(coverage_hash);
+				cleanKhashStr(coverage_hash, 1);
 				free(cov_stats);
 
 				// since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
@@ -181,7 +189,7 @@ int main(int argc, char *argv[]) {
 					for (i=0; i<header->n_targets; i++) {
 						if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
 							printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info);
+							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con);
 						
 							// now write the off targets into a wig file
 							if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
@@ -205,7 +213,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	sam_close(sfd);
-	bam_hdr_destroy(header);
 
 	//printf("Outside the threads\n");
 
@@ -225,7 +232,7 @@ int main(int argc, char *argv[]) {
 
 	//printf("Before buffer hash\n");
 	if (target_buffer_status) {
-		for (i=0; i<25; i++)
+		for (i=0; i<header->n_targets; i++)
 			free(target_buffer_status[i].status_array);
 		free(target_buffer_status);
 	}
@@ -241,13 +248,20 @@ int main(int argc, char *argv[]) {
 
 	if (read_buff) {
 		for (i=0; i<user_inputs->num_of_threads; i++) {
-			if (read_buff[i].chunk_of_reads) 
+			if (read_buff[i].chunk_of_reads) {
+				//readBufferDestroy(&read_buff[i]);
 				free(read_buff[i].chunk_of_reads);
+			}
     	}
 		free(read_buff);
 	}
 
 	userInputDestroy(user_inputs);
+	bam_hdr_destroy(header);
+
+	// MySQL disconnection
+	mysql_close(con);
+	mysql_library_end();
 
 	return 0;
 }

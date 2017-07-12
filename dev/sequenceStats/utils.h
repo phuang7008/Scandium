@@ -105,7 +105,14 @@ void cleanKhashInt(khash_t(m32) *hash_to_clean);
  * This function is used to clean the khash_t (string key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
  */
-void cleanKhashStr(khash_t(str) *hash_to_clean);
+void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
+
+/**
+ * This function is used to dynamically allocate string and grow it accordingly
+ * @param str_in, the string to be dynamically allocated
+ * @param size_in, the size to be added
+ */
+void dynamicStringAllocation(char *str_in, uint16_t size_in);
 
 /**
  * Find the corresponding chromosome index from input chromosome id

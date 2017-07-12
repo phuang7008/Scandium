@@ -28,12 +28,14 @@
 #include <unistd.h>     // for getopt() and usleep()
 #include <math.h>
 #include <zlib.h>
+#include <my_global.h>
+#include <mysql.h>
 
 // Users defined header files
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION "SeqStats v1.0 2017-02-05"
+#define VERSION_ "SeqStats v1.0 2017-02-05"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 #define BUFFER				100		//buffer region around a target
@@ -76,6 +78,7 @@ typedef struct {
 	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
 	bool remove_duplicate;
 	bool remove_supplementary_alignments;
+	bool annotation_on;
 	bool wgs_coverage;
 	bool Write_WIG;
 	bool Write_WGS;
@@ -99,13 +102,13 @@ typedef struct {
 } Bed_Info;
 
 /**
- * define a strcuture for quick lookup
+ * define a strcuture for quick lookup of target information
  */
 typedef struct {
-	char chrom_id[15];
-	uint32_t size;
-	int32_t index;
-	uint8_t *status_array;
+	char chrom_id[50];				// which chromosome it is tracking
+	uint32_t size;					// size of current chromosome
+	int32_t index;					// -1 means this chromosome is not important/processed, and we should skip it!
+	uint8_t *status_array;			// the status for each chrom position, 1 for target, 2 for buffer and 3 for Ns
 } Target_Buffer_Status;
 
 /**

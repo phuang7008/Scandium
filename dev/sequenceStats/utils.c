@@ -103,9 +103,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	int arg;
 
 	//When getopt returns -1, no more options available
-	while ((arg = getopt(argc, argv, "b:dGH:i:L:m:n:o:p:st:T:U:wWh")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:dGH:i:L:m:n:o:p:st:T:U:wWh")) != -1) {
 		printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
+			case 'a':
+				user_inputs->annotation_on = true; break;
 			case 'b':
 				if (!isNumber(optarg)) {
 					fprintf (stderr, "Entered base quality filter score %s is not a number\n", optarg);
@@ -279,6 +281,7 @@ User_Input * userInputInit() {
 	user_inputs->upper_bound_to_report = -1;
 	user_inputs->num_of_threads   = 4;
 	user_inputs->percentage = 1.0;
+	user_inputs->annotation_on = false;
 	user_inputs->wgs_coverage = false;
 	user_inputs->Write_WIG = false;
 	user_inputs->Write_WGS = false;
@@ -346,17 +349,19 @@ void cleanKhashInt(khash_t(m32) *hash_to_clean) {
 	//printf("after clean hash int\n");
 }
 
-void cleanKhashStr(khash_t(str) *hash_to_clean) {
+void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type) {
 	khint_t k;
 	for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k) {
 		if (kh_exist(hash_to_clean, k)) {
 			// clean key if the key exist
 			if (kh_key(hash_to_clean, k)) free((char *) kh_key(hash_to_clean, k));
 
-			// clean Temp_Coverage_Array
-			free(kh_value(hash_to_clean, k)->cov_array);
-			free(kh_value(hash_to_clean, k));
-			//kh_del(str, hash_to_clean, k);
+			if (type == 1) {
+				// clean Temp_Coverage_Array
+				free(kh_value(hash_to_clean, k)->cov_array);
+				free(kh_value(hash_to_clean, k));
+				//kh_del(str, hash_to_clean, k);
+			}
 		}
 	}
 	//printf("before clean hash string\n");
@@ -364,6 +369,18 @@ void cleanKhashStr(khash_t(str) *hash_to_clean) {
 	if (hash_to_clean) kh_destroy(str, hash_to_clean);
 	//printf("after clean hash string\n");
 }
+
+/*
+void dynamicStringAllocation(char *str_in, uint16_t size_in) {
+	if (str_in == NULL) {
+		str_in = calloc(size_in, sizeof(str_in));
+	} else {
+		char *tmp = NULL;
+		tmp = realloc(str_in, strlen(str_in) + size_in);
+		str_in = tmp;
+	}
+}
+*/
 
 uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id) {
 	uint32_t i=0;
@@ -558,6 +575,7 @@ Coverage_Stats * coverageStatsInit() {
 	cov_stats->in_buffer_read_hit_count = 0;
 	cov_stats->hit_target_count = 0;
 	cov_stats->hit_target_buffer_only_count = 0;
+	cov_stats->non_target_good_hits = 0;
 
 	cov_stats->total_targets = 0;
 	cov_stats->read_length = 0;
@@ -581,6 +599,7 @@ void statsInfoDestroy(Stats_Info *stats_info) {
 	//free(stats_info->three_prime);
 
 	free(stats_info->cov_stats);
+	if (stats_info) free(stats_info);
 }
 
 /*

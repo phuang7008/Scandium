@@ -1,17 +1,21 @@
 IDIR=/usr/lib/gcc/x86_64-redhat-linux/4.4.7/include
 CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/dev/sequenceStats
 HTSDIR=$(CODEDIR)/htslib
+MYSQLDIR=/usr/include/mysql
+MYSQLLIB=/usr/lib64
 CC=gcc
 CFLAGS= -g -Wall -O2 -fopenmp
+#CFLAGS= -g -Wall -O0 -fopenmp
+#CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
 
 # define any directories containing header files other than /usr/bin
-INCLUDES= -I$(IDIR) -I$(HTSDIR)
+INCLUDES= -I$(IDIR) -I$(HTSDIR) -I$(MYSQLDIR)
 
 # define library paths in addition to /usr/lib
-LFLAGS = -L$(HTSDIR)
+LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 
 # define any libraries to be link into executables:
-LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread
+LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
 
 # define dependent header files
 _DEPS = stats.h  targets.h  terms.h  utils.h

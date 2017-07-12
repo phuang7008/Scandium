@@ -120,7 +120,8 @@ void outputForDebugging(Bed_Info *bed_info) {
 }
 
 void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, short type) {
-	uint32_t i=0, j=0, k=0, idx = 0, chrom_len=0;
+	uint32_t i=0, j=0, k=0, chrom_len=0;
+	int idx = -1;
 	char cur_chrom_id[50];
 	strcpy(cur_chrom_id, "something");
 
@@ -140,6 +141,8 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			}
 
         }
+
+		if (idx == -1) return;
 
 		uint8_t c_type = type == 1 ? 1 : 3;
 
@@ -181,7 +184,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
 		//printf("current id is %d\n", i);
 
-		for (j=0; j<=target_buffer_status[i].size; j++) {
+		for (j=0; j<target_buffer_status[i].size; j++) {
 		   	// now update the target/buffer/Ns stats here
 			if (type == 1) {
 	        	if (target_buffer_status[i].status_array[j] == 1)
