@@ -135,11 +135,14 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 			}
 
 			for (j=0; j<regions_in->size_r[i]; j++) {
-				regions_in->gene[i][j] = calloc(500, sizeof(char));
+				regions_in->gene[i][j] = NULL;
+				//regions_in->gene[i][j] = calloc(500, sizeof(char));
 
 				if (type < 4) {
-					regions_in->Synonymous[i][j] = calloc(250, sizeof(char));
-				    regions_in->prev_genes[i][j] = calloc(250, sizeof(char));
+					//regions_in->Synonymous[i][j] = calloc(250, sizeof(char));
+					regions_in->Synonymous[i][j] = NULL;
+				    //regions_in->prev_genes[i][j] = calloc(250, sizeof(char));
+				    regions_in->prev_genes[i][j] = NULL;
 				}
 			}
 
@@ -148,7 +151,8 @@ void regionsSkipMySQLInit(MYSQL *con, Regions_Skip_MySQL *regions_in, bam_hdr_t 
 				regions_in->exon_info[i] = calloc(regions_in->size_r[i], sizeof(char*));
 
 				for (j=0; j<regions_in->size_r[i]; j++) {
-					regions_in->exon_info[i][j] = calloc(500, sizeof(char));
+					regions_in->exon_info[i][j] = NULL;
+					//regions_in->exon_info[i][j] = calloc(500, sizeof(char));
 				}
 			}
 		}
@@ -244,17 +248,19 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, MYSQL 
         regions_in->ends[index][count] = (uint32_t) atol(row[1]);
 
 		if (type > 1) {
-			//printf("%s\t%s\t%s%d\n", row[2], row[3], row[4], count);
-			strcpy(regions_in->gene[index][count], row[2]);
+			regions_in->gene[index][count] = dynamicStringAllocation(row[2], regions_in->gene[index][count]) ;
 		}
 
 		if (type == 2 || type == 3) {
-			strcpy(regions_in->Synonymous[index][count], row[3]);
-			strcpy(regions_in->prev_genes[index][count], row[4]);
+			regions_in->Synonymous[index][count] = dynamicStringAllocation(row[3], regions_in->Synonymous[index][count]);
+			regions_in->prev_genes[index][count] = dynamicStringAllocation(row[4], regions_in->prev_genes[index][count]);
 
 			if (type == 3) {
 				uint16_t exon_id = (uint16_t) atoi(row[6]);
-				sprintf(regions_in->exon_info[index][count], "%s_exon_%d", row[5], exon_id);
+				char *tmp = calloc(strlen(row[5]) + CHAR_BIT *sizeof(uint16_t) + 1, sizeof(char));
+				sprintf(tmp, "%s_exon_%"PRIu16"", row[5], exon_id);
+				regions_in->exon_info[index][count] = dynamicStringAllocation(tmp, regions_in->exon_info[index][count]);
+				if (tmp) free(tmp);
 			}
 		}
 
@@ -309,6 +315,7 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 			char *tmp = realloc(*info_in_and_out, str_len_needed);
 			if (!tmp) {
 				fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
+				exit(1);
 			}
 
 			*info_in_and_out = tmp;
@@ -334,6 +341,7 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
             char *tmp = realloc(*info_in_and_out, str_len_needed);
             if (!tmp) {
                 fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+				exit(1);
             }
 
             *info_in_and_out = tmp;
@@ -479,10 +487,10 @@ void processingMySQL(MYSQL *con, char *sql, uint32_t pos_start, uint32_t pos_end
 
         // for gene row[6], Synonymous row[7], and prev_gene row[8]
         if (row[6] && strlen(row[6]) > 0 && strcmp(row[6], "NULL") != 0) {
-            if (strlen(gene) == 0) {
+            if (strlen(gene) == 0 || strcmp(gene, ".") == 0) {
                 strcpy(gene, row[6]);
             } else {
-                if (strcmp(gene, row[6]) != 0) {
+                if (strcmp(gene, row[6]) != 0 && strcmp(gene, ".") != 0) {
                     Synonymous_iter = kh_put(str, Synonymous, row[6], &absent);
 					if (absent)
 						kh_key(Synonymous, Synonymous_iter) = strdup(row[6]);

@@ -254,7 +254,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 		// Now go through the coverage_hash map to see if it is currently tracking it
 		// if it tracks new chromosome, we need to allocate memory for the coverage array of the new chromosome
 		//
-		if (chrom_tracking->chromosome_status[i] == 3) continue;
+		if (chrom_tracking->chromosome_status[i] > 2) continue;
 
 		for (outer_iter = kh_begin(coverage_hash); outer_iter != kh_end(coverage_hash); ++outer_iter) {
 			if (kh_exist(coverage_hash, outer_iter)) {

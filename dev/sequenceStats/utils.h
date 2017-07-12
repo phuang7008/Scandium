@@ -109,10 +109,11 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 
 /**
  * This function is used to dynamically allocate string and grow it accordingly
- * @param str_in, the string to be dynamically allocated
- * @param size_in, the size to be added
+ * @param storage_str, the string to be dynamically allocated
+ * @param str_in, the string to be copied
+ * @return allocated string pointer
  */
-void dynamicStringAllocation(char *str_in, uint16_t size_in);
+char * dynamicStringAllocation(char *str_in, char *storage_str);
 
 /**
  * Find the corresponding chromosome index from input chromosome id
@@ -159,7 +160,9 @@ void chromosomeTrackingDestroy(Chromosome_Tracking * chrom_tracking);
  * @param chrom_id
  * @param chrom_tracking: the Chromosome_Tracking variable to track the status of chromosome processed
  */
-uint32_t locateChromosomeIndex(char *chrom_id, Chromosome_Tracking *chrom_tracking);
+int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Tracking *chrom_tracking);
+
+int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in);
 
 /**
  * Initialize the member of the Stats_Info variable

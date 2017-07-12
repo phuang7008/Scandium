@@ -27,19 +27,20 @@
 void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *all_site_reports) {
 
     // First, we need to find the index that is used to track current chromosome chrom_id
-    uint32_t idx = locateChromosomeIndex(chrom_id, chrom_tracking);
+    int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
+	if (idx == -1) return;
 
     // for the whole genome, we need to use the file that contains regions of all Ns in the reference
     // As they will be not used, so we are going to set the count info in these regions to 0
-    if (N_FILE_PROVIDED)
-        zeroAllNsRegions(chrom_id, Ns_bed_info, chrom_tracking);
+    //if (N_FILE_PROVIDED)
+    //    zeroAllNsRegions(chrom_id, Ns_bed_info, chrom_tracking);
 
     // write to the file that contains whole genome info
 	uint32_t i=0;
     if(user_inputs->wgs_coverage) {
 
 		if (user_inputs->Write_WGS) {
-			FILE *wgs_fp = fopen(user_inputs->wgs_file, "a");
+			FILE *wgs_fp = fopen(user_inputs->wgs_cov_file, "a");
 			printf("Whole Genome output for chrom id %s is on\n", chrom_id);
 
 			// no need to add newline as the next line will take care of it!
@@ -58,22 +59,11 @@ void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info,
 			for (i = 0; i < chrom_tracking->chromosome_lengths[idx]; i++)
 				addBaseStats(stats_info, (uint32_t) chrom_tracking->coverage[idx][i], 0, 1);
 		}
-
-		// now need to report those regions with low or too high coverages
-		// NOTE: the bed format is different here, the end position is included!
-		//
-		FILE *wgs_low_x_fp  = fopen(user_inputs->wgs_low_cov_file, "a");
-		FILE *wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
-
-		writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[idx], chrom_tracking, idx, user_inputs, wgs_low_x_fp, wgs_high_x_fp, con, inter_genic_regions, intronic_regions, exon_regions);
-
-		fclose(wgs_low_x_fp);
-		fclose(wgs_high_x_fp);
     }
 
 	// if the target bed file is available, we will need to handle it here and write the results to cov.fasta file
 	if (TARGET_FILE_PROVIDED) {
-		FILE * cov_fp = fopen(user_inputs->cov_file, "a");
+		FILE * cov_fp = fopen(user_inputs->capture_cov_file, "a");
 		FILE * missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
 
 		for(i = 0; i < target_info->size; i++) {
@@ -188,10 +178,10 @@ void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info,
 	        FILE *capture_all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
 
 			// For All Sites Report
-			produceCaptureAllSitesReport(start, length, chrom_tracking, idx, user_inputs, capture_all_site_fp, con, all_site_reports);
+			produceCaptureAllSitesReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_all_site_fp, con, all_site_reports);
 
 			// For low coverage and high coverage Report
-			writeLow_HighCoverageReport(start, length, chrom_tracking, idx, user_inputs, capture_low_x_fp, capture_high_x_fp, con, inter_genic_regions, intronic_regions, exon_regions);
+			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, con, inter_genic_regions, intronic_regions, exon_regions);
 
 	        fclose(capture_low_x_fp);
     	    fclose(capture_high_x_fp);
@@ -202,9 +192,15 @@ void writeCoverage(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info,
 	}
 }
 
-void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_all_sites, MYSQL *con, Regions_Skip_MySQL *all_site_reports) {
+void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, MYSQL *con, Regions_Skip_MySQL *all_site_reports) {
 	uint32_t i=0;
 	uint64_t cov_total=0;
+	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
+	//int32_t chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, all_site_reports);
+	//if (chrom_idx > 25) return;
+
+	//if (chrom_idx == -1 || chrom_idr == -1) return;
+	if (chrom_idx == -1) return;
 
 	for (i = begin; i < begin+length; i++) {
 		cov_total += chrom_tracking->coverage[chrom_idx][i];
@@ -213,19 +209,53 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 	uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(length) + 0.5);
 	fprintf(fh_all_sites, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"", chrom_tracking->chromosome_ids[chrom_idx], begin, begin+length-1, length, ave_coverage);
 
+	/*int32_t prev_report_location = 0;
 	if (all_site_reports) {
-		int32_t report_location = binary_search(all_site_reports, begin, begin+length-1, chrom_idx);
-		fprintf(fh_all_sites, "\t%s\n", all_site_reports->gene[chrom_idx][report_location]);
+		int32_t report_location = binary_search(all_site_reports, begin, begin+length-1, chrom_idr, prev_report_location);
+		if (report_location == -1) {
+			fprintf(stderr, "Search return -1 for %"PRIu32" and %"PRIu32" and chromosome id is %s\n", begin, begin+length-1, chrom_id);
+			return;
+		}
+
+		if (prev_report_location < report_location) prev_report_location = report_location;
+		fprintf(fh_all_sites, "\t%s\n", all_site_reports->gene[chrom_idr][report_location]);
 	} else {
 		char *annotation = produceGeneAnnotations(begin, begin+length-1, chrom_tracking->chromosome_ids[chrom_idx], con);
 		fprintf(fh_all_sites, "\t%s\n", annotation);
 		if (annotation) free(annotation);
+	}*/
+
+	char *annotation = produceGeneAnnotations(begin, begin+length-1, chrom_tracking->chromosome_ids[chrom_idx], con);
+    fprintf(fh_all_sites, "\t%s\n", annotation);
+    if (annotation) free(annotation);
+}
+
+void writeAnnotations(char *chrom_id, Bed_Info *Ns_bed_info, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *all_site_reports) {
+	// First, we need to find the index that is used to track current chromosome chrom_id
+    int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
+
+	if(user_inputs->wgs_coverage) {
+		// now need to report those regions with low or too high coverages
+	    // NOTE: the bed format is different here, the end position is included!
+		//
+	    FILE *wgs_low_x_fp  = fopen(user_inputs->wgs_low_cov_file, "a");
+    	FILE *wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
+
+	    writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_id, user_inputs, wgs_low_x_fp, wgs_high_x_fp, con, inter_genic_regions, intronic_regions, exon_regions);
+
+        fclose(wgs_low_x_fp);
+        fclose(wgs_high_x_fp);
 	}
 }
 
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, MYSQL *con, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 	// for debugging
 	//if (strcmp(chrom_tracking->chromosome_ids[chrom_idx], "1") == 0) return i;
+	
+	// First, we need to find the index that is used to track current chromosome chrom_id
+    int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
+    int32_t chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, intronic_regions);
+    if (chrom_idx == -1 || chrom_idr == -1) return;
 	
 	int32_t index_inter_genic_location=-1, index_intronic_location=-1, exon_location=-1;
 	int32_t prev_index_inter_genic_location=0, prev_index_intronic_location=0, prev_exon_location=0;
@@ -257,22 +287,22 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 			if (user_inputs->annotation_on) {
 				// For annotation, I only used normal chromosome IDs, anything outside here won't be used
 				if ( strstr(chrom_tracking->chromosome_ids[chrom_idx], "GL000") ||
-					 strstr(chrom_tracking->chromosome_ids[chrom_idx], "hs37d") || (chrom_idx >= 25)) {
+					 strstr(chrom_tracking->chromosome_ids[chrom_idx], "hs37d") || (chrom_idr >= 25)) {
 					fprintf(fh_low, "\t\t.\t.\t.\t.\t.\t.\n");
 				} else {
 					// check if the position located in inter-genic regions
 					if (index_inter_genic_location == -1) {
-						index_inter_genic_location = checkInterGenicRegion(inter_genic_regions, start, end-1, chrom_idx, prev_index_inter_genic_location);
+						index_inter_genic_location = checkInterGenicRegion(inter_genic_regions, start, end-1, chrom_idr, prev_index_inter_genic_location);
 						if (index_inter_genic_location != -1) {
 							prev_index_inter_genic_location = index_inter_genic_location;
 							fprintf(fh_low, "\t\t.\t.\t.\t.\t.\t.\n");
 						}
 					} else {
 						// for future round, we can skip the search, just check to see if current one is also part of the previous inter-genic region
-						if (verifyIndex(inter_genic_regions, start, end-1, chrom_idx, index_inter_genic_location)) {
+						if (verifyIndex(inter_genic_regions, start, end-1, chrom_idr, index_inter_genic_location)) {
 							fprintf(fh_low, "\t\t.\t.\t.\t.\t.\t.\n");
 						} else {
-							index_inter_genic_location = checkInterGenicRegion(inter_genic_regions, start, end-1, chrom_idx, prev_index_inter_genic_location);
+							index_inter_genic_location = checkInterGenicRegion(inter_genic_regions, start, end-1, chrom_idr, prev_index_inter_genic_location);
 							if (index_inter_genic_location != -1) {
 								prev_index_inter_genic_location = index_inter_genic_location;
 								fprintf(fh_low, "\t\t.\t.\t.\t.\t.\t.\n");
@@ -285,7 +315,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 					// check if the position located in intronic regions
 					if (index_inter_genic_location == -1) {
 						if (index_intronic_location == -1) {
-						   	index_intronic_location = checkIntronicRegion(intronic_regions, start, end-1, chrom_idx, &intronic_info, prev_index_intronic_location);
+						   	index_intronic_location = checkIntronicRegion(intronic_regions, start, end-1, chrom_idr, &intronic_info, prev_index_intronic_location);
 							if (index_intronic_location != -1 && intronic_info) {
 								fprintf(fh_low, "\t%s\t.\t.\t.\t.\n", intronic_info);
 								prev_index_intronic_location = index_intronic_location;
@@ -293,11 +323,11 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 								//free(intronic_info);
 							}
 						} else {
-							if (verifyIndex(intronic_regions, start, end-1, chrom_idx, index_intronic_location, prev_index_intronic_location)) {
+							if (verifyIndex(intronic_regions, start, end-1, chrom_idr, index_intronic_location)) {
 								fprintf(fh_low, "\t%s\t.\t.\t.\t.\n", intronic_info);
 								//free(intronic_info);
 							} else {
-								index_intronic_location = checkIntronicRegion(intronic_regions, start, end-1, chrom_idx, &intronic_info, prev_index_intronic_location);
+								index_intronic_location = checkIntronicRegion(intronic_regions, start, end-1, chrom_idr, &intronic_info, prev_index_intronic_location);
 								if (index_intronic_location != -1 && intronic_info) {
 									prev_index_intronic_location = index_intronic_location;
 									fprintf(fh_low, "\t%s\t.\t.\t.\t.\n", intronic_info);
@@ -312,15 +342,15 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 					// check if it locates at which exon location if both the above failed
 					/*if (index_inter_genic_location == -1 && index_intronic_location == -1) {
 						if (exon_location == -1) {
-							exon_location = checkExonRegion(exon_regions, start, end-1, chrom_idx, &exon_info);
+							exon_location = checkExonRegion(exon_regions, start, end-1, chrom_idr, &exon_info);
 							if (exon_location != -1 && exon_info) {
 								fprintf(fh_low, "\t%s\n", exon_info);
 							}
 						} else {
-							if (verifyIndex(intronic_regions, start, end-1, chrom_idx, index_intronic_location)) {
+							if (verifyIndex(intronic_regions, start, end-1, chrom_idr, index_intronic_location)) {
 								fprintf(fh_low, "\t%s\n", exon_info);
 							} else {
-								exon_location = checkExonRegion(exon_regions, start, end-1, chrom_idx, &exon_info);
+								exon_location = checkExonRegion(exon_regions, start, end-1, chrom_idr, &exon_info);
 								if (exon_location != -1 && exon_info) {
 									fprintf(fh_low, "\t%s\n", exon_info);
 								} else {
@@ -697,8 +727,10 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 
 void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info) {
 	int32_t i, j;
-	uint16_t idx = locateChromosomeIndex(chrom_id, chrom_tracking);
-	FILE *wp = fopen(user_inputs->wig_file, "a");
+	int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
+	if (idx == -1) return;
+
+	FILE *wp = fopen(user_inputs->wgs_wig_file, "a");
 	fprintf(wp, "track type=wiggle_0 name=%s\n", user_inputs->bam_file);
 
 	for(i=0; i<target_bed_info->size; i++) {

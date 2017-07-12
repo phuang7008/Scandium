@@ -56,12 +56,12 @@ extern bool TARGET_FILE_PROVIDED;
 typedef struct {
 	//file info
 	char * bam_file;
-	char * cov_file;
+	char * capture_cov_file;
 	char * n_file;					// provide the regions with Ns in the reference genome in bed format
 	char * out_file;
 	char * target_file;
-	char * wig_file;				// output the off target good hit in wig formatted
-	char * wgs_file;				// output the whole genome coverage information
+	char * wgs_wig_file;				// output the off target good hit in wig formatted
+	char * wgs_cov_file;				// output the whole genome coverage information
 	char * missed_targets_file;		// for target regions that have no coverage at all
 	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
 	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
@@ -138,7 +138,7 @@ typedef struct {
 
     char **chromosome_ids;
     uint32_t *chromosome_lengths;
-    uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish processing, 3.done writing!
+    uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish coverage calculation, 3. done summary-report/annotation processing, 4.done writing!
 	bool more_to_read;
 } Chromosome_Tracking;
 

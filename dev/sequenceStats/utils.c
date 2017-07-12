@@ -217,18 +217,18 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     if (TARGET_FILE_PROVIDED) checkFile(user_inputs->target_file);
 
 	// for cov.fasta file name
-	createFileName(user_inputs->bam_file, &user_inputs->cov_file, ".cov.fasta");
+	createFileName(user_inputs->bam_file, &user_inputs->capture_cov_file, ".capture.cov.fasta");
 
 	// for target regions have no coverage at all
 	createFileName(user_inputs->bam_file, &user_inputs->missed_targets_file, ".missedTargets.txt");
 
 	// for off target good hit wig.fasta file name
 	if (user_inputs->Write_WIG)
-		createFileName(user_inputs->bam_file, &user_inputs->wig_file, ".wig.fasta");
+		createFileName(user_inputs->bam_file, &user_inputs->wgs_wig_file, ".wgs.wig.fasta");
 
 	// for whole genome (wgs) file name
 	if (user_inputs->wgs_coverage && user_inputs->Write_WGS) {
-		createFileName(user_inputs->bam_file, &user_inputs->wgs_file, ".wgs.fasta");
+		createFileName(user_inputs->bam_file, &user_inputs->wgs_cov_file, ".WGS.cov.fasta");
 		//printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	}
 
@@ -303,8 +303,8 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->bam_file)
 		free(user_inputs->bam_file);
 
-	if (user_inputs->cov_file) 
-		free(user_inputs->cov_file);
+	if (user_inputs->capture_cov_file) 
+		free(user_inputs->capture_cov_file);
 
 	if (user_inputs->missed_targets_file)
 		free(user_inputs->missed_targets_file);
@@ -315,11 +315,11 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->n_file)
 		free(user_inputs->n_file);
 
-	if (user_inputs->wig_file)
-		free(user_inputs->wig_file);
+	if (user_inputs->wgs_wig_file)
+		free(user_inputs->wgs_wig_file);
 
-	if (user_inputs->wgs_file)
-		free(user_inputs->wgs_file);
+	if (user_inputs->wgs_cov_file)
+		free(user_inputs->wgs_cov_file);
 
 	if (user_inputs->capture_all_site_file)
 		free(user_inputs->capture_all_site_file);
@@ -463,7 +463,8 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 }
 
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index) {
-	chrom_tracking->chromosome_ids[index] = calloc(50, sizeof(char));
+	uint8_t id_len = strlen(chrom_id);
+	chrom_tracking->chromosome_ids[index] = calloc(id_len+1, sizeof(char));
 	strcpy(chrom_tracking->chromosome_ids[index], chrom_id);
 	if (chrom_tracking->chromosome_ids[index] == NULL) {
 		printf("Allocation failed for chrom %s\n", chrom_id);
@@ -512,18 +513,50 @@ void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
 	free(chrom_tracking->coverage);
 }
 
-uint32_t locateChromosomeIndex(char *chrom_id, Chromosome_Tracking *chrom_tracking) {
-	uint32_t i=0;
-    for (i = 0; i < chrom_tracking->number_tracked; i++) {
-		if (chrom_tracking->chromosome_ids[i]) {
-			if (strcmp(chrom_id, chrom_tracking->chromosome_ids[i]) == 0) {
+char * dynamicStringAllocation(char *str_in, char *storage_str) {
+	char *tmp;
+	if (storage_str) {
+		if (strlen(str_in) > strlen(storage_str)) {
+			tmp = realloc(storage_str, strlen(str_in) + 1);
+			if (!tmp) {
+				fprintf(stderr, "Dynamic Memory allocation failed\n");
+				exit(1);
+			}
+		}
+	} else {
+		tmp = calloc(strlen(str_in) + 1, sizeof(char));
+	}
+
+	strcpy(tmp, str_in);
+	return tmp;
+}
+
+int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {
+	int32_t i=0;
+    for (i = 0; i < 25; i++) {
+		if (regions_in->chromosome_ids[i]) {
+			if (strcmp(chrom_id, regions_in->chromosome_ids[i]) == 0) {
 				return i;
 			}
         }
     }
 
-	fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
-	return 0;
+	//fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
+	return -1;
+}
+
+int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Tracking *chrom_tracking) {
+    int32_t i=0;
+    for (i = 0; i < chrom_tracking->number_tracked; i++) {
+        if (chrom_tracking->chromosome_ids[i]) {
+            if (strcmp(chrom_id, chrom_tracking->chromosome_ids[i]) == 0) {
+                return i;
+            }
+        }
+    }
+
+    //fprintf(stderr, "Something is wrong because the chromosome %s couldn't be found\n", chrom_id);
+    return -1;
 }
 
 Stats_Info * statsInfoInit() {
@@ -638,7 +671,7 @@ void zeroAllNsRegions(char *chrom_id, khash_t(str) *Ns_buffer_hash, Chromosome_T
 
 void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking) {
 	// First, we need to find the index that is used to track current chromosome chrom_id
-	uint32_t idx = locateChromosomeIndex(chrom_id, chrom_tracking);
+	uint32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
    	uint32_t i=0,j=0;
 
 	for (i=0; i<Ns_info->size; i++) {

@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     //fflush(stdout);
     //return 0;
 
-	// for MySQL connection
+	// for MySQL connection, need 2 (one for each thread)
 	MYSQL *con = mysql_init(NULL);
     if (con == NULL)
         finish_with_error(con);
@@ -96,16 +96,23 @@ int main(int argc, char *argv[]) {
     if (mysql_real_connect(con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
         finish_with_error(con);
 
+	MYSQL *con2 = mysql_init(NULL);
+    if (con2 == NULL)
+        finish_with_error(con2);
+
+    if (mysql_real_connect(con2, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL)
+        finish_with_error(con2);
+
 	// fetch regions that shouldn't use MySQL query
     Regions_Skip_MySQL *unique_exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *inter_genic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *intronic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
-    Regions_Skip_MySQL *all_site_reports = calloc(1, sizeof(Regions_Skip_MySQL));
+    //Regions_Skip_MySQL *all_site_reports = calloc(1, sizeof(Regions_Skip_MySQL));
 
     regionsSkipMySQLInit(con, inter_genic_regions, header, 1);
     regionsSkipMySQLInit(con, unique_exon_regions, header, 3);
     regionsSkipMySQLInit(con, intronic_regions, header, 2);
-    regionsSkipMySQLInit(con, all_site_reports, header, 4);
+    //regionsSkipMySQLInit(con, all_site_reports, header, 4);
 
 	// can't set to be static as openmp won't be able to handle it
 	uint32_t total_chunk_of_reads = 1000000;
@@ -113,9 +120,11 @@ int main(int argc, char *argv[]) {
 		if (user_inputs->num_of_threads == 1) {
 			total_chunk_of_reads = 32000000;
 		} else if (user_inputs->num_of_threads == 2) {
+            //total_chunk_of_reads = 16000000;
             total_chunk_of_reads = 2000000;
 		} else if (user_inputs->num_of_threads == 4) {
-            total_chunk_of_reads = 8000000;
+            //total_chunk_of_reads = 8000000;
+            total_chunk_of_reads = 500000;
 		} else if (user_inputs->num_of_threads == 6) {
 			total_chunk_of_reads = 5000000;
 		} else if (user_inputs->num_of_threads == 8) {
@@ -135,95 +144,140 @@ int main(int argc, char *argv[]) {
 	fflush(stdout);
 
 	// now let's do the parallelism
-	while(chrom_tracking->more_to_read) {
-#pragma omp parallel shared(read_buff) num_threads(user_inputs->num_of_threads)
-		{
-			int num_of_threads = omp_get_num_threads();	
-			int thread_id = omp_get_thread_num();
-			readBufferInit(&read_buff[thread_id]);
-			uint32_t num_records = 0;
-			//printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
+    while(chrom_tracking->more_to_read) {
+#pragma omp parallel shared(read_buff, chrom_tracking) num_threads(user_inputs->num_of_threads)
+      {
+        int num_of_threads = omp_get_num_threads();	
+        int thread_id = omp_get_thread_num();
+        readBufferInit(&read_buff[thread_id]);
+        uint32_t num_records = 0;
+        //printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
 
 #pragma omp critical 
-			{
-				// this part of the code need to run atomically, that is only one thread should allow access to read
-				num_records = readBam(sfd, header, chrom_tracking, &read_buff[thread_id]);
-				read_buff[thread_id].size = num_records;
-			}
-			//printf("First Critical position for thread %d\n", thread_id);
+        {
+          // this part of the code need to run atomically, that is only one thread should allow access to read
+          num_records = readBam(sfd, header, chrom_tracking, &read_buff[thread_id]);
+          read_buff[thread_id].size = num_records;
+        }
+        //printf("First Critical position for thread %d\n", thread_id);
 
-			if (num_records == 0) {
-				printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
-				//readBufferDestroy(&read_buff[thread_id]);
-				if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
-			}
+        if (num_records == 0) {
+          printf("No more to read for thread %d for a total of %d threads!!!!!!!!!!!!\n", thread_id, num_of_threads);
+          //readBufferDestroy(&read_buff[thread_id]);
+          if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
+        }
 
-			Coverage_Stats *cov_stats = coverageStatsInit();
-			khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
+        Coverage_Stats *cov_stats = coverageStatsInit();
+        khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
 
-			// can not use the else {} with the previous if {} block, otherwise the barrier will wait forever!
-			if (num_records > 0) {
-				printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
+        // can not use the else {} with the previous if {} block, otherwise the barrier will wait forever!
+        if (num_records > 0) {
+          printf("After file reading: Thread %d performed %d iterations of the loop.\n", thread_id, num_records);
 
-				processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id);
-			}
+          processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id);
+        }
 
-			// release the allocated chunk of buffer for alignment reads after they have been processed!
-		    printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
-			readBufferDestroy(&read_buff[thread_id]);
-			//printf("Before Second Critical position for thread %d\n", thread_id);
+        // release the allocated chunk of buffer for alignment reads after they have been processed!
+        printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
+        readBufferDestroy(&read_buff[thread_id]);
+        //printf("Before Second Critical position for thread %d\n", thread_id);
 #pragma omp critical
-			if (num_records > 0) {
-				//printf("Before writing to the coverage array for Thread %d\n", thread_id);
-				combineThreadResults(chrom_tracking, coverage_hash, header);
-				combineCoverageStats(stats_info, cov_stats);
-				//printf("after writing to the coverage array for Thread %d\n", thread_id);
+        {
+          if (num_records > 0) {
+            //printf("Before writing to the coverage array for Thread %d\n", thread_id);
+            combineThreadResults(chrom_tracking, coverage_hash, header);
+            combineCoverageStats(stats_info, cov_stats);
+            //printf("after writing to the coverage array for Thread %d\n", thread_id);
 
-				cleanKhashStr(coverage_hash, 1);
-				free(cov_stats);
+            cleanKhashStr(coverage_hash, 1);
+            free(cov_stats);
 
-				// since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
-	        	if (!chrom_tracking->more_to_read) {
-	            	for(i=0; i<header->n_targets; i++) {
-        	        	if (chrom_tracking->chromosome_status[i] == 1)
-                        	chrom_tracking->chromosome_status[i] = 2;
-					}
-            	}
-        	}
-			//printf("After Second Critical position for thread %d\n", thread_id);
+            // since all reads have been process, we need to set the status for all chromosomes (especially the last one to 2)
+            if (!chrom_tracking->more_to_read) {
+              for(i=0; i<header->n_targets; i++) {
+                if (chrom_tracking->chromosome_status[i] == 1)
+                  chrom_tracking->chromosome_status[i] = 2;
+              }
+            }
+          }
+        }
+        //printf("After Second Critical position for thread %d\n", thread_id);
 
 // setup a barrier here and wait for every one of them to reach this point!
 #pragma omp barrier 
-
-			// check to see if any of the chromosomes has finished. If so, write the results out
-#pragma omp critical
-			{
-				if (num_records > 0) {
-					for (i=0; i<header->n_targets; i++) {
-						if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-							printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-							writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con, inter_genic_regions, intronic_regions, unique_exon_regions, all_site_reports);
-						
-							// now write the off targets into a wig file
-							if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
-								produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, stats_info);
-
-							// clean up the array allocated
-							//printf("free the big array for current chromosome %s\n", chrom_tracking->chromosome_ids[i]);
-							if (chrom_tracking->coverage[i]) {
-								free(chrom_tracking->coverage[i]);
-								chrom_tracking->coverage[i] = NULL;
-							}
-							chrom_tracking->chromosome_status[i] = 3;
-						}
-					}
-				}
-			}
-			//if (chrom_tracking->chromosome_status[0] == 3) chrom_tracking->more_to_read = false;
-			printf("End of while loop before flush for thread %d\n", thread_id);
-			fflush(stdout);
+        // check to see if any of the chromosomes has finished. If so, write the results out
+        {
+//#pragma omp critical
+#pragma omp single
+          {
+            if (num_records > 0) {
+              for (i=0; i<header->n_targets; i++) {
+                if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
+                  // for the whole genome, we need to use the file that contains regions of all Ns in the reference
+                  // As they will be not used, so we are going to set the count info in these regions to 0
+                  if (N_FILE_PROVIDED)
+                    zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking);
+                }
+              }
+            }
+		  }
 		}
-	}
+
+#pragma omp barrier
+        {
+          if (num_records > 0) {
+		    for (i=0; i<header->n_targets; i++) {
+              if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
+                printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
+#pragma omp sections
+                {
+				  printf("Inside sections with chromosome id %s for thread id %d\n", chrom_tracking->chromosome_ids[i], thread_id);
+#pragma omp section
+                  {
+                    printf("Thread %d is now producing coverage information for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
+                    writeCoverage(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con, inter_genic_regions, intronic_regions, unique_exon_regions, all_site_reports);
+						
+                    // now write the off targets into a wig file
+                    if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
+                      produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, stats_info);
+                  }
+
+#pragma omp section
+                  {
+                    printf("Thread %d is now writing annotation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
+                    writeAnnotations(chrom_tracking->chromosome_ids[i], Ns_bed_info, target_bed_info, chrom_tracking, user_inputs, stats_info, con2, inter_genic_regions, intronic_regions, unique_exon_regions, all_site_reports);
+                  }
+                }
+              }
+            }
+		  }
+		}
+
+#pragma omp barrier 
+        {
+#pragma omp single
+//#pragma omp critical
+          {
+            if (num_records > 0) {
+              for (i=0; i<header->n_targets; i++) {
+                if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
+                  // clean up the array allocated
+                  if (chrom_tracking->coverage[i]) {
+                    free(chrom_tracking->coverage[i]);
+                    chrom_tracking->coverage[i] = NULL;
+                  }
+                  chrom_tracking->chromosome_status[i] = 3;
+                }
+              }
+            }
+          }
+        }
+
+        printf("End of while loop before flush for thread %d\n", thread_id);
+      }
+	  printf("\n");
+      fflush(stdout);
+    }
 
 	sam_close(sfd);
 
@@ -269,13 +323,14 @@ int main(int argc, char *argv[]) {
 	regionsSkipMySQLDestroy(inter_genic_regions, 1);
 	regionsSkipMySQLDestroy(unique_exon_regions, 3);
 	regionsSkipMySQLDestroy(intronic_regions, 2);
-	regionsSkipMySQLDestroy(all_site_reports, 4);
+	//regionsSkipMySQLDestroy(all_site_reports, 4);
 
 	userInputDestroy(user_inputs);
 	bam_hdr_destroy(header);
 
 	// MySQL disconnection
 	mysql_close(con);
+	mysql_close(con2);
 	mysql_library_end();
 
 	return 0;
