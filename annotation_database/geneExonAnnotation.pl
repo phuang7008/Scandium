@@ -14,12 +14,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Gene_RefSeq_Exon2");
+	$dbh->do("DROP TABLE IF EXISTS Gene_RefSeq_Exon38");
 };
 
 # now create table again
 $dbh->do(qq{
-  CREATE TABLE Gene_RefSeq_Exon2 (
+  CREATE TABLE Gene_RefSeq_Exon38 (
   `id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `exon_target_start` INT UNSIGNED NOT NULL,
@@ -64,7 +64,7 @@ while (<IN>) {
 		}
 
 		# now do the insertion
-		$sql = "INSERT INTO Gene_RefSeq_Exon2 VALUES (0, '$items[0]', $items[1], $items[2], $exon_id, 1, $refseq_start, $refseq_end, '$gene_symbol', '$refseq_name')";
+		$sql = "INSERT INTO Gene_RefSeq_Exon38 VALUES (0, '$items[0]', $items[1], $items[2], $exon_id, 1, $refseq_start, $refseq_end, '$gene_symbol', '$refseq_name')";
 		$sth = $dbh->prepare($sql) or die "Query problem $!\n";
 		$sth->execute() or die "Execution problem $!\n";
 	}
@@ -73,7 +73,7 @@ while (<IN>) {
 print("Finish DB dumping. Now update exon count info\n");
 
 # now I need to update the exon_count information
-$sql = "select refseq_name, count(exon_id) from Gene_RefSeq_Exon2 group by refseq_name";
+$sql = "select refseq_name, count(exon_id) from Gene_RefSeq_Exon38 group by refseq_name";
 $sth=$dbh->prepare($sql) or die "DB query error: $!";
 $sth->execute() or die "DB execution error: $!";
 
@@ -84,7 +84,7 @@ while ( my($refseq_name, $count) = $sth->fetchrow_array) {
 
 foreach my $refseq_name (keys %refseq) {
     # now update the table
-    $sql = "UPDATE Gene_RefSeq_Exon2 SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
+    $sql = "UPDATE Gene_RefSeq_Exon38 SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
     $sth = $dbh->prepare($sql) or die "Query problem $!\n";
     $sth->execute() or die "Execution problem $!\n";
 }

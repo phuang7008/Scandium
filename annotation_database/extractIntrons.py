@@ -16,8 +16,6 @@ def main(argv):
 	processFile(in_file)
 
 def processFile(file_in):
-	wfh = open(file_in + ".intron", "w")
-
 	with open(file_in, 'r') as rfh:
 		for line in rfh:
 			if "chrom" not in line:
@@ -28,9 +26,9 @@ def processFile(file_in):
 				prev_end   = int(ends[0])
 				for idx in range(1,int(items[5])):
 					if (len(items) == 9):
-						wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[1], prev_end, int(starts[idx]), items[0]+"="+items[8], items[8]))
+						print("%s\t%d\t%d\t%s\t%s\n" % (items[1], prev_end, int(starts[idx]), items[0]+"="+items[8], items[8]))
 					else:
-						wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[1], prev_end, int(starts[idx]), items[0], '.'))
+						print("%s\t%d\t%d\t%s\t%s\n" % (items[1], prev_end, int(starts[idx]), items[0], '.'))
 
 					prev_start = int(starts[idx])
 					prev_end = int(ends[idx])

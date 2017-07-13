@@ -17,13 +17,12 @@ def main(argv):
 	processFile(in_file)
 
 def processFile(file_in):
-	wfh = open(file_in + ".bed", "w")
 
 	with open(file_in, 'r') as rfh:
 		for line in rfh:
 			if "chrom" not in line:
 				items  = line.rstrip("\n").split()
-				wfh.write("%s\t%d\t%d\t%s\t%s\n" % (items[0], int(items[1]), int(items[2]), items[3]+"="+items[4], items[4]))
+				print("%s\t%d\t%d\t%s\t%s" % (items[0], int(items[1]), int(items[2]), items[3]+"="+items[4], items[4]))
 
 
 if __name__ == "__main__":

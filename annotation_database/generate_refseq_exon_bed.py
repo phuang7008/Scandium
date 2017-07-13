@@ -25,12 +25,7 @@ def processFile(file_in):
 				starts = items[6].split(",")
 				ends   = items[7].split(",")
 				for idx in range(0,int(items[5])):
-					if (len(items) == 9): 
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8], items[8]))
-					else:
-						# for CCDS as it doesn't have name2 field
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx), "."))
-
+					print("%s\t%d\t%d\t%s\t%s\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8]+"="+items[3]+"="+items[4], items[8]))
 
 
 if __name__ == "__main__":
