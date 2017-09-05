@@ -22,7 +22,7 @@ def processFile(file_in):
 		for line in rfh:
 			if "chrom" not in line:
 				items  = line.rstrip("\n").split()
-				print("%s\t%d\t%d\t%s\t%s" % (items[0], int(items[1]), int(items[2]), items[3]+"="+items[4], items[4]))
+				print("%s\t%d\t%d\t%s\t%s" % (items[0], int(items[1]), int(items[2]), items[3]+"_exon_0"+"="+items[4], items[4]))
 
 
 if __name__ == "__main__":

@@ -7,37 +7,39 @@ def main(argv):
 	try:
 		opts, args = getopt.getopt(argv, "i:", ["ifile="])
 	except getopt.GetoptError:
-		print("extractIntrons.py -i <inputfile>" )
+		print("generate_bedfile.py -i <inputfile>" )
 	
 	for opt, arg in opts:
 		if opt in ("-i", "--ifile"):
 			in_file = arg
+			#print("in\n")
 	#print("The input file is ", in_file)
 	processFile(in_file)
 
 def processFile(file_in):
+
 	with open(file_in, 'r') as rfh:
 		for line in rfh:
 			if "chrom" not in line:
 				items  = line.rstrip("\n").split()
 				starts = items[6].split(",")
 				ends   = items[7].split(",")
-				prev_start = int(starts[0])
-				prev_end   = int(ends[0])
-
+				
 				# some version of gene annotation has 'chr' in front of chromosome id, so let's remove them
-				items[1] = items[1].replace("chr", "")
-				items[1] = items[1].replace("Chr", "")
-				items[1] = items[1].replace("CHR", "")
+				items[1] = items[1].replace("chr", "");
+				items[1] = items[1].replace("Chr", "");
+				items[1] = items[1].replace("CHR", "");
 
-				for idx in range(1,int(items[5])):
-					if (len(items) == 9):
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], prev_end, int(starts[idx]), items[0]+"="+items[8], items[8]))
-					else:
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], prev_end, int(starts[idx]), items[0], '.'))
+				for idx in range(0,int(items[5])):
+					start=int(starts[idx])
+					end=int(ends[idx])
 
-					prev_start = int(starts[idx])
-					prev_end = int(ends[idx])
+					# take care the reverse strand
+					exon_id = idx
+					if (items[2] == "-"):
+						exon_id = int(items[5]) - idx - 1
+
+					print("%s\t%d\t%d\t%s\t%s" % (items[1], start, end, items[0]+"_"+str(exon_id)+"="+items[8]+"="+str(start)+"="+str(end), items[8]))
 
 
 if __name__ == "__main__":

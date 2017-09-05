@@ -14,12 +14,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Intron_Regions38");
+	$dbh->do("DROP TABLE IF EXISTS Intron_Regions37");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE Intron_Regions38 (
+CREATE TABLE Intron_Regions37 (
   `in_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
@@ -63,19 +63,15 @@ while (<IN>) {
 		my $sql;
 
 		if ($sn=~/^N.*/ || $sn=~/^X.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
+			$sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
 		}
 
-		if ($sn=~/^uc.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
+		if ($sn=~/^OTT.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
 		}
-
-		if ($sn=~/^EN.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
-        }
 
 		if ($sn=~/^CCDS.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
+			$sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
 		}
 
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
@@ -115,7 +111,7 @@ while (<IN>) {
 		}
 	}
 
-	my $sql = "INSERT INTO Intron_Regions38 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene')";
+	my $sql = "INSERT INTO Intron_Regions37 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }

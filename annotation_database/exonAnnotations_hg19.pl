@@ -14,12 +14,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Exon_Regions38");
+	$dbh->do("DROP TABLE IF EXISTS Exon_Regions37");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE Exon_Regions38 (
+CREATE TABLE Exon_Regions37 (
   `ex_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
@@ -63,27 +63,22 @@ while (<IN>) {
 
 		my $sql;
 
-        if ($sn=~/^N.*/ || $sn=~/^X.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
+        if ($sn=~/^N.*/) {
+            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
         }
 
-        if ($sn=~/^uc.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
-        }
-
-		if ($sn=~/^EN.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
+        if ($sn=~/^OTT.*/) {
+            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
         }
 
         if ($sn=~/^CCDS.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
+            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
         }
 
 		if ($sn=~/^hsa.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC38 WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
+			$sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
 		}
 
-		#my $sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (symbol='$name2') OR (symbol='$name') OR (ccds_id IS NOT NULL AND find_in_set('$name', replace(ccds_id, '|', ','))) OR (refseq_accession IS NOT NULL AND find_in_set('$name', replace(refseq_accession, '|', ','))) OR (vega_id IS NOT NULL AND find_in_set('$name', replace(vega_id, '|', ',')))";
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
 		$sth->execute() or die "DB execution error: $!";
 
@@ -121,15 +116,15 @@ while (<IN>) {
 		}
 	}
 
-	my ($refseq, $ccds, $gencode, $miRNA) = (".", ".", ".", ".");
-	#if ($items[1] == 17369) {
-	#	print("inside\n");
-	#}
+	my ($refseq, $ccds, $vega, $miRNA) = (".", ".", ".", ".");
+	if ($items[1] == 17369) {
+		print("inside\n");
+	}
 
 	foreach my $ex (sort keys %exons) {
 		next if ($ex eq "." || $ex eq "");
 
-		if ($ex=~/^N.*/ || $ex=~/^X.*/) {
+		if ($ex=~/^N.*/) {
 			$refseq = $refseq eq "." ? $ex : "$refseq;$ex";
 		}
 
@@ -137,22 +132,18 @@ while (<IN>) {
 			$ccds = $ccds eq "." ? $ex : "$ccds;$ex";
 		}
 
-		if ($ex=~/^uc.*/) {
-			$gencode = $gencode eq "." ? $ex : "$gencode;$ex";
+		if ($ex=~/^OTT.*/) {
+			$vega = $vega eq "." ? $ex : "$vega;$ex";
 		}
-
-		if ($ex=~/^EN.*/) {
-            $gencode = $gencode eq "." ? $ex : "$gencode;$ex";
-        }
 
 		if ($ex=~/^hsa.*/) {
 			$miRNA = $miRNA eq "." ? $ex : "$miRNA;$ex";
 		}
 	}
 
-	my $annotations = "$refseq\t$ccds\t$gencode\t$miRNA";
+	my $annotations = "$refseq\t$ccds\t$vega\t$miRNA";
 
-	my $sql = "INSERT INTO Exon_Regions38 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
+	my $sql = "INSERT INTO Exon_Regions37 VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }

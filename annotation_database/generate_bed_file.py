@@ -24,12 +24,23 @@ def processFile(file_in):
 				items  = line.rstrip("\n").split()
 				starts = items[6].split(",")
 				ends   = items[7].split(",")
+
+				# some version of gene annotation has 'chr' in front of chromosome id, so let's remove them
+				items[1] = items[1].replace("chr", "");
+				items[1] = items[1].replace("Chr", "");
+				items[1] = items[1].replace("CHR", "");
+
 				for idx in range(0,int(items[5])):
+					# take care of the reverse strand
+					exon_id = idx
+					if (items[2] == "-"):
+						exon_id = int(items[5]) - idx - 1
+
 					if (len(items) == 9): 
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8], items[8]))
+						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id)+"="+items[8], items[8]))
 					else:
 						# for CCDS as it doesn't have name2 field
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx), "."))
+						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id), "."))
 
 
 

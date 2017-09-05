@@ -6,6 +6,13 @@ use Data::Dumper;
 use DBI;
 
 my $file = shift || die "Please enter the name of the RefSeq annotation\n";
+my $type = shift || die "Please enter the type of the analysis hg19 vs hg38\n";
+my $database;
+if ($type eq "hg38") {
+	$database = "Capture_Regions38";
+} else {
+	$database = "Capture_Regions37";
+}
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -14,27 +21,31 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Gene_RefSeq_Exon38");
+	$dbh->do("DROP TABLE IF EXISTS $database");
 };
 
 # now create table again
 $dbh->do(qq{
-  CREATE TABLE Gene_RefSeq_Exon38 (
+  CREATE TABLE $database (
   `id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
-  `exon_target_start` INT UNSIGNED NOT NULL,
-  `exon_target_end` INT UNSIGNED NOT NULL,
+  `start` INT UNSIGNED NOT NULL,
+  `end` INT UNSIGNED NOT NULL,
+  `exon_start` INT UNSIGNED NOT NULL,
+  `exon_end` INT UNSIGNED NOT NULL,
+  `target_start` INT UNSIGNED NOT NULL,
+  `target_end` INT UNSIGNED NOT NULL,
   `exon_id` INT UNSIGNED NOT NULL,
   `exon_count` INT UNSIGNED NOT NULL,
-  `refseq_start` INT UNSIGNED NOT NULL,
-  `refseq_end` INT UNSIGNED NOT NULL,
   `gene_symbol`    varchar(200) NOT NULL,
   `refseq_name`    varchar(200) NOT NULL,
   PRIMARY KEY (id),
   INDEX `CHR` (`chrom`),
-  INDEX START (refseq_start),
-  INDEX END (refseq_end),
-  INDEX `COMP` (`chrom`, exon_target_start, exon_target_end),
+  INDEX START (target_start),
+  INDEX END (target_end),
+  INDEX EXON_START (exon_start),
+  INDEX EXON_END (exon_end),
+  INDEX `COMP` (`chrom`, start, end),
   INDEX `SYM` (`gene_symbol`),
   INDEX `NAME` (`refseq_name`)
 ) ENGINE=InnoDB;
@@ -51,7 +62,7 @@ while (<IN>) {
 	my @info = split(/;/, $items[3]);
 
 	foreach my $region (@info) {
-		my ($ref_exon_id, $gene_symbol, $refseq_start, $refseq_end) = split(/=/, $region);
+		my ($ref_exon_id, $gene_symbol, $exon_start, $exon_end) = split(/=/, $region);
 		my ($refseq_name, $exon_id);
 	   	if ($ref_exon_id=~/(^N.*)_(\d+)$/) {
 			($refseq_name, $exon_id) = ($1, $2);
@@ -69,7 +80,7 @@ while (<IN>) {
 		}
 
 		# now do the insertion
-		$sql = "INSERT INTO Gene_RefSeq_Exon38 VALUES (0, '$items[0]', $items[1], $items[2], $exon_id, 1, $refseq_start, $refseq_end, '$gene_symbol', '$refseq_name')";
+		$sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], $exon_start, $exon_end, $items[5], $items[6], $exon_id, 1, '$gene_symbol', '$refseq_name')";
 		$sth = $dbh->prepare($sql) or die "Query problem $!\n";
 		$sth->execute() or die "Execution problem $!\n";
 	}
@@ -78,7 +89,7 @@ while (<IN>) {
 print("Finish DB dumping. Now update exon count info\n");
 
 # now I need to update the exon_count information
-$sql = "select refseq_name, count(exon_id) from Gene_RefSeq_Exon38 group by refseq_name";
+$sql = "select refseq_name, count(exon_id) from $database group by refseq_name";
 $sth=$dbh->prepare($sql) or die "DB query error: $!";
 $sth->execute() or die "DB execution error: $!";
 
@@ -89,7 +100,7 @@ while ( my($refseq_name, $count) = $sth->fetchrow_array) {
 
 foreach my $refseq_name (keys %refseq) {
     # now update the table
-    $sql = "UPDATE Gene_RefSeq_Exon38 SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
+    $sql = "UPDATE $database SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
     $sth = $dbh->prepare($sql) or die "Query problem $!\n";
     $sth->execute() or die "Execution problem $!\n";
 }

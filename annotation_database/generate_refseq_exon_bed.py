@@ -7,7 +7,7 @@ def main(argv):
 	try:
 		opts, args = getopt.getopt(argv, "i:", ["ifile="])
 	except getopt.GetoptError:
-		print("generate_bedfile.py -i <inputfile>" )
+		print("./generate_refseq_exon_bed.py -i <inputfile>" )
 	
 	for opt, arg in opts:
 		if opt in ("-i", "--ifile"):
@@ -21,11 +21,23 @@ def processFile(file_in):
 	with open(file_in, 'r') as rfh:
 		for line in rfh:
 			if "chrom" not in line:
+				# the order of item list is: name, chrom_id, strand, gene_start, gene_end, exon_count, exon_starts, exon_ends, gene_symbol
 				items  = line.rstrip("\n").split()
 				starts = items[6].split(",")
 				ends   = items[7].split(",")
+				
+				# some version of gene annotation has 'chr' in front of chromosome id, so let's remove them
+				items[1] = items[1].replace("chr", "");
+				items[1] = items[1].replace("Chr", "");
+				items[1] = items[1].replace("CHR", "");
+
 				for idx in range(0,int(items[5])):
-					print("%s\t%d\t%d\t%s\t%s\n" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(idx)+"="+items[8]+"="+items[3]+"="+items[4], items[8]))
+					# take care the reverse strand issue
+					exon_id = idx
+					if (items[2] == "-"): 
+						exon_id = int(items[5]) - idx - 1
+
+					print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(exon_id)+"="+items[8]+"="+items[3]+"="+items[4], items[8]))
 
 
 if __name__ == "__main__":

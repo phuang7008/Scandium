@@ -14,12 +14,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Gene_RefSeq_Exon38");
+	$dbh->do("DROP TABLE IF EXISTS Gene_RefSeq_Exon37");
 };
 
 # now create table again
 $dbh->do(qq{
-  CREATE TABLE Gene_RefSeq_Exon38 (
+  CREATE TABLE Gene_RefSeq_Exon37 (
   `id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `exon_target_start` INT UNSIGNED NOT NULL,
@@ -52,16 +52,16 @@ while (<IN>) {
 
 	foreach my $region (@info) {
 		my ($ref_exon_id, $gene_symbol, $refseq_start, $refseq_end) = split(/=/, $region);
-		my ($refseq_name, $exon_id);
-	   	if ($ref_exon_id=~/(^N.*)_(\d+)$/) {
-			($refseq_name, $exon_id) = ($1, $2);
-		} elsif ($ref_exon_id=~/(^X.*)_(\d+)$/) {
-			($refseq_name, $exon_id) = ($1, $2);
-		}
+		my ($refseq_name, $exon_id) = ($1, $2) if ($ref_exon_id=~/(^N.*)_(\d+)$/);
+		if ($ref_exon_id=~/(^N.*)_(\d+)$/) {
+            ($refseq_name, $exon_id) = ($1, $2);
+        } elsif ($ref_exon_id=~/(^X.*)_(\d+)$/) {
+            ($refseq_name, $exon_id) = ($1, $2);
+        }
 		
 		my ($sql, $sth);
 		if (!defined $gene_symbol) {
-			$sql = "SELECT symbol FROM HGNC38 WHERE (refseq_accession IS NOT NULL AND find_in_set('$refseq_name', refseq_accession))";
+			$sql = "SELECT symbol FROM HGNC37 WHERE (refseq_accession IS NOT NULL AND find_in_set('$refseq_name', refseq_accession))";
 			$sth = $dbh->prepare($sql) or die "DB query error: $!";
 			$sth->execute() or die "DB execution error: $!";
 
@@ -69,7 +69,7 @@ while (<IN>) {
 		}
 
 		# now do the insertion
-		$sql = "INSERT INTO Gene_RefSeq_Exon38 VALUES (0, '$items[0]', $items[1], $items[2], $exon_id, 1, $refseq_start, $refseq_end, '$gene_symbol', '$refseq_name')";
+		$sql = "INSERT INTO Gene_RefSeq_Exon37 VALUES (0, '$items[0]', $items[1], $items[2], $exon_id, 1, $refseq_start, $refseq_end, '$gene_symbol', '$refseq_name')";
 		$sth = $dbh->prepare($sql) or die "Query problem $!\n";
 		$sth->execute() or die "Execution problem $!\n";
 	}
@@ -78,7 +78,7 @@ while (<IN>) {
 print("Finish DB dumping. Now update exon count info\n");
 
 # now I need to update the exon_count information
-$sql = "select refseq_name, count(exon_id) from Gene_RefSeq_Exon38 group by refseq_name";
+$sql = "select refseq_name, count(exon_id) from Gene_RefSeq_Exon37 group by refseq_name";
 $sth=$dbh->prepare($sql) or die "DB query error: $!";
 $sth->execute() or die "DB execution error: $!";
 
@@ -89,7 +89,7 @@ while ( my($refseq_name, $count) = $sth->fetchrow_array) {
 
 foreach my $refseq_name (keys %refseq) {
     # now update the table
-    $sql = "UPDATE Gene_RefSeq_Exon38 SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
+    $sql = "UPDATE Gene_RefSeq_Exon37 SET exon_count=$refseq{$refseq_name} WHERE refseq_name='$refseq_name'";
     $sth = $dbh->prepare($sql) or die "Query problem $!\n";
     $sth->execute() or die "Execution problem $!\n";
 }
