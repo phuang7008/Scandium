@@ -7,12 +7,8 @@ use DBI;
 
 my $file = shift || die "Please enter the name of the RefSeq annotation\n";
 my $type = shift || die "Please enter the type of the analysis hg19 vs hg38\n";
-my $database;
-if ($type eq "hg38") {
-	$database = "Capture_Regions38";
-} else {
-	$database = "Capture_Regions37";
-}
+my $database = $type eq "hg38" ? "Capture_Regions38" : "Capture_Regions37";
+my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -72,7 +68,7 @@ while (<IN>) {
 		
 		my ($sql, $sth);
 		if (!defined $gene_symbol) {
-			$sql = "SELECT symbol FROM HGNC38 WHERE (refseq_accession IS NOT NULL AND find_in_set('$refseq_name', refseq_accession))";
+			$sql = "SELECT symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$refseq_name', refseq_accession))";
 			$sth = $dbh->prepare($sql) or die "DB query error: $!";
 			$sth->execute() or die "DB execution error: $!";
 

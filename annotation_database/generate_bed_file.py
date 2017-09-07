@@ -37,10 +37,10 @@ def processFile(file_in):
 						exon_id = int(items[5]) - idx - 1
 
 					if (len(items) == 9): 
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id)+"="+items[8], items[8]))
+						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id)+"_"+items[5]+"="+items[8], items[8]))
 					else:
 						# for CCDS as it doesn't have name2 field
-						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id), "."))
+						print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_exon_"+str(exon_id)+"_"+items[5], "."))
 
 
 

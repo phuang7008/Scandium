@@ -5,7 +5,7 @@
 #
 if [[ $# -ne 2 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_refseq_exon_annotation_databases.sh target_bed_file output_dir"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_refseq_exon_annotation_databases.sh target_bed_file output_dir db_version(hg38 or hg37)"
 	exit
 fi
 
@@ -21,10 +21,16 @@ pwd
 #echo `$BASEDIR`
 printf "$BASEDIR\n"
 
+gene_db_version=$3
+
 # here we are only interested in refseq source of annotation.
 # since some refseq names are the same but at different chromosome locations, we need to separate them.
 # For example: The name will be changed from NM_000015 to NM_000015-1, NM_000015-2 etc
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+if [ "$gene_db_version" == "hg38" ]; then
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+else
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
+fi
 
 # untar the zipped files
 renamed_file='RefSeq_renamed'
@@ -67,7 +73,7 @@ echo "bedtools intersect to produce $exon_target_intersect_file from $refseq_sor
 # Finally, dump everything into MySQL database named: Gene_RefSeq_Exon
 #
 echo "dump all exons into MySQL database Gene_RefSeq_Exon38 ==> geneExonAnnotation_liftover.pl $exon_target_intersect_file"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/geneExonAnnotation.pl "$exon_target_intersect_file"
+/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/geneExonAnnotation.pl "$exon_target_intersect_file" "$gene_db_version"
 
 ####
 #END

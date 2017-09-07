@@ -6,24 +6,27 @@ use Data::Dumper;
 use DBI;
 
 my $file = shift || die "Please enter the name of the HGNC file $!\n";
+my $type = shift || die "Please enter the version of annotation hg38 or hg37\n";
+my $database = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
 
 # drop the table first
 eval {
-    $dbh->do("DROP TABLE IF EXISTS HGNC38");
+    $dbh->do("DROP TABLE IF EXISTS $database");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE HGNC38 (
+CREATE TABLE $database (
   `hgnc_id` INT UNSIGNED NOT NULL,
   `symbol`  varchar(150) NOT NULL,
   `alias_symbol` varchar(150) NULL,
   `prev_symbol` varchar(150) NULL,
   `ensembl_gene_id` varchar(150) NULL,
   `ucsc_id` varchar(150) NULL,
+  `vega_id` varchar(150) NULL,
   `refseq_accession` varchar(150) NULL,
   `ccds_id` varchar(150) NULL,
   `mirbase` varchar(150) NULL,
@@ -32,6 +35,7 @@ CREATE TABLE HGNC38 (
   INDEX `CCDS` (`ccds_id`),
   INDEX `UCSC` (`ucsc_id`),
   INDEX `EMSEMBL` (`ensembl_gene_id`),
+  INDEX `VEGA` (`vega_id`),
   INDEX `MIR` (`mirbase`),
   INDEX `SYM` (`symbol`)
 ) ENGINE=MyISAM;
@@ -53,10 +57,11 @@ while(<IN>) {
 	if ($items[6] eq "") { $items[6]=undef; }
 	if ($items[7] eq "") { $items[7]=undef; }
 	if ($items[8] eq "") { $items[8]=undef; }
+	if ($items[9] eq "") { $items[9]=undef; }
 
-	$sql = "INSERT INTO HGNC38 (hgnc_id, symbol, alias_symbol, prev_symbol, ensembl_gene_id, ucsc_id, refseq_accession, ccds_id, mirbase) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+	$sql = "INSERT INTO $database (hgnc_id, symbol, alias_symbol, prev_symbol, ensembl_gene_id, vega_id, ucsc_id, refseq_accession, ccds_id, mirbase) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 	$sth = $dbh->prepare($sql) or die "DB query error: $!";
-	$sth->execute($items[0], $items[1], $items[2], $items[3], $items[4], $items[5], $items[6], $items[7], $items[8]);
+	$sth->execute($items[0], $items[1], $items[2], $items[3], $items[4], $items[5], $items[6], $items[7], $items[8], $items[9]);
 }
 
 $dbh->disconnect();

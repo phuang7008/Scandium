@@ -3,9 +3,9 @@
 # This script is used to setup the gene intronic annotation database for sequencing analysis
 # First, we need to run the exon_annotation_databases.sh to create sorted_merged_partitioned_exon_file
 #
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE output_directory"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE output_directory db_version(hg38 or hg37)"
 	exit
 fi
 
@@ -16,30 +16,26 @@ pwd
 #echo `$BASEDIR`
 printf "$BASEDIR\n"
 
+gene_db_version=$3
+
 # since miRNAs don't contain introns, so we don't have to worry about them here
 partitioned_Sorted_Merged_Exon_FILE=$1
 
-# for HGNC official gene_symbol and dump them into the MySQL database
-# This part should be already done by setup_exon_annotation_databases.sh script
-#
-#rsync -a -P rsync://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt .
-#HGNC='hgnc_complete_set.txt'
-#HGNC_simplified='hgnc_simplified'
-#cat $HGNC | cut -f 1,2,9,11,20,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed s/\|/,/g > $HGNC_simplified
-#printf "dump $HGNC_simplified info into DB using processHGNCtoDB.pl \n"
-#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/processHGNCtoDB.pl "$HGNC_simplified"
-
-# now get rid of .txt file extension before preceed, as we will unzip the tar file into .txt
-#for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
-#mv "hgnc_complete_set" "hgnc_complete_set.txt"
-
 # now we need to download the newest gene annotation from various sources (such as refseq, ccds and gencode)
 #
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
-#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
-#rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+if [ "$gene_db_version" == "hg38" ]; then
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
+    #rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
+    #rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+else
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
+    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGene.txt.gz .
+    #rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGtp.txt.gz .
+    #rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+fi
 
 # untar the zipped files
 if [ "$(uname)" == "Darwin" ]; then
@@ -92,7 +88,7 @@ echo "General final intronic regions with annotation from $introns_partitioned b
 # Finally, dump everything into MySQL database named: Intron_Regions38
 #
 echo "dump all partitioned introns into MySQL database Intron_Regions38 ==> forIntronicRegions.pl $introns_partitioned"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/forIntronicRegions.pl "$final_intron_regions"
+/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/forIntronicRegions.pl "$final_intron_regions" "$gene_db_version"
 
 ####
 #END

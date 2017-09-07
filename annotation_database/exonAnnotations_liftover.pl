@@ -6,6 +6,9 @@ use Data::Dumper;
 use DBI;
 
 my $file = shift || die "Please enter the name of the file that contains all the intronic regions\n";
+my $type = shift || die "Please enter the version of annotation hg38 or hg37\n";
+my $database = $type eq "hg38" ? "Capture_Regions38" : "Capture_Regions37";
+my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -14,12 +17,12 @@ my ($sql, $sth);
 
 # drop the table first
 eval {
-	$dbh->do("DROP TABLE IF EXISTS Capture_Regions38");
+	$dbh->do("DROP TABLE IF EXISTS $database");
 };
 
 # now create table again
 $dbh->do(qq{
-CREATE TABLE Capture_Regions38 (
+CREATE TABLE $database (
   `ex_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
@@ -80,19 +83,25 @@ while (<IN>) {
 		my $sql;
 
         if ($sn=~/^N.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
+            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
         }
 
-        if ($sn=~/^EN.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
-        }
+		if ($type eq "hg38") {
+			if ($sn=~/^EN.*/) {
+				$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
+			}
+        } else {
+			if ($sn=~/^OTT.*/) {
+				$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
+			}
+		}
 
         if ($sn=~/^CCDS.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
+            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
         }
 
 		if ($sn=~/^hsa.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM HGNC37 WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
 		}
 
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
@@ -132,10 +141,7 @@ while (<IN>) {
 		}
 	}
 
-	my ($refseq, $ccds, $gencode, $miRNA) = (".", ".", ".", ".");
-	if ($items[1] == 17369) {
-		print("inside\n");
-	}
+	my ($refseq, $ccds, $vega, $gencode, $miRNA) = (".", ".", ".", ".", ".");
 
 	foreach my $ex (sort keys %exons) {
 		next if ($ex eq "." || $ex eq "");
@@ -152,14 +158,18 @@ while (<IN>) {
 			$gencode = $gencode eq "." ? $ex : "$gencode;$ex";
 		}
 
+		if ($ex=~/^OTT.*/) {
+			$vega = $vega eq "." ? $ex : "$vega;$ex";
+		}
+
 		if ($ex=~/^hsa.*/) {
 			$miRNA = $miRNA eq "." ? $ex : "$miRNA;$ex";
 		}
 	}
 
-	my $annotations = "$refseq\t$ccds\t$gencode\t$miRNA";
+	my $annotations = $type eq "hg38" ? "$refseq\t$ccds\t$gencode\t$miRNA" : "$refseq\t$ccds\t$vega\t$miRNA";
 
-	my $sql = "INSERT INTO Capture_Regions38 VALUES (0, '$items[0]', $items[1], $items[2], $ex_starts, $ex_ends, $items[5], $items[6], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
+	my $sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], $ex_starts, $ex_ends, $items[5], $items[6], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }

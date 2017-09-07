@@ -3,9 +3,9 @@
 # This script is used to setup the gene/exon annotation database for sequencing analysis
 # First, we need to make sure that user has entered all the required parameters (or arguments)
 #
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_exon_annotation_databases.sh miRNA_file output_directory"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_exon_annotation_databases.sh miRNA_file output_directory db_version(hg38 or hg37)"
 	exit
 fi
 
@@ -16,24 +16,35 @@ pwd
 #echo `$BASEDIR`
 printf "$BASEDIR\n"
 
+# get the gene annotation version
+gene_db_version=$3
+
 # since miRNA file can't be downloaded using rsync or ftp, we have to download it first and tell the script where to find it
 # things might change in the future and we might be able to use rsync or ftp in the future! 
 # But for now, we need to do it manually!
 miRNA_FILE=$1
 
 # now process miRNA file
-new_miRNA_file=`basename ${miRNA_FILE}`_simplified.bed
-awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/chr//gi | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"="$5; print}' > $new_miRNA_file
-printf "Producing simplified miRNA file $new_miRNA_file \n"
+new_miRNA_file=""
+
+if [ "$gene_db_version" == "hg38" ]; then
+	new_miRNA_file=`basename ${miRNA_FILE}`_simplified.bed
+	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/chr//gi | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"_exon_0_1="$5; print}' > $new_miRNA_file
+	printf "Producing simplified miRNA file $new_miRNA_file \n"
+else 
+	new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed
+	/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
+	printf "Producing rearranged miRNA file $new_miRNA_file \n"
+fi
 
 # for HGNC official gene_symbol and dump them into the MySQL database
 #
 rsync -a -P rsync://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt .
 HGNC='hgnc_complete_set.txt'
 HGNC_simplified='hgnc_simplified'
-cat $HGNC | cut -f 1,2,9,11,20,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed s/\|/,/g > $HGNC_simplified
+cat $HGNC | cut -f 1,2,9,11,20,21,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed s/\|/,/g > $HGNC_simplified
 printf "dump $HGNC_simplified info into DB using processHGNCtoDB.pl \n"
-#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/processHGNCtoDB.pl "$HGNC_simplified"
+/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/processHGNCtoDB.pl "$HGNC_simplified" "$gene_db_version"
 
 # now get rid of .txt file extension before preceed, as we will unzip the tar file into .txt
 for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
@@ -44,11 +55,19 @@ for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
 
 # now we need to download the newest gene annotation from various sources (such as refseq, ccds and gencode)
 #
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
-rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
-#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
-#rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+if [ "$gene_db_version" == "hg38" ]; then
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
+	#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
+	#rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+else
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
+	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGene.txt.gz .
+	#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGtp.txt.gz .
+	#rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
+fi
 
 # untar the zipped files
 if [ "$(uname)" == "Darwin" ]; then
@@ -87,6 +106,9 @@ combined_sorted_bed_file_merged_perfect_matches="$combined_sorted_bed_file"_merg
 echo "merge perfect matched regions in $combined_sorted_bed_file to produce $combined_sorted_bed_file_merged_perfect_matches"
 /stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$combined_sorted_bed_file" | uniq - > "$combined_sorted_bed_file_merged_perfect_matches"
 
+# now need to extract all the exon info for all genes
+/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/geneExonAnnotationForBatchAnalysis.pl "$combined_sorted_bed_file_merged_perfect_matches" "$gene_db_version"
+
 # Now it is the time to generate exon partition file
 #
 exons_partitioned="$combined_sorted_bed_file"_merged_and_partitioned
@@ -96,7 +118,7 @@ printf "partition $combined_sorted_bed_file_merged_perfect_matches to produce $e
 # Finally, dump everything into MySQL database named: Exon_Regions38
 #
 printf "dump all partitioned exons into MySQL database Exon_Regions38 ==> exonAnnotations.pl $exons_partitioned \n"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/exonAnnotations.pl "$exons_partitioned"
+/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/exonAnnotations.pl "$exons_partitioned" "$gene_db_version"
 
 ####
 #END

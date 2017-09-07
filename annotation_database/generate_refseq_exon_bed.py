@@ -37,7 +37,7 @@ def processFile(file_in):
 					if (items[2] == "-"): 
 						exon_id = int(items[5]) - idx - 1
 
-					print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(exon_id)+"="+items[8]+"="+items[3]+"="+items[4], items[8]))
+					print("%s\t%d\t%d\t%s\t%s" % (items[1], int(starts[idx]), int(ends[idx]), items[0]+"_"+str(exon_id)+"_"+items[5]+"="+items[8]+"="+items[3]+"="+items[4], items[8]))
 
 
 if __name__ == "__main__":
