@@ -9,6 +9,7 @@ my $file = shift || die "Please enter the name of the file with sorted and merge
 my $type = shift || die "Please enter the version of annotation hg38 or hg37\n";
 my $database = $type eq "hg38" ? "Gene_Exon38" : "Gene_Exon37";
 my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
+my $db2 = $type eq "hg38" ? "Merged_Gene_Exon38" : "Merged_Gene_Exon37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -18,6 +19,7 @@ my ($sql, $sth);
 # drop the table first
 eval {
 	$dbh->do("DROP TABLE IF EXISTS $database");
+	$dbh->do("DROP TABLE IF EXISTS $db2");
 };
 
 # now create table again
@@ -38,12 +40,34 @@ $dbh->do(qq{
 ) ENGINE=InnoDB;
 });
 
+$dbh->do(qq{
+  CREATE TABLE $db2 (
+  `eid`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `chrom`  varchar(50) NOT NULL,
+  `exon_start` INT UNSIGNED NOT NULL,
+  `exon_end`   INT UNSIGNED NOT NULL,
+  `annotation`  varchar(3500) NOT NULL,
+  PRIMARY KEY (eid),
+  INDEX `COMP` (`chrom`, exon_start, exon_end),
+  INDEX `ANN`  (`annotation`)
+) ENGINE=InnoDB;
+});
+
 open (IN, $file) or die "open failed for reading: $!";
 #my $header=<IN>;
 
 while (<IN>) {
 	chomp;
 	my @items = split "\t";
+
+	# first dump everything to db2
+	my ($sql, $sth);
+	$sql = "INSERT INTO $db2 VALUES (0, '$items[0]', $items[1], $items[2], '$items[3]')";
+	$sth = $dbh->prepare($sql) or die "Query problem $!\n";
+	$sth->execute() or die "Execution problem $!\n";
+	
+	undef $sql;
+	undef $sth;
 
 	# process the 3rd item on the list that contains the exon_id, refseq name and gene symbol
 	my @info = split(/;/, $items[3]);
@@ -54,7 +78,6 @@ while (<IN>) {
 		my ($exon_id, $exon_count) = split(/_/, $e_info);
 		
 		# only CCDS doesn't have gene_symbol, we need to find it here!
-		my ($sql, $sth);
 		if (!defined $gene_symbol) {
 			$gene_name=~s/(CCDS\d+)\.\d+/$1/;
 

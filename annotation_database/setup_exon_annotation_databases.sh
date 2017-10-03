@@ -56,12 +56,14 @@ for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
 # now we need to download the newest gene annotation from various sources (such as refseq, ccds and gencode)
 #
 if [ "$gene_db_version" == "hg38" ]; then
+	echo "For hg38"
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
 	#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
 	#rsync -a -P rsync://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3 .
 else
+	echo "For hg19"
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
 	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGene.txt.gz .
@@ -71,11 +73,13 @@ fi
 
 # untar the zipped files
 if [ "$(uname)" == "Darwin" ]; then
+	echo "For Darwin"
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.py -i "$FILE.tmp" > "$FILE.bed"; done;
+    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
 elif [ "$(uname)" == "Linux" ]; then
+	echo "For Linux"
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.py -i "$FILE.tmp" > "$FILE.bed"; done;
+    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
 fi
 
 # remove all the tmp files files
@@ -83,21 +87,68 @@ for f in $BASEDIR/*.tmp; do rm -f $f; done
 #for f in $BASEDIR/*.txt; do rm -f $f; done
 
 # save all the .txt.gz downloaded source files in case we need it in the future!
+# especially when there is a new development and we want to compare the results using the same version of gene annotation
+#
 tmp_timestamp=$(date +%Y'_'%m'_'%d)
 printf "time stamp is $tmp_timestamp\n"
 for f in $BASEDIR/*.txt; do gzip $f; mv "$f.gz" "$f.$tmp_timestamp.gz"; done
-mv "hgnc_complete_set" "hgnc_complete_set.txt"
+#mv "hgnc_complete_set" "hgnc_complete_set.txt"
 
 # need to combine all the bed files into a single bed file and then remove the original bed files
 #
 combined_bed_files="all_exons_bed"
-for f in $BASEDIR/*.bed; do cat $f >> $combined_bed_files; rm -f $f; done
+for f in $BASEDIR/*.bed; do cat $f >> $combined_bed_files; done 
+	
+# here we set the sort flags as it will be used multiple times
+#
+sort_flag="-k1,1 -k2,2n -k3,3n"
+
+# Now we will use the individual bed file to create a database on its own!
+#
+for f in $BASEDIR/*.bed 
+do
+	echo "Now processing $f"
+
+	# for each bed file, we need to sort them first
+	#
+	echo "Sorting bed file"
+	tmp_sorted_bed=$f."sorted"
+	sort $sort_flag -o $tmp_sorted_bed $f
+
+	# now merge all exons with the exact same coordinates from different transcripts
+	#
+	echo "Merged regions for sorted bed file"
+	tmp_sorted_merged_bed=$tmp_sorted_bed."merged"
+	/stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$tmp_sorted_bed" | uniq - > $tmp_sorted_merged_bed
+
+	# dump everything into a database
+	# The -i option of grep says to ignore case.
+	# The -q option says to not emit output and exit after the first match.
+	# The -F option says to treat the argument as a string rather than a regular expression.
+	#
+	if echo $f | grep -iqF "ref" ; then
+	#if [[ $f == *"ref"* ]]; then
+		echo "dumping RefSeq exons"
+		/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "refseq"
+	elif echo $f | grep -iqF "ccds"; then
+	#elif [[ $f == *"ccds"* ]]; then
+		echo "dumping CCDS exons"
+		/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "ccds"
+	elif echo $f | grep -iqF "vega"; then
+	#elif [[ $f == *"vega"* ]]; then
+		echo "dumping VEGA exons"
+		/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "vega"
+	elif echo $f | grep -iqF "gen"; then
+	#elif [[ $f == *"gen"* ]] ; then
+		echo "dumping Gencode exons"
+		/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "gencode"
+	fi
+done
 
 # Before we continue, we need to sort the combined_bed_files 
 #
 combined_sorted_bed_file="$combined_bed_files"_sorted
 echo "sort $combined_sorted_bed_file to produce $combined_sorted_bed_file"
-sort_flag="-k1,1 -k2,2n -k3,3n"
 sort $sort_flag -o $combined_sorted_bed_file $combined_bed_files
 
 # Next, we need to merge those exons with perfect coordinates from different annotation sources.
