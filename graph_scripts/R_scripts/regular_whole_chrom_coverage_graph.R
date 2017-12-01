@@ -16,6 +16,15 @@ coverage_plot <- function(fName, chrom_id, chrom_len, low, high) {
   f_name_splitted <- unlist(strsplit(f_name, '\\.'))
 
   tmp_file <- paste("plot_for_", f_name_splitted[1], sep = "")
+
+  if (grepl("WGS", f_name)) {
+    tmp_file <- paste(tmp_file, "_WGS", sep = "")
+  } else if (grepl("Capture", f_name)) {
+    tmp_file <- paste(tmp_file, "_Capture", sep = "")
+  } else {
+    tmp_file <- paste(tmp_file, "_XXX", sep = "")
+  }
+
   tmp_file <- paste(tmp_file, "_entire_chr", sep = "")
   tmp_file <- paste(tmp_file, chrom_id, sep = "")
   tmp_file <- paste(tmp_file, "_", sep = "")
@@ -36,7 +45,7 @@ coverage_plot <- function(fName, chrom_id, chrom_len, low, high) {
       start = as.numeric(items[2])
       len   = as.numeric(items[3]) - start + 1
 
-      if (length(items) == 5) {
+      if (length(items) > 4) {
         cov = as.numeric(items[5])
       } else {
         cov = as.numeric(items[4])
@@ -65,6 +74,18 @@ coverage_plot <- function(fName, chrom_id, chrom_len, low, high) {
   plot(cov_plot)
   dev.off()
 
+  print("for loess(df_[,1] ~ df_[,2], df_, span=0.5)")
+  loess(df_[,1] ~ df_[,2], df_, span=0.5)
+
+  print("for loess(df_[,1] ~ df_[,2], df_, span=0.75)")
+  loess(df_[,1] ~ df_[,2], df_, span=0.75)
+
+  print("for loess(df_[,1] ~ df_[,2], df_, span=1)")
+  loess(df_[,1] ~ df_[,2], df_, span=1)
+
+  print("for loess(df_[,1] ~ df_[,2], df_) default span=")
+  loess(df_[,1] ~ df_[,2], df_)
+
   rm(mt_)
   rm(df_)
 }
@@ -89,14 +110,14 @@ v <- c()
 
 if (version == "hg38") {
 	v <- c( "1"=248956422, "2"=242193529, "3"=198295559, "4"=190214555, "5"=181538259, "6"=170805979, "7"=159345973, 
-			"8"=145138636, "9"=138394717, "10"=133797422, "11"=135086622, "12"=13327530, "13"=114364328, "14"=107043718, 
+			"8"=145138636, "9"=138394717, "10"=133797422, "11"=135086622, "12"=133275309, "13"=114364328, "14"=107043718, 
 			"15"=101991189, "16"=90338345, "17"=83257441, "18"=80373285, "19"=58617616, "20"=64444167, "21"=46709983, 
 			"22"=50818468, "X"=156040895, "Y"=57227415, "MT"=16569)
 } else {
 	v <- c( "1"=249250621, "2"=243199373, "3"=198022430, "4"=191154276, "5"=180915260, "6"=171115067, "7"=159138663,
 			"8"=146364022, "9"=141213431, "10"=135534747, "11"=135006516, "12"=133851895, "13"=115169878, "14"=107349540,
 			"15"=102531392, "16"=90354753, "17"=81195210, "18"=78077248, "19"=59128983, "20"=63025520, "21"=48129895,
-			"22"=51304566, "X"=155270560, "Y"=59534049, "MT"=16569)
+			"22"=51304566, "X"=155270560, "Y"=59373566, "MT"=16569)
 }
 
 for (id in id_names) {
