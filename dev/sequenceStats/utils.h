@@ -30,6 +30,11 @@
 bool checkFile(char * fName);
 
 /**
+ * check the size of input bam/cram file
+ */
+uint64_t check_file_size(const char *filename);
+
+/**
  * produces the usage information for end users
  */
 void usage();
@@ -63,12 +68,21 @@ bool isNum(const char *inStr);
 void processUserOptions(User_Input *user_inputs, int argc, char *argv[]);
 
 /**
+ * Output the User Input Options to the end user so he/she can double-check if all the options are correct!
+ * user_inputs, the object contains all the user input options
+ */
+void outputUserInputOptions(User_Input *user_inputs);
+
+/**
  * this is a helper function that is used to create a file name from the existing base file name
+ * @param output_dir: the directory name to store all the output reports/files
  * @param base_name: the file name to be created based on the base_name
- * @param file_in: the file_name to be created into
+ * @param file_in: the file_name to be created into the output_directory
  * @param string_to_append: the string to be attached to the base name
  */
-void createFileName(char *base_name, char **file_in, char *string_to_append);
+void createFileName(char *output_dir, char *base_name, char **file_in, char *string_to_append);
+
+void writeHeaderLine(char *file_in, uint8_t type);
 
 /**
  * this method is used to initialize the user input structure
@@ -183,7 +197,7 @@ void statsInfoDestroy(Stats_Info *stats_info);
  * @param chrom_tracking
  */
 //void zeroAllNsRegions(char *chrom_id, khash_t(str) *Ns_buffer_hash, Chromosome_Tracking *chrom_tracking);
-void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking);
+void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking, Target_Buffer_Status *target_buffer_status);
 
 /**
  * To add value into a hash table by the key
@@ -210,6 +224,8 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
  */
 float calculatePercentage(uint32_t num, uint32_t dom);
 
+void getDatabaseName(User_Input *user_inputs, char* db_name_in_out);
+
 /** 
  * combine all the coverage stats from individual thread to stats_info
  * @param stats_info
@@ -219,9 +235,31 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
 
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
 
-//int compare(const Gene_Coverage *gene_coverage1, const Gene_Coverage *gene_coverage2);
+/**
+ * It is used to sort the input Gene_Coverage variable based on gene_symbol
+ * @param gene_coverage1, the Gene_Coverage input variable 1
+ * @param gene_coverage2, the Gene_Coverage input variable 2
+ */
 int compare(const void *gene_coverage1, const void *gene_coverage2);
 
+/**
+ * It is used to sort the input Transcript_Cov_PCT variable based on refseq_name
+ * @param transcript_cov_pct1, the Transcript_Cov_PCT input variable 1
+ * @param transcript_cov_pct2, the Transcript_Cov_PCT input variable 2
+ */
 int compare2(const void *transcript_cov_pct1, const void *transcript_cov_pct2);
+
+/**
+ * The following comparison is used to compare the refseq_name array variable (string array)
+ * @param refseq_array1, the string array input 1
+ * @param refseq_array2, the string array input 2
+ */
+int compare3(const void *refseq_array1, const void *refseq_array2);
+
+/**
+ * It is used to print a string array before (OR after sorting) for viewing and comparison.
+ * strings_in: the string array to be printed!
+ */
+void print_string_array(char** strings_in, size_t length_in);
 
 #endif //UTILS_H

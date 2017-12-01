@@ -70,9 +70,10 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 	for (i=0; i<read_buff_in->size; i++) {
 
 		if(user_inputs->percentage < 1.0) {
-            srand((uint32_t)time(NULL));	// set random seed
+            //srand((uint32_t)time(NULL));	// set random seed and only need to be set ONCE
             float random_num = (float)rand() / (float)RAND_MAX;
-            if(random_num < user_inputs->percentage) continue;
+            //if(random_num < user_inputs->percentage) continue;
+            if(random_num > user_inputs->percentage) continue;
         }
 
 		cov_stats->total_reads_produced++;
@@ -115,17 +116,17 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 		}
  
 		// check to see if we have changed the chromosome
-		if ( strcmp(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]) != 0) {
+		if ( strcmp(cur_chr, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid])) != 0) {
 
 			// update the last_chr value, as we are going to handle new chromosome 
-			strcpy(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]);
+			strcpy(cur_chr, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]));
 
 			printf("Start processing chromosome id %s for thread %d\n", cur_chr, thread_id);
 
 			not_added = true;
 		}
-		//if (strcmp(cur_chr, "1") == 0) return;		// for debugging
-		//if (strcmp(cur_chr, "1") == 0) continue;		// for debugging
+		//if (strcmp(cur_chr, "17") != 0) return;		// for debugging
+		//if (strcmp(cur_chr, "17") != 0) continue;		// for debugging
 		//if (strstr(cur_chr, "GL000") == 0) continue;		// for debugging
 
 		// Add the instance of khash_t(m32) to the khash_t(str) object (ie coverage_hash) based on the chrom_id
@@ -146,7 +147,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         	///////////////////////////////////////////////////////////////////
 		}
 
-        processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status);
+        processRecord(user_inputs, cov_stats, coverage_hash, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]), read_buff_in->chunk_of_reads[i], target_buffer_status);
     }
 
     printf("Done read bam for thread %d\n", thread_id);
@@ -156,15 +157,16 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	uint32_t i=0, j=0, chrom_len=0;
 	bool on_target=false, in_buffer=false;
 
-	// get the target_buffer_status index
-	uint32_t idx = 0;
-	if (TARGET_FILE_PROVIDED) {
-		for (i=0; i<35; i++) {
-			if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
-				chrom_len = target_buffer_status[i].size;
-				idx = i;
-				break;
-			}
+	// get the target_buffer_status index,
+	// need to do the following no matter target file or Ns regions specified or not
+	// because we need chromosome length information here
+	//
+	int32_t idx = -1;
+	for (i=0; i<target_buffer_status[0].num_of_chromosomes; i++) {
+		if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
+			chrom_len = target_buffer_status[i].size;
+			idx = i;
+			break;
 		}
 	}
 
@@ -172,6 +174,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
     int	ret=0;
 
 	// get key iterator for chrom_id (outer hash table: khash_t(str))
+	//
 	outer_iter = kh_put(str, coverage_hash, chrom_id, &ret);	
 	if (ret)
 		fprintf(stderr, "Something went wrong, hash key for %s is not added\n", chrom_id);
@@ -180,6 +183,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	uint8_t *qual = bam_get_qual(rec);
 
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
+	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
 	uint32_t start = rec->core.pos;
 	uint32_t qual_pos = 0;
@@ -196,14 +200,14 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 				if (pos < 0) continue;
 				if (pos >= chrom_len) break;
 
-				if (TARGET_FILE_PROVIDED) {
+				if (TARGET_FILE_PROVIDED && (idx >=0)) {
 					if (!on_target) {
-						if (target_buffer_status[idx].status_array[pos] == 1)
+						if (target_buffer_status[idx].status_array[pos] == 1 || target_buffer_status[idx].status_array[pos] == 4)
 							on_target = true;
 					}
 
 					if (!in_buffer) {
-						if (target_buffer_status[idx].status_array[pos] == 2)
+						if (target_buffer_status[idx].status_array[pos] == 2 || target_buffer_status[idx].status_array[pos] == 5)
 							in_buffer = true;
 					}
 				}
@@ -217,10 +221,8 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 				kh_value(coverage_hash, outer_iter)->cov_array[pos]++;
 				qual_pos++;
 			}
-			//pos += cln;
 		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL || cop == BAM_CPAD) {
 			qual_pos += cln;
-			//pos += cln;
 		}
 	}
 
@@ -260,7 +262,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 			if (kh_exist(coverage_hash, outer_iter)) {
 				// compare with ordered chromosome ID in the header, if it is matched, then process it!
 				//
-				if (strcmp(header->target_name[i], kh_key(coverage_hash, outer_iter)) == 0) {
+				if (strcmp(removeChr(header->target_name[i]), kh_key(coverage_hash, outer_iter)) == 0) {
 					bool need_to_allocate = true;
 
 					if (chrom_tracking->chromosome_lengths[i] > 0)
@@ -270,7 +272,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 		            // Process the current chromosome for the first time!
 					if (need_to_allocate) {
 						uint32_t chrom_len = header->target_len[i];
-						chromosomeTrackingUpdate(chrom_tracking, header->target_name[i], chrom_len, i);
+						chromosomeTrackingUpdate(chrom_tracking, removeChr(header->target_name[i]), chrom_len, i);
 
 						// if it goes to the next chromosome, the previous chromosome should be done processing
 				        // Thus, we need to update the previous chromosome status

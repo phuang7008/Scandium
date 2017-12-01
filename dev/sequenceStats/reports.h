@@ -91,6 +91,22 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
 /**
+ * This is a wrapper function to help generate the coverage range info using writeCoverageRanges()
+ * This will not generate annotation information for the speed reason
+ * @param chrom_id
+ * @param target_info
+ * @param chrom_tracking
+ * @param user_inputs
+ * @param stats_info
+ */
+void coverageRangeInfoForGraphing(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info);
+
+/**
+ * This is used to generate average coverage information for a range of position based on different binning strategies
+ */
+void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_high);
+
+/**
  * output those regions with lower than or higher than user specified coverage values
  * @param begin: the start position of the region to check
  * @param length: the length of the regions to be inspected
@@ -104,10 +120,10 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
 char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type);
 
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, MYSQL *con, Low_Coverage_Genes *low_cov_genes);
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Databases *dbs, Low_Coverage_Genes *low_cov_genes);
 
 void writeTranscriptCoveragePercentage(Transcript_Coverage *transcript_cov,  User_Input *user_inputs);
 
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, Transcript_Coverage *transcript_cov, MYSQL *con);
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, Transcript_Coverage *transcript_cov, Databases *dbs);
 
 #endif // REPORTS_H

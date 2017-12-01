@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>		// for file access()
 #include <time.h>
+#include "utils.h"
 
 // It will open the bed-formatted file for the first time. and count the number of lines (items) within it.
 //
@@ -70,11 +71,11 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 		p_token = strtok(line, " \t");
 		while (p_token != NULL) {
 			if (num == 0) 
-				strcpy(coords[count].chrom_id,  p_token);
+				strcpy(coords[count].chrom_id,  removeChr(p_token));
 			else if (num == 1)
-				coords[count].start = atoi(p_token);
+				coords[count].start = atol(p_token);
 			else if (num == 2) {
-				coords[count].end = atoi(p_token);
+				coords[count].end = atol(p_token);
 				num = 0;
 				p_token = NULL;
 				break;		// stop 'while' loop as we don't need anything after stop position
@@ -119,6 +120,10 @@ void outputForDebugging(Bed_Info *bed_info) {
     }
 }
 
+// Here type 1 refers to target bed, while teyp 2 means Ns region bed
+// For values stored in the status_array:
+// 1: target		2: buffer		3: Ns		4: 1+3 (target+Ns overlaps)		5: 2+3 (buffer+Ns overlaps)
+//
 void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, short type) {
 	uint32_t i=0, j=0, k=0, chrom_len=0;
 	int idx = -1;
@@ -126,6 +131,9 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 	strcpy(cur_chrom_id, "something");
 
 	for (i = 0; i < bed_info->size; i++) {
+
+		//if (i >= 100986)
+		//	printf("alt in\n");
 
         if (strcmp(bed_info->coords[i].chrom_id, cur_chrom_id) != 0) {
 			strcpy(cur_chrom_id, bed_info->coords[i].chrom_id);
@@ -150,30 +158,59 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 		for (j=bed_info->coords[i].start; j<=bed_info->coords[i].end; j++) {
 			if (j > chrom_len) continue;
 
-			if (type == 1 && target_buffer_status[idx].status_array[j] != 3) 
-				target_buffer_status[idx].status_array[j] = c_type;
+			if (type == 1) {
+			   	if (target_buffer_status[idx].status_array[j] == 3) { 
+					target_buffer_status[idx].status_array[j] = 4;
+				} else {
+					target_buffer_status[idx].status_array[j] = c_type;
+				}
+			}
 
-			if (type == 2 && j < bed_info->coords[i].end) {
+			// The old Java version include the end position in the bed file. 
+			// So I will include it here as well. 
+			// In the future, need to make sure if the bed file format include end position or not!
+			//
+			//if (type == 2 && j < bed_info->coords[i].end) {
+			if (type == 2 && j <= bed_info->coords[i].end) {
 				stats_info->cov_stats->total_Ns_bases += 1;
-				target_buffer_status[idx].status_array[j] = c_type;
+
+				if (target_buffer_status[idx].status_array[j] == 1) {
+					target_buffer_status[idx].status_array[j] = 4;
+				} else {
+					target_buffer_status[idx].status_array[j] = c_type;
+				}
 			}
 		}
 
 		if (type == 1) {
-			// for positions on the buffer at the left side
+			// for the buffer positions at the left side
+			//
 			for (j=bed_info->coords[i].start-BUFFER; j < bed_info->coords[i].start; j++) {
 				if (j < 0) continue;
 
-				if (target_buffer_status[idx].status_array[j] == 0)
+				if (target_buffer_status[idx].status_array[j] == 0) {
 					target_buffer_status[idx].status_array[j] = 2;
+				} else if (target_buffer_status[idx].status_array[j] == 3) {
+					target_buffer_status[idx].status_array[j] = 5;
+				} else {
+					// target_buffer_status[idx].status_array[j] == 1
+					continue;
+				}
 			}
 
-			// for positions on the buffer at the right side
+			// for the buffer positions at the right side
+			//
 			for (j=bed_info->coords[i].end+1; j <= bed_info->coords[i].end+BUFFER; j++ ) {
 				if (j >= chrom_len) continue;
 				
-				if (target_buffer_status[idx].status_array[j] == 0)
+				if (target_buffer_status[idx].status_array[j] == 0) {
 					target_buffer_status[idx].status_array[j] = 2;
+				} else if (target_buffer_status[idx].status_array[j] == 3) {
+					target_buffer_status[idx].status_array[j] = 5;
+				} else {
+					// target_buffer_status[idx].status_array[j] == 1
+					continue;
+				}
 			}
 		}
 	}
@@ -182,20 +219,16 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 		if (target_buffer_status[i].index == -1)
 			continue;
 
-		//printf("current id is %d\n", i);
-
 		for (j=0; j<target_buffer_status[i].size; j++) {
-		   	// now update the target/buffer/Ns stats here
+		   	// update the target/buffer stats here
+			//
 			if (type == 1) {
-	        	if (target_buffer_status[i].status_array[j] == 1)
+	        	if (target_buffer_status[i].status_array[j] == 1 || target_buffer_status[i].status_array[j] == 4)
 		        	stats_info->cov_stats->total_targeted_bases += 1;
 	
-				if (target_buffer_status[i].status_array[j] == 2)
+				if (target_buffer_status[i].status_array[j] == 2 || target_buffer_status[i].status_array[j] == 5)
 		        	stats_info->cov_stats->total_buffer_bases += 1;
 			}
-
-        	//if (type == 2 && target_buffer_status[i].status_array[j] == 3)
-            //	stats_info->cov_stats->total_Ns_bases += 1;
     	}
 	}
 }
