@@ -7,8 +7,8 @@ use DBI;
 
 my $file = shift || die "Please enter the name of the file that contains all the intronic regions\n";
 my $type = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
-my $database = $type eq "hg38" ? "Exon_Regions38" : "Exon_Regions37";
-my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
+my $database = $type=~/hg38/i ? "Gene_Annotations38" : "Gene_Annotations37";
+my $hgnc     = $type=~/hg38/i ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -30,7 +30,7 @@ CREATE TABLE $database (
   `gene_symbol`  varchar(250) NULL,
   `Synonymous`   varchar(2500) NULL,
   `prev_gene_symbol` varchar(2500) NULL,
-  `annotation` varchar(3000) NOT NULL,
+  `annotation` varchar(4000) NOT NULL,
   PRIMARY KEY (ex_id),
   INDEX `CHR` (`chrom`),
   INDEX START (start),
@@ -47,7 +47,10 @@ while (<IN>) {
 	chomp;
 	my @items = split "\t";
 
+	# each line looks like the following:
+	# 1		11868	11873	NR_148357_exon_0_3=LOC102725121=11868=14362=1610;ENST00000456328.2_exon_0_3=DDX11L1=11868=14409=1657
 	# process the 4th entry that contains the gene info
+	#
 	my @info = split(/;/, $items[3]);
 
 	my %genes;
@@ -61,37 +64,46 @@ while (<IN>) {
 	}
 
 	foreach my $sn (keys %exons) {
-		$sn=~s/\_\d+\_\d+$//;
+		$sn=~s/\_exon_\d+\_\d+$//;
 
 		my $sql;
 
+		# handle refseq gene symbols
+		#
         if ($sn=~/^N.*/ || $sn=~/^X.*/) {
             $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
         }
 
-		if ($type eq "hg38") {
-			if ($sn=~/^uc.*/) {
-				$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
-			}
+		# handle UCSC gene symbols
+		#
+		if ($sn=~/^uc.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
+		}
 
-			if ($sn=~/^EN.*/) {
-				$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
-			}
-		} else {
-			if ($sn=~/^OTT.*/) {
-				$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
-			}
-        }
+		# handle EMSEMBL gene symbols
+		#
+		if ($sn=~/^EN.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
+		}
 
+		# handle VEGA gene symbols, it is only available till HG37
+		#
+		if ($sn=~/^OTT.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
+		}
+
+		# handle CCDS gene symbols
+		#
         if ($sn=~/^CCDS.*/) {
             $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
         }
 
+		# handle miRNA information
+		#
 		if ($sn=~/^hsa.*/) {
 			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
 		}
 
-		#my $sql = "SELECT symbol, prev_symbol FROM HGNC WHERE (symbol='$name2') OR (symbol='$name') OR (ccds_id IS NOT NULL AND find_in_set('$name', replace(ccds_id, '|', ','))) OR (refseq_accession IS NOT NULL AND find_in_set('$name', replace(refseq_accession, '|', ','))) OR (vega_id IS NOT NULL AND find_in_set('$name', replace(vega_id, '|', ',')))";
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
 		$sth->execute() or die "DB execution error: $!";
 
@@ -102,6 +114,7 @@ while (<IN>) {
 	}
 
 	# now produce compound gene and prev_gene info
+	#
 	my $gene=".";
 	my $Synonymous=".";
 	foreach my $gn (sort keys %genes) {

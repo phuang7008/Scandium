@@ -2,6 +2,7 @@
 #
 # this script is used to dump the exon annotations from different sources 
 # such as RefSeq, CCDS, VEGA or Gencode etc.
+# this type of information will be used by Batch Analysis
 #
 use lib '/hgsc_software/perl/perl-5.18.2/lib/site_perl/5.18.2/x86_64-linux-thread-multi';
 use strict;
@@ -11,6 +12,7 @@ use DBI;
 my $file   = shift || die "Please enter the name of the file that contains merged exon annotation\n";
 my $type   = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
 my $source = shift || die "Please specify the source of the annotations such as RefSeq, CCDS, VEGA or Gencode etc.\n";
+
 if ($source=~/refseq/i) {
 	$source = "RefSeq";
 } elsif ($source=~/CCDS/i) {
@@ -24,8 +26,8 @@ if ($source=~/refseq/i) {
 	exit;
 }
 
-my $database = $type eq "hg38" ? $source."_Exon38" : $source."_Exon37";
-my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
+my $database = $type=~/hg38/i ? $source."_Exon38" : $source."_Exon37";
+my $hgnc     = $type=~/hg38/i ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";

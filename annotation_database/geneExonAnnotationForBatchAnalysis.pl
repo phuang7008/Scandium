@@ -7,9 +7,9 @@ use DBI;
 
 my $file = shift || die "Please enter the name of the file with sorted and merged exons\n";
 my $type = shift || die "Please enter the version of annotation hg38 or hg37\n";
-my $database = $type eq "hg38" ? "Gene_Exon38" : "Gene_Exon37";
-my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
-my $db2 = $type eq "hg38" ? "Merged_Gene_Exon38" : "Merged_Gene_Exon37";
+my $database = $type=~/hg38/i ? "Gene_Exon38" : "Gene_Exon37";
+my $hgnc = $type=~/hg38/i ? "HGNC38" : "HGNC37";
+my $db2  = $type=~/hg38/i ? "Merged_Gene_Exon38" : "Merged_Gene_Exon37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";

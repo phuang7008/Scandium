@@ -19,7 +19,7 @@ printf "$BASEDIR\n"
 gene_db_version=$3
 
 # since miRNAs don't contain introns, so we don't have to worry about them here
-partitioned_Sorted_Merged_Exon_FILE=$1
+exons_bed_sorted_merged_and_partitioned_FILE=$1
 
 # now we need to download the newest gene annotation from various sources (such as refseq, ccds and gencode)
 #
@@ -82,12 +82,12 @@ echo "partition $combined_sorted_bed_file_merged_perfect_matches to produce $int
 # After that, we need to remove parts of exons that overlaps with intron regions
 #
 final_intron_regions="$combined_sorted_bed_file"_FINAL
-echo "General final intronic regions with annotation from $introns_partitioned by extracting exons from $partitioned_Sorted_Merged_Exon_FILE to produce the $final_intron_regions"
-/stornext/snfs5/next-gen/scratch/phuang/software/bin/bedops -d $introns_partitioned $partitioned_Sorted_Merged_Exon_FILE | /stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo --echo-map-id --delim '\t' - $introns_partitioned | uniq - > $final_intron_regions
+echo "Generate final intronic regions with annotation from $introns_partitioned by extracting exons from $exons_bed_sorted_merged_and_partitioned_FILE to produce the $final_intron_regions"
+/stornext/snfs5/next-gen/scratch/phuang/software/bin/bedops -d $introns_partitioned $exons_bed_sorted_merged_and_partitioned_FILE | /stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo --echo-map-id --delim '\t' - $introns_partitioned | uniq - > $final_intron_regions
 
-# Finally, dump everything into MySQL database named: Intron_Regions38
+# Finally, dump everything into MySQL database named: Intron_Regions38/37
 #
-echo "dump all partitioned introns into MySQL database Intron_Regions38 ==> forIntronicRegions.pl $introns_partitioned"
+echo "dump all partitioned introns into MySQL database Intron_Regions38/37 ==> forIntronicRegions.pl $introns_partitioned"
 /hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/forIntronicRegions.pl "$final_intron_regions" "$gene_db_version"
 
 ####

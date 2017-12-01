@@ -7,7 +7,7 @@ use DBI;
 
 my $file = shift || die "Please enter the name of the file that contains all the intronic regions\n";
 my $type = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
-my $database = $type eq "hg38" ? "Intron_Regions38" : "Intron_Regions37";
+my $database = $type=~/hg38/i ? "Intron_Regions38" : "Intron_Regions37";
 my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
 # connect to the database
@@ -105,6 +105,7 @@ while (<IN>) {
 		if ($gene eq ".") {
 			$gene = $gn;
 		} else {
+			next if $gn eq $gene;
 			if ($Synonymous eq ".") {
 				$Synonymous = $gn;
 			} else {
@@ -116,6 +117,8 @@ while (<IN>) {
 	my $prev_gene=".";
 	foreach my $pg (sort keys %prev_genes) {
 		next if ($pg eq "." || $pg eq "");
+		next if ($pg=~/$Synonymous/);	# skip if they are the same!
+		next if ($pg eq $gene);
 
 		if ($prev_gene eq ".") {
 			$prev_gene = $pg;
