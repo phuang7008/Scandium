@@ -1,32 +1,41 @@
 #!/bin/bash
 
-# this script is used to generate the OMIM gene transcript bed file from OMIM database
+# this is a wrapper script that is used to generate a whole chromosome coverage graph for viewing
+# In order to run this script, you need to run the C/C++ ExCID first, with -U and -H options specified
+# The best range should be between 1-100 (tested already). ie, -U 100 -H 1 (yes, NOT -L option)
 #
-if [[ $# -ne 6 ]]; then
+# This will generate a file called XXX_WGS_between1x_100x_REPORT.txt or XXX_Capture_between1x_100x_REPORT.txt
+# These generated report files will be in bed format and should be the one used for this script input files
+# You don't have to specify them one by one, you could just specify the suffix of these files
+#
+if [[ $# -ne 7 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/scripts/regular_graph.sh input_output_directory file_suffix_to_be_processed chrom_id lower_bound higher_bound type"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/regular_graph.sh input_directory output_directory file_suffix_to_be_processed(generated from C/C++ ExCID) chrom_id lower_bound(larger than 0)  higher_bound type"
 	exit
 fi
 
-# get the working directory and cd to the directory
-BASEDIR=$1
+# get the working input directory and cd to the directory
+INPUTDIR=$1
+
+# this is the working output directory
+BASEDIR=$2
 cd $BASEDIR
-printf "$BASEDIR\n"
+printf "output directory is $BASEDIR\n"
 
 # file suffix that we are interested in
-SUFFIX=$2
+SUFFIX=$3
 
 # chromosome id we will draw graph on
-CHROM_ID=$3
+CHROM_ID=$4
 
 # graph boundaries
-LOW=$4
-HIGH=$5
-TYPE=$6
+LOW=$5
+HIGH=$6
+TYPE=$7
 
 id=0
 
-for file in `ls $BASEDIR/*$SUFFIX`
+for file in `ls $INPUTDIR/*$SUFFIX`
 do
 	id=$((id+1))
 
