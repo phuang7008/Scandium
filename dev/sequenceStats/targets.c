@@ -94,22 +94,32 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 		free(p_token);
 }
 
-void processBedFiles(char *bed_file, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, short type) {
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, short type) {
 	// First, let's get the total number of lines(items or count) within the target file
-	bed_info->size = getLineCount(bed_file);
+	//
+	if (type == 1) {
+		bed_info->size = getLineCount(user_inputs->target_file);
+	} else {
+		bed_info->size = getLineCount(user_inputs->n_file);
+	}
 
 	// Now initialize the storage for arrays that are used to store target coordinates
     // Do need to remember to free these allocated memories at the end of the program!!!
+	//
     bed_info->coords = calloc(bed_info->size, sizeof(Bed_Coords));
 	
-    // load target file again and store the target information (starts, stops and chromosome ids)
-    loadBedFiles(bed_file, bed_info->coords);
+	// load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
+	//
+	if (type == 1) {
+		loadBedFiles(user_inputs->target_file, bed_info->coords);
+	} else {
+		loadBedFiles(user_inputs->n_file, bed_info->coords);
+	}
 
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
-    // we will have 22 + X + Y = 24 chromosomes, Here X=23 and Y will be 24
-	// Right now, we only need to do it for target file. 
-	generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, type);
+	//
+	generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, user_inputs, type);
 }
 
 void outputForDebugging(Bed_Info *bed_info) {
@@ -124,7 +134,7 @@ void outputForDebugging(Bed_Info *bed_info) {
 // For values stored in the status_array:
 // 1: target		2: buffer		3: Ns		4: 1+3 (target+Ns overlaps)		5: 2+3 (buffer+Ns overlaps)
 //
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, short type) {
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, User_Input *user_inputs, short type) {
 	uint32_t i=0, j=0, k=0, chrom_len=0;
 	int idx = -1;
 	char cur_chrom_id[50];
@@ -185,7 +195,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 		if (type == 1) {
 			// for the buffer positions at the left side
 			//
-			for (j=bed_info->coords[i].start-BUFFER; j < bed_info->coords[i].start; j++) {
+			for (j=bed_info->coords[i].start-user_inputs->target_buffer_size; j < bed_info->coords[i].start; j++) {
 				if (j < 0) continue;
 
 				if (target_buffer_status[idx].status_array[j] == 0) {
@@ -200,7 +210,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
 			// for the buffer positions at the right side
 			//
-			for (j=bed_info->coords[i].end+1; j <= bed_info->coords[i].end+BUFFER; j++ ) {
+			for (j=bed_info->coords[i].end+1; j <= bed_info->coords[i].end+user_inputs->target_buffer_size; j++ ) {
 				if (j >= chrom_len) continue;
 				
 				if (target_buffer_status[idx].status_array[j] == 0) {

@@ -48,6 +48,90 @@ uint64_t check_file_size(const char *filename) {
 	exit(1);
 }
 
+// Split a string to a word array
+// Right now we will use static way:
+// The first dimension is for the number of strings to be stored
+// (the max is 96-100, but I will use 300 instead)
+// The second dimension is used to store the string like OTTHUMT00000367763_exon_16 or NM_198384_exon_16 etc.
+// (the max is 26-30, but we will use 50 instead)
+// In the future, we might want to use a way that is more dynamic!
+//
+void splitStringToArray(char *stringPtr, char (*arrayPtr)[50]) {
+	//int sizeP1 = 300, sizeP2 = 50;
+	int sizeP1 = 300;
+	char *tokPtr;
+	arrayPtr = calloc(sizeP1, sizeof(char*));
+	size_t i, j, k, l;
+
+	tokPtr = strtok(stringPtr, ";");
+	//arrayPtr[0] = calloc(sizeP2, sizeof(char));
+	strcpy(arrayPtr[0], tokPtr);
+
+	for(i = 1; (tokPtr = strtok(NULL, " ")) != NULL; i++) {
+		//arrayPtr[i] = calloc(sizeP2, sizeof(char));
+		strcpy(arrayPtr[i], tokPtr);
+	}
+
+	for(j = 0; j <= i; j++) {
+		for(k = j + 1; k <= i; k++) {
+			if(strcmp(arrayPtr[j], arrayPtr[k]) == 0) {
+				for(l = k; l < i; l++)
+					strcpy(arrayPtr[l], arrayPtr[l + 1]);
+
+				k = j;
+				i--;
+			}
+		}
+	}
+
+	//for(l = 0; l <= i; l++)
+	//	printf("%s ", wordTable[l]);
+}
+
+// It will remove duplicated words from a string array
+// The first dimension is the array size
+// The second dimension is the size of the corresponding string (30 is OK, but we will use 50)
+//
+void removeSameWordsFromArray (char **arrayPtr, uint16_t arraySize, char **str_in_and_out) {
+	// Before we start, let's sort the string array first!
+	//
+	qsort(arrayPtr, arraySize, sizeof(char *), compare3);
+
+	size_t i, j, k;
+
+	for (j=0; j<arraySize; j++) {
+		for (k=j+1; k<arraySize; k++) {
+			if (strcmp(arrayPtr[j], arrayPtr[k]) == 0) {
+				for (i=k; i<arraySize-1; i++)
+					strcpy(arrayPtr[i], arrayPtr[i+1]);
+				k=j;
+				arraySize--;
+			}
+		}
+	}
+
+	// find the total size needed for string 
+	//
+	uint32_t str_len_needed=0;
+
+	for (i=0; i<=arraySize; i++) {
+		str_len_needed += strlen(arrayPtr[i]);
+	}
+
+	// reallocate the memory 
+	//
+	char *tmp = realloc(*str_in_and_out, str_len_needed);
+	if (!tmp) {
+		fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+		exit(1);
+	}
+	*str_in_and_out = tmp;
+
+	for(i=0; i<arraySize; i++) {
+		strcat(*str_in_and_out, arrayPtr[i]);
+	}
+}
+
 // print out the help information to show the general usage of the package
 //
 void usage() {
@@ -61,6 +145,7 @@ void usage() {
 
 	printf("The Followings Are Optional:\n");
 	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
+	printf("\t-g <the percentage used for gVCF blocking: Default 5 for 500%%>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
 	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
@@ -68,15 +153,16 @@ void usage() {
 	printf("\t-y <type of annotation: 1 for dynamic or 2 for static. (Default 1: dynamic)>\n\n");
 	printf("\t-c <database catetory if you choose static annotation type: 1:VCRome+PKv2, 2:eMerge or 3: right_10K. (Default 1: VCRome+PKv2)>\n\n");
 
-	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default=hg19>\n");
-	printf("\t-H <the score for regions with very high coverage. Default=10000>\n");
-	printf("\t-L <the score for regions with very low coverage. Default=20>\n");
+	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
+	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default:hg19>\n");
+	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
+	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
-	printf("\t-U <the upper bound cut off value when reporting the coverage (it's associated with -H to form an interval to report. Hence, -H is the lower bound. It is very useful for plotting the coverage graphs if needed). Default -1 (not set) >\n\n");
+	printf("\t-U <the upper bound cutoff value when reporting the range information (it's associated with -H to form an interval. Hence, -H is the lower bound. It is very useful for plotting the coverage graphs if needed). Default -1 (not set) >\n\n");
 
 	printf("The Followings Are Flags\n");
 	printf("\t[-a] write the annotation information for genes, exons and transcript. Default off\n");
-	printf("\t[-d] Default is ON for Remove Duplicates! Specify this flag only when you want to use Duplicates reads for statistics calculation\n");
+	printf("\t[-d] Remove Duplicates! Specify this flag only when you want to use Duplicates reads. Default: ON (not specified)\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default off\n");
 	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default off\n");
 
@@ -124,7 +210,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	int arg;
 
 	//When getopt returns -1, no more options available
-	while ((arg = getopt(argc, argv, "ab:c:dD:GH:i:L:m:n:o:p:st:T:U:wWy:h")) != -1) {
+	//
+	while ((arg = getopt(argc, argv, "ab:B:c:dD:g:GH:i:L:m:n:o:p:st:T:U:wWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -137,6 +224,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
+			case 'B': user_inputs->target_buffer_size = atoi(optarg); break;
 			case 'c': user_inputs->database_category = atoi(optarg); break;
             case 'd': user_inputs->remove_duplicate = false; break;
             case 'D': 
@@ -152,6 +240,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 					strcpy(user_inputs->database_version, "hg19");
 
 				break;
+			case 'g': user_inputs->gVCF_percentage = atoi(optarg); break;
             case 'G': user_inputs->Write_WIG = true; break;
             case 'h': usage(); exit(1);
 			case 'H':
@@ -219,7 +308,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'W': user_inputs->Write_WGS = true; break;
 			case 'y': user_inputs->annotation_type = atoi(optarg); break;
             case '?':
-                if (optopt == 'b' || optopt == 'i' || optopt == 'm' || optopt == 'o' || optopt == 't')
+					  if (optopt == 'b' || optopt == 'B' || optopt == 'c' || optopt == 'D' || optopt == 'g' 
+							  || optopt == 'H' || optopt == 'i' || optopt == 'L' || optopt == 'm' 
+							  || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 't'
+							  || optopt == 'T' || optopt == 'U' || optopt == 'y')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -231,21 +323,33 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         }
     }
 
+	// don't proceed if the user doesn't specify either -t or -w or both
+	//
+	if (!user_inputs->wgs_coverage && !TARGET_FILE_PROVIDED) {
+		printf("\nYou specify neigher -t (for Capture Project) nor -w (for WGS analysis)\n");
+		printf("Please specify either -t or -w or both before proceed. Thanks!\n\n");
+		usage();
+		exit(1);
+	}
+
 	// check the mandatory arguments (will turn this on for the final test/run)
     if (user_inputs->bam_file == NULL) {
-        printf("-i\toption is mandatory!\n");
+        printf("\n-i\toption is mandatory!\n\n");
+		usage();
         exit(1);
     }
 
 	// check database version
 	if ( (strcmp(user_inputs->database_version, "hg19") != 0) && (strcmp(user_inputs->database_version, "hg37") != 0)
 			&& strcmp(user_inputs->database_version, "hg38") != 0) {
-		printf("-D\toption is not correct! It should be either hg19 or hg38! All in lower case, please! Thanks!\n");
+		printf("\n-D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n\n");
+		usage();
 		exit(1);
 	}
 	
 	if (user_inputs->output_dir == NULL) {
-		printf("-o\toption is mandatory!\n");
+		printf("\n-o\toption is mandatory!\n\n");
+		usage();
 		exit(1);
 	} else {
 		// check to see if the directory exist!
@@ -254,18 +358,21 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			/* Directory exists */
 			closedir(dir);
 		} else if (ENOENT == errno) {
-			printf("The output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n");
+			printf("\nThe output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n\n");
+			usage();
 			exit(1);
 		} else {
 			/* opendir() failed for some other reason, such as permission */
-			printf("Can't open the output directory! Please check to see if the permission is set correctly. Thanks!");
+			printf("\nCan't open the output directory! Please check to see if the permission is set correctly. Thanks!\n\n");
+			usage();
 			exit(1);
 		}
 	}
 
 	if ((user_inputs->upper_bound_to_report > 0) && 
 		(user_inputs->upper_bound_to_report < user_inputs->high_coverage_to_report)) {
-		printf("-u option should be larger than -H option (default -H option is 10000)");
+		printf("\n-U option should be larger than -H option (default -H option is 10000)\n\n");
+		usage();
 		exit(1);
 	}
 
@@ -277,7 +384,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	// need to get the basename from BAM/CRAM filename
 	char *tmp_basename = basename(strdup(user_inputs->bam_file));
 	if (!tmp_basename || strlen(tmp_basename) == 0) {
-		printf("Something went wrong for extracting the basename from the input BAM/CRAM file\n");
+		printf("\nSomething went wrong for extracting the basename from the input BAM/CRAM file\n");
 		exit(1);
 	}
 
@@ -440,6 +547,8 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe percentage of reads used for analysis is: %.1f%%\n", user_inputs->percentage*100);
 	fprintf(stderr, "\tThe coverage number used for low coverage report is:  < %d\n", user_inputs->low_coverage_to_report);
 	fprintf(stderr, "\tThe coverage number used for high coverage report is: > %d\n", user_inputs->high_coverage_to_report);
+	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d\n", user_inputs->gVCF_percentage);
+	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
 	if (user_inputs->upper_bound_to_report > 1) {
 		fprintf(stderr, "\tThe range block file will be produced\n");
@@ -499,6 +608,8 @@ User_Input * userInputInit() {
 	user_inputs->low_coverage_to_report = 20;
 	user_inputs->high_coverage_to_report = 10000;
 	user_inputs->upper_bound_to_report = -1;
+	user_inputs->target_buffer_size = 100;                                                                    
+	user_inputs->gVCF_percentage = 5;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
 	user_inputs->annotation_on = false;
@@ -740,6 +851,8 @@ void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
 	free(chrom_tracking->coverage);
 }
 
+// This function is used to dynamically allocate the memory and then copy everything in
+//
 void dynamicStringAllocation(char *str_in, char **storage_str) {
 	char *tmp;
 	if (!str_in) { printf("String is null\n"); }

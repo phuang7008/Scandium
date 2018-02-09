@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 
 	if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs->n_file, Ns_bed_info, stats_info, target_buffer_status, header, 2);
+        processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, header, 2);
     }
     //outputForDebugging(Ns_bed_info);
     //fflush(stdout);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
 
 	if (TARGET_FILE_PROVIDED) {
         target_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs->target_file, target_bed_info, stats_info, target_buffer_status, header, 1);
+        processBedFiles(user_inputs, target_bed_info, stats_info, target_buffer_status, header, 1);
     }
     //outputForDebugging(target_bed_info);
     //fflush(stdout);
@@ -255,15 +255,26 @@ int main(int argc, char *argv[]) {
                 if (user_inputs->annotation_on) {
                   printf("Thread %d is now working on exon percentage calculation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
 
-				  // For calculating the percentage of gene bases with low coverge for capture only
-				  // we need to allocate memories for both refseq_cds_genes and low_cov_genes
-				  // and use the intersect regions between refseq_cds_genes for official annotation and low_cov_genes for targets
+				  // For calculating the percentage of gene/transcript/exon bases with low coverge (Capture only)
+				  // the final result will be stored at the 'low_cov_genes' variable
+				  // Note: 
+				  //	for static approach, the CDS coord database contain the true CDS/Exon coordinates need to be captured!
+				  //		therefore, we just store everything directly into the 'low_cov_genes' variable
+				  //
+				  //	for dynamic approach, however, we don't have the true coord database
+				  //		All we have is the official RefSeq CDS coordinates database.
+				  //		In this case, we need to do the intersection between the coordinates of RefSeq_CDS 
+				  //		from official annotation and the coordinates from the target file user specified!
+				  //		The official coordinates of refseq CDS will be stored at the 'refseq_cds_genes' variable
+				  //
+				  // we need to allocate memories for both refseq_cds_genes and low_cov_genes (for target bed file)
 				  //
 				  Low_Coverage_Genes  *refseq_cds_genes  = calloc(1, sizeof(Low_Coverage_Genes));
 				  Low_Coverage_Genes  *low_cov_genes     = calloc(1, sizeof(Low_Coverage_Genes));
 				  Transcript_Coverage *transcript_cov    = calloc(1, sizeof(Transcript_Coverage));
 
 				  genePercentageCoverageInit(refseq_cds_genes, low_cov_genes, chrom_tracking->chromosome_ids[i], dbs, user_inputs);
+
 				  if (user_inputs->annotation_type == 1)	// dynamic only
 					intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, refseq_cds_genes, low_cov_genes);
 				  transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_cov, low_cov_genes, user_inputs, dbs);

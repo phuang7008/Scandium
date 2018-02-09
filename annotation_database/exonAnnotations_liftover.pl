@@ -23,7 +23,7 @@ eval {
 # now create table again
 $dbh->do(qq{
 CREATE TABLE $database (
-  `ex_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `aid`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
   `end`    INT UNSIGNED NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE $database (
   `Synonymous`   varchar(2500) NULL,
   `prev_gene_symbol` varchar(2500) NULL,
   `annotation` varchar(3000) NOT NULL,
-  PRIMARY KEY (ex_id),
+  PRIMARY KEY (aid),
   INDEX `CHR` (`chrom`),
   INDEX START (start),
   INDEX END (end),

@@ -61,9 +61,12 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
 /**
  * Write the general information out
  * @param fp: opened file handle
+ * @stats_info: a pointer to the stats storage                                                                
+ * @average_coverage                                                                                          
+ * @user_inputs: contains all the user_inputs including target_buffer_size
  * @param type: type of output, 1 for the whole genome, 2 for the target only
  */
-void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage, uint8_t type);
+void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage, User_Input *user_inputs, uint8_t type);
 
 /**
  * Write off target wig file for off target statistics

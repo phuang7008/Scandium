@@ -43,18 +43,19 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords);
  * @param bed_info: the bed information that is stored for the future usage
  * @param stat_info, statistical information for the reads/bases
  * @param header, the bam/sam/cram header pointer that hold the length info of each chromosome
+ * @param user_inputs, contains all the user inputs information, including target_buffer_size
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, User_Input *user_inputs, short type);
 
 /**
  * process bed-formatted file and populate the coordinates and lookup hash table
- * @param bed_file: file in bed format
+ * @param user_inputs: contains all the user inputs including the target or Ns bed file names
  * @param bed_info: the storage of bed coordinates and the size of the bed file
  * @param stats_info: a variable that contains various statistical information
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void processBedFiles(char *bed_file, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
 
 /**
  * just to output some information for debugging

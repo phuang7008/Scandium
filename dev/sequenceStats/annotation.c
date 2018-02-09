@@ -52,7 +52,9 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 
 	// once the MYSQL connection established, we need to find out which database to use here
 	//
-	dbs->db_introns = calloc(30, sizeof(char));
+	dbs->db_introns = calloc(50, sizeof(char));
+	dbs->db_coords  = calloc(50, sizeof(char));
+	dbs->db_annotation = calloc(50, sizeof(char));
 
 	if (user_inputs->annotation_type == 1) {
 		// dynamic way,
@@ -60,34 +62,30 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		//
 		fprintf(stderr, "Dynamic generation of gene annotation is ON\n");
 
-		dbs->db_dynamic = calloc(30, sizeof(char));
-		dbs->db_annotation = calloc(30, sizeof(char));
 
 		if (strcasecmp(user_inputs->database_version, "hg38") == 0) {
-			strcpy(dbs->db_dynamic, "Gene_RefSeq_CDS38_orig");
+			strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords38");
 			strcpy(dbs->db_introns, "Intron_Regions38");
 			strcpy(dbs->db_annotation, "VCRomePKv2_Annotation38");
 
 		} else {
-			strcpy(dbs->db_dynamic, "Gene_RefSeq_CDS37_orig");
+			strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords37");
 			strcpy(dbs->db_introns, "Intron_Regions37");
 			strcpy(dbs->db_annotation, "VCRomePKv2_Annotation37");
 
 		}
 
-		fprintf(stderr, "The database for dynamic usage is: %s\n", dbs->db_dynamic);
-		fprintf(stderr, "The dynamic database for gene annotation is %s\n", dbs->db_annotation);
+		fprintf(stderr, "The dynamic database for gene/transcript/exon percentage calculation is: %s\n", dbs->db_coords);
+		fprintf(stderr, "The dynamic database for gene annotation (partitioned) is %s\n", dbs->db_annotation);
 	} else {
 		// static way
 		//
 		fprintf(stderr, "Static use of prev-existing gene annotation database is ON\n");
 
-		dbs->db_coords = calloc(30, sizeof(char));
-		dbs->db_annotation = calloc(30, sizeof(char));
 
 		if (strcasecmp(user_inputs->database_version, "hg38") == 0) {
 			if (user_inputs->database_category == 1) {
-				strcpy(dbs->db_coords, "Gene_RefSeq_CDS38_orig");
+				strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords38");
 				strcpy(dbs->db_annotation, "VCRomePKv2_Annotation38");
 
 			} else if (user_inputs->database_category == 2) {
@@ -117,12 +115,23 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 			strcpy(dbs->db_introns, "Intron_Regions37");
 		}
 
-		fprintf(stderr, "The static annotation database used is: %s\n", dbs->db_annotation);
-		fprintf(stderr, "The static coordinate database (for CDS) used is: %s\n", dbs->db_coords);
+		fprintf(stderr, "The static annotation database is: %s\n", dbs->db_annotation);
+		fprintf(stderr, "The static coordinate database (for gene/transcript percentage calculation) is: %s\n", dbs->db_coords);
 
 	}
 
 	fprintf(stderr, "The Intronic database is: %s\n\n", dbs->db_introns);
+}
+
+void databaseCleanUp(Databases *dbs) {
+	if (dbs->db_coords != NULL)
+		free(dbs->db_coords);
+
+	if (dbs->db_annotation != NULL)
+		free(dbs->db_annotation);
+
+	if (dbs->db_introns != NULL)
+		free(dbs->db_introns);
 }
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
@@ -451,8 +460,13 @@ int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t star
 	while (low <= high) {
 		if ( (low_cov_genes->gene_coverage[middle].cds_start <= start && start <= low_cov_genes->gene_coverage[middle].cds_end) ||
                (low_cov_genes->gene_coverage[middle].cds_start <= end && end <= low_cov_genes->gene_coverage[middle].cds_end) ) {
+			// take care of the cases: low_cov.start |=========================| low_cov.end
+			//                                         start\----------------------\end
+			//                          start\----------------------\end
 			return middle;
 		} else if ((start <= low_cov_genes->gene_coverage[middle].cds_start) && (low_cov_genes->gene_coverage[middle].cds_end <= end)) {
+			// take care of the case: low_cov.start |=========================| low_cov.end
+			//                       start\----------------------------------------------\end
 			return middle;
 		} else {
 			if (low_cov_genes->gene_coverage[middle].cds_start <= start) {
@@ -519,7 +533,7 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
             regions_in->gene[chrom_idx][found] = "";
 
 		if (strlen(regions_in->exon_info[chrom_idx][found]) > 1) {
-			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found], regions_in->exon_info[chrom_idx][found]);
+			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->Synonymous[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->exon_info[chrom_idx][found]);
 		}
     }
 
@@ -550,7 +564,7 @@ void genePercentageCoverageInit(Low_Coverage_Genes *refseq_cds_genes, Low_Covera
 	if (user_inputs->annotation_type == 1) {
 		// dynamic calculation
 		//
-		sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_target_start, cds_target_end", dbs->db_dynamic, chrom_id);
+		sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_target_start, cds_target_end", dbs->db_coords, chrom_id);
 	} else {
 		// static way
 		//
@@ -698,9 +712,9 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			uint32_t start_t  = target_info->coords[i].start;
 			uint32_t end_t    = target_info->coords[i].end;
 
-			if (start_t == 144615130) {
-				printf("stop\n");
-			}
+			//if (start_t == 58008564) {
+			//	printf("stop\n");
+			//}
 
 			// now use binary search to find the index of the intersects
 			//
@@ -710,8 +724,9 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			// here we need to re-wound the found position by searching through backward
 			// so that the start position on the new low_cov_genes will be in the sorted order
 			// Note: we have to use signed integer here as the walk could generate negative values
+			// Here start_t for target start, while start_c for RefSeq cds start
 			//
-			int8_t decrease=0;
+			int16_t decrease=0;
 			int32_t j;
 
 			for (j=found-1; j>=0; j--) {
@@ -858,7 +873,7 @@ void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *trans
 
 		for (i=0; i<low_cov_genes->total_size; i++) {
 			if (strcmp(low_cov_genes->gene_coverage[i].gene_name, prev_gene_name) != 0) {
-				refseq_array_tmp[counter] = calloc(strlen(low_cov_genes->gene_coverage[i].gene_name), sizeof(char));
+				refseq_array_tmp[counter] = calloc(strlen(low_cov_genes->gene_coverage[i].gene_name)+1, sizeof(char));
 				strcpy(refseq_array_tmp[counter], low_cov_genes->gene_coverage[i].gene_name);
 				strcpy(prev_gene_name, low_cov_genes->gene_coverage[i].gene_name);
 				counter++;
@@ -869,7 +884,7 @@ void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *trans
 		//
 		char** refseq_array = calloc(counter, sizeof(char*));
 		for (i=0; i<counter; i++) {
-			refseq_array[i] = calloc(strlen(refseq_array_tmp[i]), sizeof(char));
+			refseq_array[i] = calloc(strlen(refseq_array_tmp[i])+1, sizeof(char));
 			strcpy(refseq_array[i], refseq_array_tmp[i]);
 		}
 
@@ -969,7 +984,7 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 	// if found, we have to roll back to find the start position, so that everything will be in the sorted order by start position
 	//
-	uint8_t decrease=0;
+	int16_t decrease=0;
 	int32_t i;
 
 	for (i=found-1; i>=0; i--) {
@@ -1010,6 +1025,12 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 // end is the low coverage region end
 //
 void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_index, uint32_t start, uint32_t end) {
+	// added for debugging
+	//
+	//if (strcmp(low_cov_genes->gene_coverage[refseq_exon_index].gene_symbol, "MOG") == 0) {
+	//	printf("found\n");
+	//}
+
 	uint32_t cds_target_start = low_cov_genes->gene_coverage[refseq_exon_index].cds_target_start;
 	uint32_t cds_target_end   = low_cov_genes->gene_coverage[refseq_exon_index].cds_target_end;
 	uint32_t report_string_size = 50;
@@ -1020,7 +1041,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions = calloc(report_string_size, sizeof(char));
 		strcpy(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "");
 	} else {
-		report_string_size += strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions);
+		report_string_size += strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1;
 		char *tmp = realloc(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, report_string_size);
 		if (!tmp) {
 			fprintf(stderr, "Memory re-allocation failed at processExonArrays\n");
@@ -1041,7 +1062,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
 			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
 		} else {
-			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
+			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
 		}
     } else if (cds_target_start <= start && end <= cds_target_end) {
 		//  cds_target_start =================== cds_target_end
@@ -1053,7 +1074,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, start, end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, start, end);
         }
 
     } else if (cds_target_start <= end && end <= cds_target_end) {
@@ -1066,7 +1087,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, cds_target_start, end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, cds_target_start, end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, cds_target_start, end);
         }
 
     } else if (cds_target_start <= start && start <= cds_target_end) {
@@ -1079,7 +1100,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, cds_target_end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, start, cds_target_end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, start, cds_target_end);
         }
     }
 }

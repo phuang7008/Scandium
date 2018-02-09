@@ -38,7 +38,7 @@
 #define VERSION_ "##SeqStats v1.0 2017-07-17"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
-#define BUFFER				100		//buffer region around a target
+//#define BUFFER			100		//buffer region around a target, changed to a user input
 
 #define TARGET_LINE_SIZE	150		//the number of chars to be read for each line within a target file
 
@@ -86,7 +86,9 @@ typedef struct {
 	int8_t min_base_quality;
 	uint8_t low_coverage_to_report;		// default 20, users are allowed to change it as an input option
 	uint16_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
-	int16_t upper_bound_to_report;		// default -1. It is used to set the coverage upper bound to report. it is used with high_coverage_to_report for a range to report
+	int16_t upper_bound_to_report;		// default -1. For coverage range report, used along with high_coverage_to_report
+	uint16_t gVCF_percentage;			// default 5 for 500%. For gVCF formula: BLOCKAVE_Xp, where X=gVCF_percentage
+	uint16_t target_buffer_size;		// default 100. For regions immediate adjacent to any target regions
 	short num_of_threads;
 	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
 	bool remove_duplicate;
@@ -160,9 +162,8 @@ typedef struct {
  * define a structure to hold the database name infomation
  */
 typedef struct {
-	char* db_annotation;	// Database contains annotation column
-	char* db_coords;		// For Static Only, it contains cds_target_start and cds_start columns
-	char* db_dynamic;		// For Dynamic Only, we don't have to worry about db_capture or db_coords
+	char* db_annotation;	// Database contains annotation column (annotations are partitioned)
+	char* db_coords;		// it contains cds_target_start and cds_start columns, for gene/transcript/exon percentage calculation
 	char* db_introns;		// the intronic regions
 	MYSQL *con;
 	MYSQL_RES *mysql_results;

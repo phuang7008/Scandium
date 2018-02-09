@@ -38,6 +38,9 @@ void finish_with_error(MYSQL *con);
  */
 void databaseSetup(Databases *dbs, User_Input *user_inputs);
 
+void databaseCleanUp(Databases *dbs);
+
+
 /*
  * The values stored in the MySQL database are strings. We need to extract them and store them into an INT array
  * @param str_in: the string that contains all the starts OR ends

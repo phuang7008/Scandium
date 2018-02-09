@@ -7,7 +7,7 @@ use DBI;
 
 my $file = shift || die "Please enter the name of the file that contains all the intronic regions\n";
 my $type = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
-my $database = $type=~/hg38/i ? "Gene_Annotations38" : "Gene_Annotations37";
+my $database = $type=~/hg38/i ? "Annotations38" : "Annotations37";
 my $hgnc     = $type=~/hg38/i ? "HGNC38" : "HGNC37";
 
 # connect to the database
@@ -23,21 +23,29 @@ eval {
 # now create table again
 $dbh->do(qq{
 CREATE TABLE $database (
-  `ex_id`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `aid`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `chrom`  varchar(50) NOT NULL,
   `start`  INT UNSIGNED NOT NULL,
   `end`    INT UNSIGNED NOT NULL,
   `gene_symbol`  varchar(250) NULL,
   `Synonymous`   varchar(2500) NULL,
   `prev_gene_symbol` varchar(2500) NULL,
-  `annotation` varchar(4000) NOT NULL,
-  PRIMARY KEY (ex_id),
+  `refseq` varchar(1200) NOT NULL,
+  `ccds` varchar(1200) NOT NULL,
+  `vega` varchar(1200) NOT NULL,
+  `gencode` varchar(1200) NOT NULL,
+  `miRNA` varchar(200) NOT NULL,
+  PRIMARY KEY (aid),
   INDEX `CHR` (`chrom`),
   INDEX START (start),
   INDEX END (end),
   INDEX `COMP` (`chrom`, start, end),
   INDEX `SYM` (`gene_symbol`),
-  INDEX `ANNO` (`annotation`)
+  INDEX `REFSEQ` (`refseq`),
+  INDEX `CCDS` (`ccds`),
+  INDEX `VEGA` (`vega`),
+  INDEX `GENCODE` (`gencode`),
+  INDEX `miRMA` (`miRNA`)
 ) ENGINE=InnoDB;
 });
 
@@ -173,9 +181,9 @@ while (<IN>) {
 		}
 	}
 
-	my $annotations = $type eq "hg38" ? "$refseq\t$ccds\t$gencode\t$miRNA" : "$refseq\t$ccds\t$vega\t$miRNA";
+	#my $annotations = $type eq "hg38" ? "$refseq\t$ccds\t$gencode\t$miRNA" : "$refseq\t$ccds\t$vega\t$miRNA";
 
-	my $sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
+	my $sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene', '$refseq', '$ccds', '$vega', '$gencode', '$miRNA')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }
