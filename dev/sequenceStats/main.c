@@ -94,16 +94,23 @@ int main(int argc, char *argv[]) {
 	// for MySQL connection
 	//
 	Databases *dbs = calloc(1, sizeof(Databases));
-	databaseSetup(dbs, user_inputs);
 
-	// fetch regions that shouldn't use MySQL query
+	// For quick processing, we can't query MySQL for every single gene/exon/cds regions
+	// Instead, we will fetch them only once and store them in the regions defined below
+	//
     Regions_Skip_MySQL *inter_genic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *intronic_regions    = calloc(1, sizeof(Regions_Skip_MySQL));
     Regions_Skip_MySQL *exon_regions        = calloc(1, sizeof(Regions_Skip_MySQL));
 
-    regionsSkipMySQLInit(dbs, inter_genic_regions, user_inputs, 1);
-    regionsSkipMySQLInit(dbs, intronic_regions, user_inputs, 2);
-    regionsSkipMySQLInit(dbs, exon_regions, user_inputs, 3);
+	if (user_inputs->annotation_on) {
+		// Initialize all annotation related variables
+		//
+		databaseSetup(dbs, user_inputs);
+
+		regionsSkipMySQLInit(dbs, inter_genic_regions, user_inputs, 1);
+		regionsSkipMySQLInit(dbs, intronic_regions, user_inputs, 2);
+		regionsSkipMySQLInit(dbs, exon_regions, user_inputs, 3);
+	}
 
 	// can't set to be static as openmp won't be able to handle it
 	// check the bam/cram file size first
@@ -114,7 +121,7 @@ int main(int argc, char *argv[]) {
     //total_chunk_of_reads = 3000000;			// Good for 3 threads with 16gb of memory
     //total_chunk_of_reads = 2200000;			// Good for 3 threads with 9gb  of memory
 	if (input_bam_file_size > 5000000000)		// anything > 5Gb
-		total_chunk_of_reads = 1400000;			// Good for 3 threads with 8gb  of memory
+		total_chunk_of_reads = 1400000;			// Good for 3 threads with 9gb  of memory
 
 	// try to allocate the bam1_t array here for each thread, so they don't have to create and delete the array at each loop
 	Read_Buffer *read_buff = calloc(user_inputs->num_of_threads, sizeof(Read_Buffer));
@@ -241,10 +248,8 @@ int main(int argc, char *argv[]) {
 
 				// if user specifies the range information (usually for graphing purpose), need to handle it here
 				//
-				if (user_inputs->upper_bound_to_report > user_inputs->high_coverage_to_report) {
-				  printf("Thread %d is now writing coverage range info for graphing for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-				  coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info);
-				}
+				printf("Thread %d is now writing coverage range info for graphing for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
+				coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info);
               }
             }
 
@@ -255,26 +260,15 @@ int main(int argc, char *argv[]) {
                 if (user_inputs->annotation_on) {
                   printf("Thread %d is now working on exon percentage calculation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
 
-				  // For calculating the percentage of gene/transcript/exon bases with low coverge (Capture only)
-				  // the final result will be stored at the 'low_cov_genes' variable
-				  // Note: 
-				  //	for static approach, the CDS coord database contain the true CDS/Exon coordinates need to be captured!
-				  //		therefore, we just store everything directly into the 'low_cov_genes' variable
-				  //
-				  //	for dynamic approach, however, we don't have the true coord database
-				  //		All we have is the official RefSeq CDS coordinates database.
-				  //		In this case, we need to do the intersection between the coordinates of RefSeq_CDS 
-				  //		from official annotation and the coordinates from the target file user specified!
-				  //		The official coordinates of refseq CDS will be stored at the 'refseq_cds_genes' variable
-				  //
-				  // we need to allocate memories for both refseq_cds_genes and low_cov_genes (for target bed file)
+				  // For calculating the percentage of gene bases with low coverge for capture only
+				  // we need to allocate memories for both refseq_cds_genes and low_cov_genes
+				  // and use the intersect regions between refseq_cds_genes for official annotation and low_cov_genes for targets
 				  //
 				  Low_Coverage_Genes  *refseq_cds_genes  = calloc(1, sizeof(Low_Coverage_Genes));
 				  Low_Coverage_Genes  *low_cov_genes     = calloc(1, sizeof(Low_Coverage_Genes));
 				  Transcript_Coverage *transcript_cov    = calloc(1, sizeof(Transcript_Coverage));
 
 				  genePercentageCoverageInit(refseq_cds_genes, low_cov_genes, chrom_tracking->chromosome_ids[i], dbs, user_inputs);
-
 				  if (user_inputs->annotation_type == 1)	// dynamic only
 					intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, refseq_cds_genes, low_cov_genes);
 				  transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_cov, low_cov_genes, user_inputs, dbs);

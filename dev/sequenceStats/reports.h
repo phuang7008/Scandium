@@ -61,8 +61,8 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
 /**
  * Write the general information out
  * @param fp: opened file handle
- * @stats_info: a pointer to the stats storage                                                                
- * @average_coverage                                                                                          
+ * @stats_info: a pointer to the stats storage
+ * @average_coverage
  * @user_inputs: contains all the user_inputs including target_buffer_size
  * @param type: type of output, 1 for the whole genome, 2 for the target only
  */

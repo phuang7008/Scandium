@@ -40,7 +40,6 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs);
 
 void databaseCleanUp(Databases *dbs);
 
-
 /*
  * The values stored in the MySQL database are strings. We need to extract them and store them into an INT array
  * @param str_in: the string that contains all the starts OR ends
@@ -79,6 +78,17 @@ int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, ui
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index);
 
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index);
+
+/**
+ * The function is used to record one exon info that overlaps with the low coverage region (regions_in)
+ * @param annotations, an array of Annotation that stores all of the exon info that overlap with low coverage region
+ * @param regions_in, the low coverage region being checked and annotated
+ * @param chrom_idx, the current chromosome index
+ * @param found_loc, the found exon index location
+ */
+void copyAnnotationDetails(Annotation_Wrapper *annotation_wrapper, Regions_Skip_MySQL *regions_in, uint32_t chrom_idx, uint32_t found_loc);
+
+void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **info_in_and_out);
 
 int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index);
 

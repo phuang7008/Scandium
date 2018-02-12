@@ -34,6 +34,40 @@ bool checkFile(char * fName);
  */
 uint64_t check_file_size(const char *filename);
 
+/* Split a string to a word array
+ * Note: arrayPtr should be inialized outside the function before passing it to the call!
+ * We use a dynamic way for memory allocation!
+
+ * The following is an example what two original strings look like and we need to combine them togetner!
+ *    NM_022834_exon_0;NM_199121_exon_0    CCDS27_exon_0;CCDS28_exon_0 OTTHUMT00000008291_exon_0;OTTHUMT00000008294_exon_0 .
+ *    NM_001242361_exon_29;NR_031580_exon_0    CCDS55599_exon_29;CCDS559_exon_29   OTTHUMT00000023045_exon_29  hsa-mir-761
+
+ * Here the first delimiter is "\t", while the second delimiter is ";"
+
+ * The stringArray will store all the information about the detailed exon annotation 
+ * The following illustrates the stringArray structure
+ * stringArray ->
+                   RefSeq              CCDS              VEGA/Gencode          miRNA
+                     0                   1                    2                  3   
+               char **theArray    char **theArray        char **theArray     char **theArray
+                  -> theArray[0] -> theArray[1] -> theArray[2] ... -> theArray[size]
+
+ * @param stringPtr, a string pointer. It's content will be splitted into words
+ * @param arrayPtr, a stringArray pointer. It is used to store string array information
+*/ 
+void splitStringToArray(char *stringPtr, stringArray *arrayPtr);
+
+/**
+ * to remove duplated words from a give string
+ * @param array1, a stringArrat pointer that contains an string array with duplicates to be removed!
+ * @param array2, a stringArray pointer that contains an string array that its string content need to be removed from array1
+ */
+void removeDuplicatesFromStringArray(stringArray *array1, stringArray *array2);
+
+void stringArrayDestroy(stringArray *arrayIn);
+
+void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
+
 /**
  * produces the usage information for end users
  */

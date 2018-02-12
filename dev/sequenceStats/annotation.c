@@ -62,7 +62,6 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		//
 		fprintf(stderr, "Dynamic generation of gene annotation is ON\n");
 
-
 		if (strcasecmp(user_inputs->database_version, "hg38") == 0) {
 			strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords38");
 			strcpy(dbs->db_introns, "Intron_Regions38");
@@ -81,7 +80,6 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		// static way
 		//
 		fprintf(stderr, "Static use of prev-existing gene annotation database is ON\n");
-
 
 		if (strcasecmp(user_inputs->database_version, "hg38") == 0) {
 			if (user_inputs->database_category == 1) {
@@ -117,7 +115,6 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 
 		fprintf(stderr, "The static annotation database is: %s\n", dbs->db_annotation);
 		fprintf(stderr, "The static coordinate database (for gene/transcript percentage calculation) is: %s\n", dbs->db_coords);
-
 	}
 
 	fprintf(stderr, "The Intronic database is: %s\n\n", dbs->db_introns);
@@ -177,8 +174,8 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 	// here we need to find out how many chromosomes we are dealing with
 	char *sql = calloc(250, sizeof(char));
 		
-	// Here NOT LIKE will exclude non-primary chromosomes such as 19_GL949752v1_alt
-	// For hg38, we need to include them in
+	// Here 'NOT LIKE' will exclude non-primary chromosomes such as 19_GL949752v1_alt
+	// For hg38, however, we need to include them in. Thus, I remove them.
 	//
 	if (type == 1) {
 		//sprintf(sql, "SELECT DISTINCT chrom FROM Intergenic_Regions WHERE chrom NOT LIKE '%%\\_%%'");
@@ -208,6 +205,9 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 		strcpy(regions_in->chromosome_ids[chrom_idx], row[0]);
 		chrom_idx++;
 	}
+
+	// clean up the tmp variables
+	//
 	if (dbs->mysql_results) { mysql_free_result(dbs->mysql_results); dbs->mysql_results = NULL; }
 	free(sql);
 	sql = NULL;
@@ -292,7 +292,8 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 			}
 		}
 
-		// now populate these regions without gene annotation
+		// now populate these regions with gene annotation
+		// The real populating job (or copy everything in is done by dynamicStringAllocation())
 		//printf("current chromosome is %s for type %d and at %d\n", regions_in->chromosome_ids[i], type, i);
 		populateStaticRegionsForOneChromOnly(regions_in, dbs, regions_in->chromosome_ids[i], i, user_inputs, type); 
 	}
@@ -463,10 +464,12 @@ int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t star
 			// take care of the cases: low_cov.start |=========================| low_cov.end
 			//                                         start\----------------------\end
 			//                          start\----------------------\end
+			//
 			return middle;
 		} else if ((start <= low_cov_genes->gene_coverage[middle].cds_start) && (low_cov_genes->gene_coverage[middle].cds_end <= end)) {
 			// take care of the case: low_cov.start |=========================| low_cov.end
 			//                       start\----------------------------------------------\end
+			//
 			return middle;
 		} else {
 			if (low_cov_genes->gene_coverage[middle].cds_start <= start) {
@@ -493,7 +496,7 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 		uint16_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
 		
 		if (str_len_needed > orig_str_len) {
-			char *tmp = realloc(*info_in_and_out, str_len_needed);
+			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
 			if (!tmp) {
 				fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
 				exit(1);
@@ -511,33 +514,340 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 	return found;
 }
 
+// this function will try to find all exons that overlap with a low coverage region and annotate them accordingly
+//
 int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
 	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
+	//if (start == 81003) {
+	//	printf("stop\n");
+	//}
+
     if (found != -1) {
-        uint16_t orig_str_len = strlen(*info_in_and_out);
-        uint16_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + strlen(regions_in->exon_info[chrom_idx][found]) + 50;
+		// define a variable that hold the annotation array with initial size of 5
+		// the size of annotation array might differ, so we will have to increase the size dynamically later
+		// Note: the size information are stored inside the annotation wrapper
+		//
+		Annotation_Wrapper *annotation_wrapper = calloc(1, sizeof(Annotation_Wrapper));
+		annotation_wrapper->annotations = calloc(5, sizeof(Annotation));
+		annotation_wrapper->allocated_size = 5;
+		annotation_wrapper->real_size = 0;
 
-        if (str_len_needed > orig_str_len) {
-            char *tmp = realloc(*info_in_and_out, str_len_needed);
-            if (!tmp) {
-                fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
-				exit(1);
-            }
+		// Now copy the current exon info into the Annotation Array (annotations)
+		//
+		copyAnnotationDetails(annotation_wrapper, regions_in, chrom_idx, found);
 
-            *info_in_and_out = tmp;
-        }
-
-        // for debugging only
-        if (strcmp(regions_in->gene[chrom_idx][found], ".") == 0)
-            regions_in->gene[chrom_idx][found] = "";
-
-		if (strlen(regions_in->exon_info[chrom_idx][found]) > 1) {
-			sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->Synonymous[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->exon_info[chrom_idx][found]);
+		// Next, need to loop through left hand side to see if any left exons are part of low coverage regions
+		// need to use SIGNED integer as it might go to negative and cause undefined behavior if using UNSIGNED!
+		//
+		int32_t i;
+		for (i=found-1; i>=0; i--) {
+			// check if the left exon overlaps with the low coverage region (lcr)
+			//         lcr start   =======================================   lcr end
+			//                                     left exon start  ------------   left exon end
+			//					left exon start  ------ left exon end
+			// left exon start  ------ left exon end
+			//
+			if ( (start <= regions_in->starts[chrom_idx][i] && regions_in->starts[chrom_idx][i] <= end) || 
+				   (start <= regions_in->ends[chrom_idx][i] && regions_in->ends[chrom_idx][i] <= end) ) {
+				copyAnnotationDetails(annotation_wrapper, regions_in, chrom_idx, i);
+			} else {
+				// because the records are partitioned, so we should break it here!
+				//
+				break;
+			}
 		}
+
+		// Here we also need to loop through the right hand side as well!
+		// The checking criteria is the same as the schema used the above
+		//
+		for (i=found+1; i<regions_in->size_r[chrom_idx]; i++) {
+			if ( (start <= regions_in->starts[chrom_idx][i] && regions_in->starts[chrom_idx][i] <= end) ||
+				   (start <= regions_in->ends[chrom_idx][i] && regions_in->ends[chrom_idx][i] <= end) ) {
+				copyAnnotationDetails(annotation_wrapper, regions_in, chrom_idx, i);
+			} else {
+				break;
+			}
+		}
+
+		// Now need to walk through the Annoration array and put everything together
+		//
+		combineAllExonAnnotations(annotation_wrapper, info_in_and_out);
+
+		// clean up
+		//
+		annotationWrapperDestroy(annotation_wrapper);
     }
 
     return found;
+}
+
+// The real copy of annotations for one exon only
+//
+void copyAnnotationDetails(Annotation_Wrapper *annotation_wrapper, Regions_Skip_MySQL *regions_in, uint32_t chrom_idx, uint32_t found_loc) {
+	// need to dynamically expand the annotation array
+	//
+	if (annotation_wrapper->allocated_size <= annotation_wrapper->real_size) {
+		annotation_wrapper->allocated_size = annotation_wrapper->allocated_size * 2;
+		Annotation *tmp = realloc(annotation_wrapper->annotations, annotation_wrapper->allocated_size*sizeof(Annotation));
+		if (!tmp) {
+			fprintf(stderr, "Memory re-allocation for the struct Annotation failed in checkExonRegion\n");
+			exit(1);
+		}
+		annotation_wrapper->annotations = tmp;
+	}
+
+	// first store the gene info from the exon info found
+	//
+	annotation_wrapper->annotations[annotation_wrapper->real_size].gene = calloc(strlen(regions_in->gene[chrom_idx][found_loc])+1, sizeof(char));
+	strcpy(annotation_wrapper->annotations[annotation_wrapper->real_size].gene, regions_in->gene[chrom_idx][found_loc]);
+
+	// store Synonymous info
+	//
+	annotation_wrapper->annotations[annotation_wrapper->real_size].Synonymous = calloc(strlen(regions_in->Synonymous[chrom_idx][found_loc])+1, sizeof(char));
+	strcpy(annotation_wrapper->annotations[annotation_wrapper->real_size].Synonymous, regions_in->Synonymous[chrom_idx][found_loc]);
+
+	// store prev_gene info (the previous gene information will not be available)
+	//
+	//annotation_wrapper[annotation_wrapper->real_size].prev_genes = calloc(strlen(regions_in->prev_genes[chrom_idx][found_loc]), sizeof(char*));
+	//strcpy(annotation_wrapper[annotation_wrapper->real_size].prev_genes, regions_in->prev_genes[chrom_idx][found_loc]);
+
+	// store exon_info
+	//
+	annotation_wrapper->annotations[annotation_wrapper->real_size].exon_info = calloc(strlen(regions_in->exon_info[chrom_idx][found_loc])+1, sizeof(char));
+	strcpy(annotation_wrapper->annotations[annotation_wrapper->real_size].exon_info, regions_in->exon_info[chrom_idx][found_loc]);
+
+	annotation_wrapper->real_size++;
+}
+
+// To combine all the annotations together
+//
+void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **info_in_and_out) {
+	uint32_t orig_str_len = strlen(*info_in_and_out);
+	uint32_t str_len_needed = 0;
+
+	if (annotation_wrapper->real_size == 1) {
+		// just output the results
+		//
+		//str_len_needed = strlen(annotations[0].gene) + strlen(annotations[0].prev_genes) + strlen(annotations[0].Synonymous) + strlen(annotations[0].exon_info) + 10;	// 10 is added for extra spacing
+		str_len_needed = strlen(annotation_wrapper->annotations[0].gene) + strlen(annotation_wrapper->annotations[0].Synonymous) + strlen(annotation_wrapper->annotations[0].exon_info) + 20;	// 20 is added for extra spacing
+
+		if (str_len_needed > orig_str_len) {
+			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
+			if (!tmp) {
+				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+				exit(1);
+			}
+			*info_in_and_out = tmp;
+		}
+
+		sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", annotation_wrapper->annotations[0].gene, annotation_wrapper->annotations[0].Synonymous, ".", annotation_wrapper->annotations[0].exon_info);
+	} else {
+		uint16_t i, j;
+
+		// First, Handle gene list
+		//
+		stringArray *genes = calloc(1, sizeof(stringArray));
+		genes->theArray = calloc(annotation_wrapper->real_size, sizeof(char*));
+		genes->capacity = annotation_wrapper->real_size;
+		genes->size=0;
+
+		// Note, since I will move the list forward for eliminating duplicates,
+		// I need to make sure that I provide enough space for the moved copies
+		//
+		size_t word_size=50;
+		for (i=0; i<annotation_wrapper->real_size; i++) {
+			//genes->theArray[i] = calloc(strlen(annotation_wrapper->annotations[i].gene)+3, sizeof(char));
+			genes->theArray[i] = calloc(word_size, sizeof(char));
+			strcpy(genes->theArray[i], annotation_wrapper->annotations[i].gene);
+			genes->size++;
+		}
+		removeDuplicatesFromStringArray(genes, NULL);
+
+		// get the gene list into a string, need to leave some rooms for the separator ;
+		//
+		char *gene_list = calloc(genes->size * word_size + 10, sizeof(char));
+
+		// need to get rid of '.' if the size is >= 2
+		// Note, here I need to do strcpy before I do the strcat
+		//
+		if (genes->size == 1) {
+			strcpy(gene_list, genes->theArray[0]);
+		} else {
+			uint8_t flag = 0;
+			for(i=0; i<genes->size; i++) {
+				if (strcmp(genes->theArray[i], ".") != 0) {
+					if (flag>0) {
+						strcat(gene_list, ";");
+						strcat(gene_list, genes->theArray[i]);
+					} else {
+						strcpy(gene_list, genes->theArray[i]);
+					}
+					flag++;
+				}
+			}
+		}
+
+		// Next, the Synonymous
+		// First, need to find out how many Synonymous
+		// Since the strtok() will destroy the original string, we need to make a copy of it
+		// or store them somewhere for later usage
+		//
+		stringArray *Synonymous = calloc(1, sizeof(stringArray));
+		Synonymous->theArray = calloc(annotation_wrapper->real_size, sizeof(char*));
+		Synonymous->capacity = annotation_wrapper->real_size;
+		Synonymous->size=0;
+
+		char *tokPtr;
+
+		for (i=0; i<annotation_wrapper->real_size; i++) {
+			tokPtr = strtok(annotation_wrapper->annotations[i].Synonymous, "; ");
+
+			// increase the size if size == capacity
+			//
+			if (Synonymous->capacity == Synonymous->size) {
+				Synonymous->capacity = Synonymous->capacity * 2;
+				char** tmp = realloc(Synonymous->theArray, Synonymous->capacity * sizeof(char*));
+				if (!tmp) {
+					fprintf(stderr, "Memory re-allocation for string failed in resizing Synonymous length\n");
+					exit(1);
+				}
+				Synonymous->theArray = tmp;
+			}
+
+			Synonymous->theArray[Synonymous->size] = calloc(word_size, sizeof(char));
+			strcpy(Synonymous->theArray[Synonymous->size], tokPtr);
+			Synonymous->size++;
+
+			for(j = 1; (tokPtr = strtok(NULL, "; ")) != NULL; j++) {
+				// need to increase the size if size == capacity
+				//
+				if (Synonymous->capacity == Synonymous->size) {
+					Synonymous->capacity = Synonymous->capacity * 2;
+					char** tmp = realloc(Synonymous->theArray, Synonymous->capacity * sizeof(char*));
+					if (!tmp) {
+						fprintf(stderr, "Memory re-allocation for string failed in resizing Synonymous length\n");
+						exit(1);
+					}
+					Synonymous->theArray = tmp;
+				}
+
+				Synonymous->theArray[Synonymous->size] = calloc(word_size, sizeof(char));
+				strcpy(Synonymous->theArray[Synonymous->size], tokPtr);
+				Synonymous->size++;
+			}
+		}
+
+		removeDuplicatesFromStringArray(Synonymous, genes);
+
+		if (tokPtr != NULL) free(tokPtr);
+
+		// save all Synonymous into a string
+		// but we also need to get rid of "." if the size >= 2
+		//
+		char * Synonymous_list = calloc( Synonymous->size * word_size + 10, sizeof(char));
+		if (Synonymous->size == 1) {
+			strcpy(Synonymous_list, Synonymous->theArray[0]);
+		} else {
+			uint8_t flag = 0;
+			for (i=0; i<Synonymous->size; i++) {
+				if (strcmp(Synonymous->theArray[i], ".") != 0) {
+					if (flag>0) {
+						strcat(Synonymous_list, ";");
+						strcat(Synonymous_list, Synonymous->theArray[i]);
+					} else {
+						// this if else is needed because you need to do strcpy before strcat
+						//
+						strcpy(Synonymous_list, Synonymous->theArray[i]);
+					}
+					flag++;
+				}
+			}
+		}
+
+		// Now handle exon_annotations
+		// there are 5 sources of annotations: 0:RefSeq, 1:CCDS, 2:(VEGA for hg37, while Gencode for hg38) and 3:miRNA
+		// But will only have 4 place holders as VEGA is not available in hg38 and Gencode is not availabe for hg37
+		// we need to handle them separately
+		//
+		stringArray *exon_annotations = calloc(4, sizeof(stringArray));
+		uint16_t initializeSize=10;
+		for (i=0; i<4; i++) {
+			exon_annotations[i].theArray = calloc(initializeSize, sizeof(char*));
+			exon_annotations[i].capacity=initializeSize;
+			exon_annotations[i].size=0;
+		}
+
+		for (i=0; i<annotation_wrapper->real_size; i++) {
+			splitStringToArray(annotation_wrapper->annotations[i].exon_info, exon_annotations);
+		}
+
+		uint32_t total_string_length=0;		// the string length could get quite long ...
+		for (i=0; i<4; i++) {
+			removeDuplicatesFromStringArray(&exon_annotations[i], NULL);
+			total_string_length += exon_annotations[i].size * sizeof(char) * word_size;
+		}
+
+		// save all the exon information into a string
+		//
+		char *exon_list = calloc(total_string_length+50, sizeof(char));
+		exon_list[0] = '\0';	// first character is now the null terminator, we can use strcat directly
+		for (i=0; i<4; i++) {
+			// flag used to remove un-neccessary ";" in the output
+			//
+			uint8_t format_flag=0;
+
+			for (j=0; j<exon_annotations[i].size; j++) {
+				// this is to remove extra "." if we have more than one item on the list after duplication removal
+				//
+				if (exon_annotations[i].size > 1 && strcmp(exon_annotations[i].theArray[j], ".") == 0)
+					continue;
+
+				//if (i > 0 && j > 0 && format_flag > 0)
+				if (format_flag > 0)
+					strcat(exon_list, ";");
+
+				// we can use strcat directly as we set exon_list[0] = '\0' already
+				//
+				strcat(exon_list, exon_annotations[i].theArray[j]);
+				if (format_flag == 0) format_flag++;
+			}
+
+			if (i<3)
+				strcat(exon_list, "\t");
+		}
+
+		// final string to be output
+		//
+		str_len_needed = strlen(gene_list) + strlen(Synonymous_list) + strlen(exon_list) + 20;   // 20 is added for extra spacing
+		if (str_len_needed > orig_str_len) {
+			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
+			if (!tmp) {
+				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+				exit(1);
+			}
+			*info_in_and_out = tmp;
+		}
+
+		sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", gene_list, Synonymous_list, ".", exon_list);
+
+		//fprintf(stderr, "Multiple genes output: %s\n", gene_list);
+
+		// clean-up
+		//
+		stringArrayDestroy(genes);
+		stringArrayDestroy(Synonymous);
+		for (i=0; i<4; i++)
+			stringArrayDestroy(&exon_annotations[i]);
+
+		if (genes != NULL) free(genes);
+		if (Synonymous != NULL) free(Synonymous);
+		if (exon_annotations != NULL) free(exon_annotations);
+
+		if (gene_list != NULL) free(gene_list);
+		if (Synonymous_list != NULL) free(Synonymous_list);
+		if (exon_list != NULL) free(exon_list);
+	}
 }
 
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index) {
@@ -712,9 +1022,9 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			uint32_t start_t  = target_info->coords[i].start;
 			uint32_t end_t    = target_info->coords[i].end;
 
-			//if (start_t == 58008564) {
-			//	printf("stop\n");
-			//}
+			if (start_t == 144615130) {
+				printf("stop\n");
+			}
 
 			// now use binary search to find the index of the intersects
 			//
@@ -724,7 +1034,6 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			// here we need to re-wound the found position by searching through backward
 			// so that the start position on the new low_cov_genes will be in the sorted order
 			// Note: we have to use signed integer here as the walk could generate negative values
-			// Here start_t for target start, while start_c for RefSeq cds start
 			//
 			int16_t decrease=0;
 			int32_t j;
@@ -805,9 +1114,9 @@ void recordIntersectedRegions(Low_Coverage_Genes *refseq_cds_genes, Low_Coverage
 	low_cov_genes->gene_coverage[target_counter].gene_name = calloc(strlen(refseq_cds_genes->gene_coverage[refseq_found_index].gene_name)+1, sizeof(char));
 	strcpy(low_cov_genes->gene_coverage[target_counter].gene_name, refseq_cds_genes->gene_coverage[refseq_found_index].gene_name);
 
-	low_cov_genes->gene_coverage[target_counter].cds_start = refseq_cds_genes->gene_coverage[refseq_found_index].cds_start;
-	low_cov_genes->gene_coverage[target_counter].cds_end   = refseq_cds_genes->gene_coverage[refseq_found_index].cds_end;
-	low_cov_genes->gene_coverage[target_counter].cds_length= refseq_cds_genes->gene_coverage[refseq_found_index].cds_length;
+	low_cov_genes->gene_coverage[target_counter].cds_start  = refseq_cds_genes->gene_coverage[refseq_found_index].cds_start;
+	low_cov_genes->gene_coverage[target_counter].cds_end    = refseq_cds_genes->gene_coverage[refseq_found_index].cds_end;
+	low_cov_genes->gene_coverage[target_counter].cds_length = refseq_cds_genes->gene_coverage[refseq_found_index].cds_length;
 	low_cov_genes->gene_coverage[target_counter].exon_id    = refseq_cds_genes->gene_coverage[refseq_found_index].exon_id;
 	low_cov_genes->gene_coverage[target_counter].exon_count = refseq_cds_genes->gene_coverage[refseq_found_index].exon_count;
 	low_cov_genes->gene_coverage[target_counter].low_cov_regions = NULL;
@@ -1025,12 +1334,6 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 // end is the low coverage region end
 //
 void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_index, uint32_t start, uint32_t end) {
-	// added for debugging
-	//
-	//if (strcmp(low_cov_genes->gene_coverage[refseq_exon_index].gene_symbol, "MOG") == 0) {
-	//	printf("found\n");
-	//}
-
 	uint32_t cds_target_start = low_cov_genes->gene_coverage[refseq_exon_index].cds_target_start;
 	uint32_t cds_target_end   = low_cov_genes->gene_coverage[refseq_exon_index].cds_target_end;
 	uint32_t report_string_size = 50;
@@ -1042,7 +1345,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		strcpy(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "");
 	} else {
 		report_string_size += strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1;
-		char *tmp = realloc(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, report_string_size);
+		char *tmp = realloc(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, report_string_size * sizeof(char));
 		if (!tmp) {
 			fprintf(stderr, "Memory re-allocation failed at processExonArrays\n");
 			exit(1);

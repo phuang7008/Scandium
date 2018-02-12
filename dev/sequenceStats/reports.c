@@ -72,6 +72,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 		FILE *capture_low_x_fp    = fopen(user_inputs->capture_low_cov_file, "a");
 		FILE *capture_high_x_fp   = fopen(user_inputs->capture_high_cov_file, "a");
 		FILE *capture_all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
+		FILE *capture_range_fp    = fopen(user_inputs->capture_range_file, "a");
 
 		for(i = 0; i < target_info->size; i++) {
 
@@ -194,13 +195,13 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 
 			// For range block coverage information for graphing
 			//
-			if (user_inputs->upper_bound_to_report > user_inputs->high_coverage_to_report) 
-				writeCoverageRanges(start, length, chrom_tracking, idx, user_inputs, capture_high_x_fp);
+			writeCoverageRanges(start, length, chrom_tracking, idx, user_inputs, capture_range_fp);
 		}
 
 		fclose(capture_low_x_fp);
 		fclose(capture_high_x_fp);
 		fclose(capture_all_site_fp);
+		fclose(capture_range_fp);
 
 		fclose(cov_fp);
 		fclose(missed_target_fp);
@@ -298,8 +299,9 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 			// generate the annotation here
 			//
 			if (user_inputs->annotation_on) {
-				char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, type);
-				if (annotation) {
+				//char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, type);
+				char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
+				if (annotation != NULL) {
 					fprintf(fh_low, "%s", annotation);
 					free(annotation);
 					annotation = NULL;
@@ -317,11 +319,8 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 		end = 0;
 		cov_total = 0;
 
-		// if range/block is needed, don't do the following as the range function will produce the output
+		// now for anything above the High coverage
 		//
-		if (user_inputs->upper_bound_to_report > user_inputs->high_coverage_to_report)
-			continue;
-
         if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
             start = i;
 
@@ -340,8 +339,9 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 			// generate the annotation here
 			//
             if (user_inputs->annotation_on) {
-				char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, type);
-				if (annotation) {
+				//char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, type);
+				char *annotation = getRegionAnnotation(start, end-1, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
+				if (annotation != NULL) {
 					fprintf(fh_high, "%s", annotation);
 					free(annotation);
 					annotation = NULL;
@@ -363,7 +363,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 	char *annotation = calloc(50, sizeof(char));
 	strcpy(annotation, ".");
 
-	//if (start == 17869540) {
+	//if (start >= 1167104 && end <=1167198) {
 	//	printf("Stop\n");
 	//}
 
@@ -374,6 +374,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 	if (type == 1) {
 		// to speed up the search, we need to check to see if the region is still part of the previous search lower bound
 		// First check exon_region
+		//
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, exon_regions);
 		if (chrom_idr == exon_regions->prev_search_chrom_index && exon_regions->prev_search_loc_index > 0) {
 			tmp_loc_idx = exon_regions->prev_search_loc_index;
@@ -381,7 +382,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 			if (verifyIndex(exon_regions, start, end, chrom_idr, tmp_loc_idx)) {
 				if (strlen(exon_regions->exon_info[chrom_idr][tmp_loc_idx]) > 1) {
 					uint16_t str_len_needed = strlen(exon_regions->gene[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->Synonymous[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->prev_genes[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->exon_info[chrom_idr][tmp_loc_idx]) + 50;
-					char *tmp = realloc(annotation, str_len_needed);
+					char *tmp = realloc(annotation, str_len_needed * sizeof(char));
 		        	if (!tmp) {
 			        	fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
 				    	exit(1);
@@ -400,7 +401,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 			if (verifyIndex(intronic_regions, start, end, chrom_idr, tmp_loc_idx)) {
 				uint16_t str_len_needed = strlen(intronic_regions->gene[chrom_idr][tmp_loc_idx]) + strlen(intronic_regions->Synonymous[chrom_idr][tmp_loc_idx]) + strlen(intronic_regions->prev_genes[chrom_idr][tmp_loc_idx]) + 50;
-	            char *tmp = realloc(annotation, str_len_needed);
+	            char *tmp = realloc(annotation, str_len_needed * sizeof(char));
 		        if (!tmp) {
 			        fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
 				    exit(1);
@@ -468,38 +469,33 @@ void coverageRangeInfoForGraphing(char *chrom_id, Bed_Info *target_info, Chromos
 	// First, we need to find the index that is used to track current chromosome chrom_id
 	// 
 	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
-	FILE *wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
+	FILE *wgs_range_fp = fopen(user_inputs->wgs_range_file, "a");
 	
-	writeCoverageRanges(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_idx, user_inputs, wgs_high_x_fp);
+	writeCoverageRanges(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_idx, user_inputs, wgs_range_fp);
 
-	fclose(wgs_high_x_fp);
+	fclose(wgs_range_fp);
 }
 
 // here we stick to the bed format for the output
 //
-void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_high) {
+void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_range) {
 	// NOTE: the bed format is different here, the end position is included!
 	//
 	uint32_t i=0;
 	for (i=begin; i<begin+length; i++) {
 		uint32_t start=0, end=0;
 		uint64_t cov_total=0;
-		//if (i >= 74966293)
-		//	printf("stop 1\n");
-
-		//if (chrom_tracking->coverage[chrom_idx][i] < user_inputs->high_coverage_to_report)
-		//	continue;
 		
-		// now handle within range block. Inclusive for both boundaries [min, max]
-		//	high_coverage_to_report ========================== upper_bound_to_report
-		//	            the base to be checked  - 
+		// now handle within range block. Inclusive for both boundaries [lower_bound, upper_bound]
+		//	lower_bound  ========================== upper_bound
+		//	    the base to be checked  - 
 		//
-		if (i < begin+length && (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report)
-				&& (chrom_tracking->coverage[chrom_idx][i] <= user_inputs->upper_bound_to_report) ) {
+		if (i < begin+length && (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->lower_bound)
+				&& (chrom_tracking->coverage[chrom_idx][i] <= user_inputs->upper_bound) ) {
 			start = i;
 
-			while( i < begin+length && (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report)
-					&& (chrom_tracking->coverage[chrom_idx][i] <= user_inputs->upper_bound_to_report) ) {
+			while( i < begin+length && (chrom_tracking->coverage[chrom_idx][i] >= user_inputs->lower_bound)
+					&& (chrom_tracking->coverage[chrom_idx][i] <= user_inputs->upper_bound) ) {
 					cov_total += chrom_tracking->coverage[chrom_idx][i];
 					i++;
 			}
@@ -507,22 +503,22 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
 
 			if (start <= end) {
 				uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
-				fprintf(fh_high, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+				fprintf(fh_range, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
 			}
 		}
 
 		// now handle anything below the lower bound (here I will treat them as a single group, ExCID's way)
-		//      high_coverage_to_report ========================== upper_bound_to_report
+		//                   lower_bound ========================== upper_bound
 		//  the base to be checked  -
 		//
 		start = 0;
 		end = 0;
 		cov_total = 0;
 
-		if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->high_coverage_to_report) {
+		if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->lower_bound) {
 			start = i;
 
-			while (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->high_coverage_to_report) {
+			while (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->lower_bound) {
 				cov_total += chrom_tracking->coverage[chrom_idx][i];
 				i++;
             }
@@ -530,26 +526,26 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
 
 			if (start < end) {
 				uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
-				fprintf(fh_high, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+				fprintf(fh_range, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
 			}
 		}
 
 		// now handle anything beyond the upper bound using gVCF approach
 		// here we will use gVCF approach with the block max <= (100%+1) * min
 		// the implementation is based on the group discussion 
-		//	high_coverage_to_report ========================== upper_bound_to_report
-		//											the base to be checked  -
+		//	lower_bound ========================== upper_bound
+		//							the base to be checked  -
 		//
 		start = 0;
 		end = 0;
 		cov_total = 0;
 
-		if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound_to_report) {
+		if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound) {
 			start = i;
 
 			uint32_t min_cov=10000000, max_cov=0;
 
-			while (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound_to_report) {
+			while (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound) {
 				// check using gVCF approach
 				//
 				if (min_cov > chrom_tracking->coverage[chrom_idx][i])
@@ -571,11 +567,11 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
 			end=i;
 			if (start < end) {
 				uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
-				fprintf(fh_high, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+				fprintf(fh_range, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
 			}
 		}
 
-		// need to decrease the i value as the loop will increase i here
+		// Need to decrease i here as the loop will increase it again
 		//
 		i--;
 	}
@@ -1007,9 +1003,7 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		FILE *exon_pct_fp = fopen(user_inputs->low_cov_exon_pct_file, "a");
 
 		// we need to sort the Gene_Coverage before we could use them as it will make it faster
-		//
 		qsort(low_cov_genes->gene_coverage, low_cov_genes->total_size, sizeof(Gene_Coverage), &compare);
-
 		//for(i = 0; i < low_cov_genes->total_size; i++) {
 		//	printf("%s\t%"PRIu32"\n", low_cov_genes->gene_coverage[i].gene_name, low_cov_genes->gene_coverage[i].exon_start);
 		//}
@@ -1057,17 +1051,14 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 
 		// The following is to output the low coverage report for each refseq/gene
 		// Since multiple refseq could be start at the same position, we need to record previous gene/refseq name
-		//
 		char *prev_gene_name = calloc(50, sizeof(char));
 		char *prev_gene_symbol = NULL;
 		strcpy(prev_gene_name, ",");
 
 		// declare prev_cds_size and low base count here as they need to be accumulated
-		//
 		uint32_t prev_cds_size=0, prev_gene_low_bases=0;
 		
 		// Some capture targarts come from the same exon, so we need to skip it when accumulate the refseq length
-		//
 		uint16_t exon_count=0;
 		float pct;
 
@@ -1081,6 +1072,10 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				// begining of a new refseq
 				// need to output current gene/refseq info if it is not the first item!
 				//
+				//if (strcmp(prev_gene_name, "NM_001077") == 0) {
+				//	printf("stop!\n");
+				//}
+
 				if (i > 0 && prev_gene_symbol) {
 					pct = (float) ((prev_cds_size - prev_gene_low_bases) * 100) / (float) (prev_cds_size);
 					fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.2f\n", chrom_id, prev_gene_symbol, prev_gene_name, prev_cds_size, exon_count, pct);

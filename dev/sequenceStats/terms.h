@@ -67,6 +67,7 @@ typedef struct {
 	char * wgs_cov_report;			// output the whole genome coverage summary report	
 	char * wgs_low_cov_file;		// for the regions within the whole genome that have lower coverage with detailed annotation
 	char * wgs_high_cov_file;		// for the regions within the whole genome that have high coverage without detailed annotation
+	char * wgs_range_file;			// for whole genome range file
 
 	// For Capture related outputs
 	char * missed_targets_file;		// for target regions that have no coverage at all
@@ -74,6 +75,7 @@ typedef struct {
 	char * capture_cov_report;		// output the capture target regions coverage summary report
 	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
 	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
+	char * capture_range_file;		// for target range file
 	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
 	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
 	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
@@ -86,7 +88,8 @@ typedef struct {
 	int8_t min_base_quality;
 	uint8_t low_coverage_to_report;		// default 20, users are allowed to change it as an input option
 	uint16_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
-	int16_t upper_bound_to_report;		// default -1. For coverage range report, used along with high_coverage_to_report
+	int16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the range output
+	int16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the range output
 	uint16_t gVCF_percentage;			// default 5 for 500%. For gVCF formula: BLOCKAVE_Xp, where X=gVCF_percentage
 	uint16_t target_buffer_size;		// default 100. For regions immediate adjacent to any target regions
 	short num_of_threads;
@@ -199,6 +202,34 @@ typedef struct {
 	char ***prev_genes;
 	char ***exon_info;
 } Regions_Skip_MySQL;
+
+/** define annotation structure that is used to store multiple hits from search results
+ *  This is used to handle the case where there might be multiple genes within a low coverage region
+ *  And we need to include all of them in our annotation
+ */
+typedef struct {
+	char *gene;
+	char *Synonymous;
+	//char *prev_genes;		// not used!
+	char *exon_info;
+} Annotation;
+
+/** define an annotation array structure to hold the annotation array
+ */
+typedef struct {
+	Annotation *annotations;
+	uint16_t allocated_size;    // the allocated size through memory management
+	uint16_t real_size;         // the number of exon info currently stored in this array
+} Annotation_Wrapper;
+
+/** define stringArray structure to store the annotation information
+ * one for RefSeq, one for CCDS, one for VEGA and one for Gencode, one for miRNA
+ */
+typedef struct {
+	char **theArray;
+	uint16_t capacity;
+	uint16_t size;
+} stringArray;
 
 /**
  * define a structure for Gene RefSeq CDS Exons for the calculation of gene/transcript/cds Percentage Coverage Reports

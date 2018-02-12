@@ -48,88 +48,181 @@ uint64_t check_file_size(const char *filename) {
 	exit(1);
 }
 
-// Split a string to a word array
-// Right now we will use static way:
-// The first dimension is for the number of strings to be stored
-// (the max is 96-100, but I will use 300 instead)
-// The second dimension is used to store the string like OTTHUMT00000367763_exon_16 or NM_198384_exon_16 etc.
-// (the max is 26-30, but we will use 50 instead)
-// In the future, we might want to use a way that is more dynamic!
+// split a string into an array of words
+// 0: RefSeq	1:CCDS		2:VEGA/Gencode		3:miRNA
+// As the string size varies, it might be a good idea to set them to a pre-defined size
+// The reason is that when we need to remove duplicates by shifting, the size using strlen
+// for the previous one might not be big enough for the later one
+// So I will set it here as 50. The longest one seems to be 26
 //
-void splitStringToArray(char *stringPtr, char (*arrayPtr)[50]) {
-	//int sizeP1 = 300, sizeP2 = 50;
-	int sizeP1 = 300;
+void splitStringToArray(char *stringPtr, stringArray *arrayPtr) {
 	char *tokPtr;
-	arrayPtr = calloc(sizeP1, sizeof(char*));
-	size_t i, j, k, l;
+	char **stringStorage = calloc(4, sizeof(char*));
+	size_t i, j;
+	size_t word_size=50;
 
-	tokPtr = strtok(stringPtr, ";");
-	//arrayPtr[0] = calloc(sizeP2, sizeof(char));
-	strcpy(arrayPtr[0], tokPtr);
+	// split the first delimiter '\t'
+	//
+	tokPtr = strtok(stringPtr, "\t");
+	stringStorage[0] = calloc(strlen(tokPtr)+1, sizeof(char));
+	strcpy(stringStorage[0], tokPtr);
 
-	for(i = 1; (tokPtr = strtok(NULL, " ")) != NULL; i++) {
-		//arrayPtr[i] = calloc(sizeP2, sizeof(char));
-		strcpy(arrayPtr[i], tokPtr);
+	for(i = 1; (tokPtr = strtok(NULL, "\t")) != NULL; i++) {
+		stringStorage[i] = calloc(strlen(tokPtr)+1, sizeof(char));
+		strcpy(stringStorage[i], tokPtr);
 	}
 
-	for(j = 0; j <= i; j++) {
-		for(k = j + 1; k <= i; k++) {
-			if(strcmp(arrayPtr[j], arrayPtr[k]) == 0) {
-				for(l = k; l < i; l++)
-					strcpy(arrayPtr[l], arrayPtr[l + 1]);
+	if (tokPtr != NULL)
+		free(tokPtr);
 
-				k = j;
-				i--;
+	// now handle the individual string from different sources
+	// the second delimiter is ";"
+	//
+	for (i=0; i<4; i++) {
+		// check if we have enough space available
+		//
+		if (arrayPtr[i].size >= arrayPtr[i].capacity) { 
+			arrayPtr[i].capacity = arrayPtr[i].capacity*2;
+			char **tmp = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
+			if (!tmp) {
+				fprintf(stderr, "Memory re-allocation failed at splitStringToArray!\n");
+				exit(1);
 			}
+			arrayPtr[i].theArray = tmp;
+		}
+
+		// fetch the first element
+		//
+		tokPtr = strtok(stringStorage[i], ";");
+		arrayPtr[i].theArray[arrayPtr[i].size] = calloc(word_size, sizeof(char));
+		strcpy(arrayPtr[i].theArray[arrayPtr[i].size], tokPtr);
+		arrayPtr[i].size++;
+
+		// fetch the remaining elements
+		//
+		for (j=1; (tokPtr = strtok(NULL, ";")) != NULL; j++) {
+			// check if we have enough space available
+			//
+			if (arrayPtr[i].size >= arrayPtr[i].capacity) {
+				arrayPtr[i].capacity = arrayPtr[i].capacity*2;
+				char **tmp = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
+				if (!tmp) {
+					fprintf(stderr, "Memory re-allocation failed at splitStringToArray!\n");
+					exit(1);
+				}
+				arrayPtr[i].theArray = tmp;
+			}
+
+			arrayPtr[i].theArray[arrayPtr[i].size] = calloc(word_size, sizeof(char));
+			strcpy(arrayPtr[i].theArray[arrayPtr[i].size], tokPtr);
+			arrayPtr[i].size++;
 		}
 	}
 
-	//for(l = 0; l <= i; l++)
-	//	printf("%s ", wordTable[l]);
+	// clean up
+    //
+	for (i=0; i<4; i++) {
+		if (stringStorage[i] != NULL)
+			free(stringStorage[i]);
+	}
+
+	if (stringStorage != NULL)
+		free(stringStorage);
+
+	if (tokPtr != NULL)
+		free(tokPtr);
 }
 
-// It will remove duplicated words from a string array
-// The first dimension is the array size
-// The second dimension is the size of the corresponding string (30 is OK, but we will use 50)
-//
-void removeSameWordsFromArray (char **arrayPtr, uint16_t arraySize, char **str_in_and_out) {
-	// Before we start, let's sort the string array first!
+// this function is used to remove duplicated words from array1 (the main one)
+// It will try to find the duplicates from either array1 or array2
+// 
+void removeDuplicatesFromStringArray(stringArray *array1, stringArray *array2) {
+	uint16_t i, j, k;
+
+	// if array2 is set, need to remove everything belongs to array2 from array1
 	//
-	qsort(arrayPtr, arraySize, sizeof(char *), compare3);
+	if (array2 != NULL) {
+		for(i=0; i<array2->size; i++) {
+			for(j=0; j<array1->size; j++) {
+				if(strcmp(array2->theArray[i], array1->theArray[j]) == 0) {
+					for(k = j; k < array1->size-1; k++)
+						strcpy(array1->theArray[k], array1->theArray[k + 1]);
 
-	size_t i, j, k;
+					// re-wind here to check for more duplicates
+					//
+					j--;
 
-	for (j=0; j<arraySize; j++) {
-		for (k=j+1; k<arraySize; k++) {
-			if (strcmp(arrayPtr[j], arrayPtr[k]) == 0) {
-				for (i=k; i<arraySize-1; i++)
-					strcpy(arrayPtr[i], arrayPtr[i+1]);
-				k=j;
-				arraySize--;
+					// cleanup array1
+					//
+					free(array1->theArray[array1->size-1]);
+	                array1->size--;
+				}
 			}
 		}
 	}
 
-	// find the total size needed for string 
+	// remove duplicates from array1 only
 	//
-	uint32_t str_len_needed=0;
+	for(i=0; i<array1->size; i++) {
+		for(j=i+1; j<array1->size; j++) {
+			if (strcmp(array1->theArray[i], array1->theArray[j]) == 0) {
+				for (k=j; k<array1->size-1; k++)
+					// Need to dynamically expande the size if needed
+					// if ( strlen(theArray[k]) < strlen(theArray[k+1]) )
+					// This appraoch is quite slow, I decided to use word_size=50
+					//
+					strcpy(array1->theArray[k], array1->theArray[k + 1]);
 
-	for (i=0; i<=arraySize; i++) {
-		str_len_needed += strlen(arrayPtr[i]);
+				// Need to re-wind here for more duplicates
+				//
+				j=i;
+
+				// cleanup array1
+				//
+				free(array1->theArray[array1->size-1]);
+				array1->size--;
+			}
+		}
+	}
+}
+
+void stringArrayDestroy(stringArray *arrayIn) {
+	uint16_t i;
+	for(i=0; i<arrayIn->size; i++) {
+		if (arrayIn->theArray[i]) {
+			free(arrayIn->theArray[i]);
+		}
 	}
 
-	// reallocate the memory 
+	if (arrayIn->theArray != NULL)
+		free(arrayIn->theArray);
+}
+
+void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
+	uint16_t i;
+
+	// Free the inner most part first
 	//
-	char *tmp = realloc(*str_in_and_out, str_len_needed);
-	if (!tmp) {
-		fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
-		exit(1);
-	}
-	*str_in_and_out = tmp;
+	for (i=0; i<annotation_wrapper->real_size; i++) {
+		if (annotation_wrapper->annotations[i].gene != NULL)
+			free(annotation_wrapper->annotations[i].gene);
 
-	for(i=0; i<arraySize; i++) {
-		strcat(*str_in_and_out, arrayPtr[i]);
+		if (annotation_wrapper->annotations[i].Synonymous != NULL)
+			free(annotation_wrapper->annotations[i].Synonymous);
+
+		//free(annotation_wrapper->annotations[i].prev_genes);
+
+		if (annotation_wrapper->annotations[i].exon_info != NULL)
+			free(annotation_wrapper->annotations[i].exon_info);
 	}
+
+	// free the next level
+	//
+	if (annotation_wrapper->annotations != NULL)
+		free(annotation_wrapper->annotations);
+
+	if (annotation_wrapper != NULL)
+		free(annotation_wrapper);
 }
 
 // print out the help information to show the general usage of the package
@@ -158,7 +251,10 @@ void usage() {
 	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
 	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
-	printf("\t-U <the upper bound cutoff value when reporting the range information (it's associated with -H to form an interval. Hence, -H is the lower bound. It is very useful for plotting the coverage graphs if needed). Default -1 (not set) >\n\n");
+
+	printf("The Followings are for the range block output (used for Uniformity analysis)\n");
+	printf("\t-l <the lower bound for the range block output. Default: 1>\n");
+	printf("\t-u <the upper bound for the range block output. Default: 150>\n\n");
 
 	printf("The Followings Are Flags\n");
 	printf("\t[-a] write the annotation information for genes, exons and transcript. Default off\n");
@@ -211,7 +307,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	while ((arg = getopt(argc, argv, "ab:B:c:dD:g:GH:i:L:m:n:o:p:st:T:U:wWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:c:dD:g:GH:i:L:l:m:n:o:p:st:T:u:wWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -245,7 +341,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'h': usage(); exit(1);
 			case 'H':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
+                    fprintf (stderr, "Entered High coverage cutoff value %s is not a number\n", optarg);
                     usage();
                     exit(1);
                 }
@@ -258,12 +354,20 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 break;
 			case 'L':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
+                    fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
                     usage();
                     exit(1);
                 }
                 user_inputs->low_coverage_to_report = atoi(optarg);
                 break;
+			case 'l':
+				if (!isNumber(optarg)) {
+					fprintf (stderr, "Entered lower_bound value %s is not a number\n", optarg);
+					usage();
+					exit(1);
+				}
+				user_inputs->lower_bound = atoi(optarg);
+				break;
             case 'm':
                 if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
@@ -296,22 +400,22 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->num_of_threads = atoi(optarg);
 				break;
-			case 'U':
+			case 'u':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered number of threads %s is not a number\n", optarg);
+                    fprintf (stderr, "Entered upper_bound value %s is not a number\n", optarg);
                     usage();
                     exit(1);
                 }
-                user_inputs->upper_bound_to_report = atoi(optarg);
+                user_inputs->upper_bound = atoi(optarg);
 				break;
             case 'w': user_inputs->wgs_coverage = true; break;
             case 'W': user_inputs->Write_WGS = true; break;
 			case 'y': user_inputs->annotation_type = atoi(optarg); break;
             case '?':
-					  if (optopt == 'b' || optopt == 'B' || optopt == 'c' || optopt == 'D' || optopt == 'g' 
-							  || optopt == 'H' || optopt == 'i' || optopt == 'L' || optopt == 'm' 
+					  if (optopt == 'b' || optopt == 'B' || optopt == 'c' || optopt == 'D' || optopt == 'g'
+							  || optopt == 'H' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
 							  || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 't'
-							  || optopt == 'T' || optopt == 'U' || optopt == 'y')
+							  || optopt == 'T' || optopt == 'u' || optopt == 'y')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -369,9 +473,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		}
 	}
 
-	if ((user_inputs->upper_bound_to_report > 0) && 
-		(user_inputs->upper_bound_to_report < user_inputs->high_coverage_to_report)) {
-		printf("\n-U option should be larger than -H option (default -H option is 10000)\n\n");
+	if (user_inputs->upper_bound < user_inputs->lower_bound) {
+		printf("\nThe value for -u should be larger than the value for -l option \n\n");
 		usage();
 		exit(1);
 	}
@@ -418,13 +521,15 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		writeHeaderLine(user_inputs->capture_low_cov_file, 1);
 
 		// output too high coverage regions for target (capture)
-		if (user_inputs->upper_bound_to_report == -1) {
-			sprintf(string_to_add, ".Capture_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
-		} else {
-			sprintf(string_to_add, ".Capture_between%dx_%dx_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
-		}
+		//
+		sprintf(string_to_add, ".Capture_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
 		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_file, string_to_add);
 		writeHeaderLine(user_inputs->capture_high_cov_file, 1);
+
+		// output range block file for Uniformity Analysis
+		//
+		sprintf(string_to_add, ".Capture_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
+		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_range_file, string_to_add);
 
 		// for low coverage gene/exon/transcript reports
 		//
@@ -454,14 +559,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     	createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_low_cov_file, string_to_add);
 		writeHeaderLine(user_inputs->wgs_low_cov_file, 1);
 
-	    // output too high coverage regions for target (capture)
-		if (user_inputs->upper_bound_to_report == -1) {
-			sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
-		} else {
-			sprintf(string_to_add, ".WGS_between%dx_%dx_REPORT.txt", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
-		}
+	    // output too high coverage regions for the whole genome
+		//
+		sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
 	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add);
 		writeHeaderLine(user_inputs->wgs_high_cov_file, 1);
+
+		// output the range block file for Uniformity Analysis
+		//
+		sprintf(string_to_add, ".WGS_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
+	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_range_file, string_to_add);
 
 		// for whole genome (wgs) file name
     	if (user_inputs->Write_WGS) {
@@ -503,7 +610,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only) and need detailed annotations\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Prev_Gene_Symbol", "Synonymon", "RefSeq", "CCDS", "VEGA", "miRNA");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonymon", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA");
 	} else if (type == 2) {
 		// for capture missed target file
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
@@ -550,10 +657,8 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d\n", user_inputs->gVCF_percentage);
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
-	if (user_inputs->upper_bound_to_report > 1) {
-		fprintf(stderr, "\tThe range block file will be produced\n");
-		fprintf(stderr, "\t\tThe range is between %d and %d inclusive! \n", user_inputs->high_coverage_to_report, user_inputs->upper_bound_to_report);
-	}
+	fprintf(stderr, "\tThe range block file will be produced\n");
+	fprintf(stderr, "\t\tThe range is between %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
 
 	if (user_inputs->annotation_on) {
 		fprintf(stderr, "\tThe detailed gene annotation is ON\n");
@@ -607,8 +712,9 @@ User_Input * userInputInit() {
 	user_inputs->min_base_quality = 0;
 	user_inputs->low_coverage_to_report = 20;
 	user_inputs->high_coverage_to_report = 10000;
-	user_inputs->upper_bound_to_report = -1;
-	user_inputs->target_buffer_size = 100;                                                                    
+	user_inputs->lower_bound = 1;
+	user_inputs->upper_bound = 150;
+	user_inputs->target_buffer_size = 100;
 	user_inputs->gVCF_percentage = 5;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
