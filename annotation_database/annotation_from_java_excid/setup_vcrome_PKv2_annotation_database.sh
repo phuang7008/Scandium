@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script is used to setup the eMerge annotation database for sequencing analysis
+# This script is used to setup the VCRome+PKv2 annotation database for sequencing analysis
 # it will use the annotation from the following directory:
 # /hgsc_software/production/users/cbuhay/ExCID/working/ExCID_v2.1.5/database
 

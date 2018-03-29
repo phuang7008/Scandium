@@ -25,7 +25,7 @@
 /**
  * makes sure a file exists
  * @param fName (file name to check)
- * @return bool => return true if file exist, otherwise, exit(1)
+ * @return bool => return true if file exist, otherwise, exit(EXIT_FAILURE)
  */
 bool checkFile(char * fName);
 
@@ -65,6 +65,13 @@ void splitStringToArray(char *stringPtr, stringArray *arrayPtr);
 void removeDuplicatesFromStringArray(stringArray *array1, stringArray *array2);
 
 void stringArrayDestroy(stringArray *arrayIn);
+
+/*
+ * find if a string contains a substr (case insensative)
+ * @param string1, the string to be checked
+ * @param substr2, the substring to search for
+ */
+char* stristr( const char* string1, const char* substr2 );
 
 void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
 
@@ -139,15 +146,17 @@ void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info);
 
 /**
  * for Coverage_Stats variable initialization
- * @return an instance of Coverage_Stats upon successful memory allocation
+ * @param cov_stats: an instance of Coverage_Stats to store the coverage statistics for current chrom
  */
-Coverage_Stats * coverageStatsInit();
+void coverageStatsInit(Coverage_Stats * cov_stats);
 
 /**
  * This function is used to clean the khash_t (int key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
  */
 void cleanKhashInt(khash_t(m32) *hash_to_clean);
+
+void cleanKhashStrInt(khash_t(khStrInt) *hash_to_clean);
 
 /**
  * This function is used to clean the khash_t (string key) hash table used by the users
@@ -214,9 +223,9 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
 
 /**
  * Initialize the member of the Stats_Info variable
- * @return an instance of Stats_Info upon successful
+ * @param stats_info: an instance of Stats_Info to store the whole genome coverage stat info
  */
-Stats_Info * statsInfoInit();
+void statsInfoInit(Stats_Info *stats_info);
 
 /**
  * to destroy everything allocated for stats_info

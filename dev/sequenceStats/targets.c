@@ -30,7 +30,7 @@ uint32_t getLineCount(char *bed_file) {
     FILE *fp = fopen(bed_file, "r");
     if (fp == NULL) {       // ensure the target file open correctly!
         printf("target file %s open failed!", bed_file);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
 	// Extract characters from file and store in character c
@@ -54,44 +54,48 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 	FILE *fp = fopen(bed_file, "r");
     if (fp == NULL) {       // ensure the target file open correctly!
         printf("target file %s open failed!", bed_file);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-	int num = 0;		// to keep track the tokens from string split using strtok()
-	int count = 0;		// index for each target line (item)
+	uint32_t count = 0;		// index for each target line (item)
 	ssize_t read;
 	size_t len = 0;
 	char *p_token=NULL, *line=NULL;	// here p_ means a point. so p_token is a point to a token
+	char *savePtr;
 
     while((read = getline(&line, &len, fp)) != -1) {
 		//printf("%s\n", line);
 		if (line[0] == '\0') continue;		// skip if it is a blank line
 		if (line[0] == '#')  continue;		// skip if it is a comment line
 
-		p_token = strtok(line, " \t");
-		while (p_token != NULL) {
-			if (num == 0) 
-				strcpy(coords[count].chrom_id,  removeChr(p_token));
-			else if (num == 1)
-				coords[count].start = atol(p_token);
-			else if (num == 2) {
-				coords[count].end = atol(p_token);
-				num = 0;
-				p_token = NULL;
-				break;		// stop 'while' loop as we don't need anything after stop position
-			}
+		savePtr = line;
 
-			p_token = strtok(NULL, " \t");	// In subsequent calls, strtok expects a null pointer
-			num++;
+		// to keep track the tokens from string split using strtok_r()
+		//
+		uint32_t i = 0;
+
+		// loop through the rest of items, but here we are only interested in start and end position
+		//
+		while ((p_token = strtok_r(savePtr, "\t", &savePtr))) {
+			// get the first item, which is chromosome id
+			//
+			if (i == 0)
+				strcpy(coords[count].chrom_id,  removeChr(p_token));
+
+			if (i == 1)
+				coords[count].start = (uint32_t) strtol(p_token, NULL, 10);
+			
+			if (i == 2)
+				coords[count].end = (uint32_t) strtol(p_token, NULL, 10);
+
+			i++;
 		}
 		count++;
 	}
 
+	if (line != NULL) free(line);
+
 	fclose(fp);
-	if (line != NULL)
-		free(line);
-	if (p_token != NULL)
-		free(p_token);
 }
 
 void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, short type) {
@@ -166,7 +170,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
 		// for positions on targets or Ns
 		for (j=bed_info->coords[i].start; j<=bed_info->coords[i].end; j++) {
-			if (j > chrom_len) continue;
+			if (j >= chrom_len) continue;
 
 			if (type == 1) {
 			   	if (target_buffer_status[idx].status_array[j] == 3) { 
@@ -182,6 +186,8 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			//
 			//if (type == 2 && j < bed_info->coords[i].end) {
 			if (type == 2 && j <= bed_info->coords[i].end) {
+				if (j >= chrom_len) continue;
+
 				stats_info->cov_stats->total_Ns_bases += 1;
 
 				if (target_buffer_status[idx].status_array[j] == 1) {
@@ -197,6 +203,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			//
 			for (j=bed_info->coords[i].start-user_inputs->target_buffer_size; j < bed_info->coords[i].start; j++) {
 				if (j < 0) continue;
+				if (j >= chrom_len) continue;
 
 				if (target_buffer_status[idx].status_array[j] == 0) {
 					target_buffer_status[idx].status_array[j] = 2;

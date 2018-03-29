@@ -34,11 +34,12 @@ void readBufferInit(Read_Buffer *read_buff_in) {
 void readBufferDestroy(Read_Buffer *read_buff_in) {
 	uint32_t i=0;
 	for (i=0; i<read_buff_in->size;i++) {
-		if (read_buff_in->chunk_of_reads[i]) {
+		if (read_buff_in->chunk_of_reads[i] != NULL) {
 			bam_destroy1(read_buff_in->chunk_of_reads[i]);
-		} else {
-			printf("Something is wrong with the bam_init1 destroy\n");
+			read_buff_in->chunk_of_reads[i]=NULL;
 		}
+		//} else {
+		//	printf("Something is wrong with the bam_init1 destroy\n");
 		//fprintf(stderr, "at position %d\n", i);
 	}
 	//read_buff_in->size = 0;

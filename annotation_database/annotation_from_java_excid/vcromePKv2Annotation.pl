@@ -126,7 +126,7 @@ while (<IN>) {
 		}
 	}
 
-	my $exon_list = $refseq."\t".$ccds."\t".$vega."\t".$miRNA;
+	my $exon_list = $refseq."\t".$ccds."\t".$vega."\t".$miRNA."\t.";
 	chomp $exon_list;
 
 	$sql = "INSERT INTO $db_anno VALUES (0, '$items[0]', $items[1], $items[2], '$gene_symbol', '$Synonymous', '.', '$exon_list')";

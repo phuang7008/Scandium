@@ -31,7 +31,7 @@ void finish_with_error(MYSQL *con)
 {
     fprintf(stderr, "%s\n", mysql_error(con));
     mysql_close(con);
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 // make the MySQL connection and create the name of databases to be used by the program
@@ -43,7 +43,7 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 
 	if (mysql_library_init(0, NULL, NULL)) {
 		fprintf(stderr, "Could not initialize MySQL Library!");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	if (mysql_real_connect(dbs->con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL) {
@@ -224,19 +224,19 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
         regions_in->gene = calloc(regions_in->chrom_list_size, sizeof(char**));
         if (!regions_in->gene) {
             fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         regions_in->Synonymous = calloc(regions_in->chrom_list_size, sizeof(char**));
 	    if (!regions_in->Synonymous) {
 		    fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Synonymous");
-			exit(1);
+			exit(EXIT_FAILURE);
         }
 
 	    regions_in->prev_genes = calloc(regions_in->chrom_list_size, sizeof(char**));
 		if (!regions_in->prev_genes) {
 			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Prev_genes");
-	        exit(1);
+	        exit(EXIT_FAILURE);
         }
 
 		// for exon regions only
@@ -244,7 +244,7 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 			regions_in->exon_info = calloc(regions_in->chrom_list_size, sizeof(char**));
 	        if (!regions_in->exon_info) {
 		        fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
-			    exit(1);
+			    exit(EXIT_FAILURE);
 			}
         }
 	}
@@ -256,13 +256,13 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 
 		if (!regions_in->starts[i]) {
 			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Starts");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 
 		regions_in->ends[i] = calloc(regions_in->size_r[i], sizeof(uint32_t));
 		if (!regions_in->ends) {
 			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Ends");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 	
 		// for exon and intronic regions
@@ -306,11 +306,14 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	for (i=0; i<regions_in->chrom_list_size; i++) {
 		// for exon and intronic regions
 		if (type > 1) {
-			//for (j=0; j<regions_in->size_r[i]; j++) {
-			//	if (regions_in->gene[i][j]) free(regions_in->gene[i][j]);
-			//	if (regions_in->Synonymous[i][j]) free(regions_in->Synonymous[i][j]);
-			//	if (regions_in->prev_genes[i][j]) free(regions_in->prev_genes[i][j]);
-			//}
+			for (j=0; j<regions_in->size_r[i]; j++) {
+				//if (type == 2 && regions_in->gene[i][j] != NULL)
+				//	printf("Gene: %s", regions_in->gene[i][j]);
+				//
+				if (regions_in->gene[i][j] != NULL) free(regions_in->gene[i][j]);
+				if (regions_in->Synonymous[i][j] != NULL) free(regions_in->Synonymous[i][j]);
+				if (regions_in->prev_genes[i][j] != NULL) free(regions_in->prev_genes[i][j]);
+			}
 
 			if (regions_in->gene[i]) free(regions_in->gene[i]);
 			if (regions_in->Synonymous[i]) free(regions_in->Synonymous[i]);
@@ -374,8 +377,8 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databa
     MYSQL_ROW row;
     uint32_t count=0;
 	while ((row = mysql_fetch_row(dbs->mysql_results))) {
-        regions_in->starts[chrom_idx][count] = (uint32_t) atol(row[0]);
-        regions_in->ends[chrom_idx][count] = (uint32_t) atol(row[1]);
+        regions_in->starts[chrom_idx][count] = (uint32_t) strtol(row[0], NULL, 10);
+        regions_in->ends[chrom_idx][count]   = (uint32_t) strtol(row[1], NULL, 10);
 
 		if (type > 1) {
 			dynamicStringAllocation(row[2], &regions_in->gene[chrom_idx][count]) ;
@@ -456,7 +459,7 @@ int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t en
 int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t lower_bound) {
 	int32_t low = lower_bound;
 	int32_t high = low_cov_genes->total_size - 1;
-	int32_t middle = (low + high)/2;
+	int32_t middle = (low + high)/2;		// take the floor value
 
 	while (low <= high) {
 		if ( (low_cov_genes->gene_coverage[middle].cds_start <= start && start <= low_cov_genes->gene_coverage[middle].cds_end) ||
@@ -492,22 +495,19 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
 	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
 	if (found != -1) {
-		uint16_t orig_str_len = strlen(*info_in_and_out);
-		uint16_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
+		uint32_t orig_str_len = strlen(*info_in_and_out);
+		uint32_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
 		
 		if (str_len_needed > orig_str_len) {
 			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
 			if (!tmp) {
 				fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
 
 			*info_in_and_out = tmp;
 		} 
 
-		// for debugging only
-		if (strcmp(regions_in->gene[chrom_idx][found], ".") == 0) 
-			regions_in->gene[chrom_idx][found] = "";
 		sprintf(*info_in_and_out, "%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found]);
 	}
 
@@ -592,7 +592,7 @@ void copyAnnotationDetails(Annotation_Wrapper *annotation_wrapper, Regions_Skip_
 		Annotation *tmp = realloc(annotation_wrapper->annotations, annotation_wrapper->allocated_size*sizeof(Annotation));
 		if (!tmp) {
 			fprintf(stderr, "Memory re-allocation for the struct Annotation failed in checkExonRegion\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		annotation_wrapper->annotations = tmp;
 	}
@@ -633,12 +633,11 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		str_len_needed = strlen(annotation_wrapper->annotations[0].gene) + strlen(annotation_wrapper->annotations[0].Synonymous) + strlen(annotation_wrapper->annotations[0].exon_info) + 20;	// 20 is added for extra spacing
 
 		if (str_len_needed > orig_str_len) {
-			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
-			if (!tmp) {
+			*info_in_and_out = realloc(*info_in_and_out, str_len_needed * sizeof(char));
+			if (*info_in_and_out == NULL) {
 				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
-			*info_in_and_out = tmp;
 		}
 
 		sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", annotation_wrapper->annotations[0].gene, annotation_wrapper->annotations[0].Synonymous, ".", annotation_wrapper->annotations[0].exon_info);
@@ -690,36 +689,22 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 
 		// Next, the Synonymous
 		// First, need to find out how many Synonymous
-		// Since the strtok() will destroy the original string, we need to make a copy of it
+		// Since the strtok_r() will destroy the original string, we need to make a copy of it
 		// or store them somewhere for later usage
 		//
 		stringArray *Synonymous = calloc(1, sizeof(stringArray));
 		Synonymous->theArray = calloc(annotation_wrapper->real_size, sizeof(char*));
 		Synonymous->capacity = annotation_wrapper->real_size;
 		Synonymous->size=0;
-
-		char *tokPtr;
+		char *savePtr, *tokPtr;
 
 		for (i=0; i<annotation_wrapper->real_size; i++) {
-			tokPtr = strtok(annotation_wrapper->annotations[i].Synonymous, "; ");
+			char *copy_info = calloc(strlen(annotation_wrapper->annotations[i].Synonymous)+2, sizeof(char));
+			strcpy(copy_info, annotation_wrapper->annotations[i].Synonymous);
 
-			// increase the size if size == capacity
-			//
-			if (Synonymous->capacity == Synonymous->size) {
-				Synonymous->capacity = Synonymous->capacity * 2;
-				char** tmp = realloc(Synonymous->theArray, Synonymous->capacity * sizeof(char*));
-				if (!tmp) {
-					fprintf(stderr, "Memory re-allocation for string failed in resizing Synonymous length\n");
-					exit(1);
-				}
-				Synonymous->theArray = tmp;
-			}
+			savePtr = copy_info;
 
-			Synonymous->theArray[Synonymous->size] = calloc(word_size, sizeof(char));
-			strcpy(Synonymous->theArray[Synonymous->size], tokPtr);
-			Synonymous->size++;
-
-			for(j = 1; (tokPtr = strtok(NULL, "; ")) != NULL; j++) {
+			while ((tokPtr = strtok_r(savePtr, ";", &savePtr))) {
 				// need to increase the size if size == capacity
 				//
 				if (Synonymous->capacity == Synonymous->size) {
@@ -727,7 +712,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 					char** tmp = realloc(Synonymous->theArray, Synonymous->capacity * sizeof(char*));
 					if (!tmp) {
 						fprintf(stderr, "Memory re-allocation for string failed in resizing Synonymous length\n");
-						exit(1);
+						exit(EXIT_FAILURE);
 					}
 					Synonymous->theArray = tmp;
 				}
@@ -736,11 +721,11 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 				strcpy(Synonymous->theArray[Synonymous->size], tokPtr);
 				Synonymous->size++;
 			}
+
+			if (copy_info != NULL) free(copy_info);
 		}
 
 		removeDuplicatesFromStringArray(Synonymous, genes);
-
-		if (tokPtr != NULL) free(tokPtr);
 
 		// save all Synonymous into a string
 		// but we also need to get rid of "." if the size >= 2
@@ -766,24 +751,32 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		}
 
 		// Now handle exon_annotations
-		// there are 5 sources of annotations: 0:RefSeq, 1:CCDS, 2:(VEGA for hg37, while Gencode for hg38) and 3:miRNA
+		// Need to handle the SNP or Pseudo-gene annotations as well!
+		// there are 6 sources of annotations in five categories: 
+		// 0:RefSeq, 1:CCDS, 2:(VEGA for hg37, while Gencode for hg38), 3:miRNA and 4:everything else (including SNP and Pseudo-genes)
 		// But will only have 4 place holders as VEGA is not available in hg38 and Gencode is not availabe for hg37
 		// we need to handle them separately
 		//
-		stringArray *exon_annotations = calloc(4, sizeof(stringArray));
+		stringArray *exon_annotations = calloc(5, sizeof(stringArray));
 		uint16_t initializeSize=10;
-		for (i=0; i<4; i++) {
+		for (i=0; i<5; i++) {
 			exon_annotations[i].theArray = calloc(initializeSize, sizeof(char*));
 			exon_annotations[i].capacity=initializeSize;
 			exon_annotations[i].size=0;
 		}
 
 		for (i=0; i<annotation_wrapper->real_size; i++) {
-			splitStringToArray(annotation_wrapper->annotations[i].exon_info, exon_annotations);
+			// make a copy and pass the copied one to the function
+			//
+			char *copy_info = calloc(strlen(annotation_wrapper->annotations[i].exon_info)+2, sizeof(char));
+			strcpy(copy_info, annotation_wrapper->annotations[i].exon_info);
+			splitStringToArray(copy_info, exon_annotations);
+
+			if (copy_info != NULL) free(copy_info);
 		}
 
-		uint32_t total_string_length=0;		// the string length could get quite long ...
-		for (i=0; i<4; i++) {
+		size_t total_string_length=0;		// the string length could get quite long ...
+		for (i=0; i<5; i++) {
 			removeDuplicatesFromStringArray(&exon_annotations[i], NULL);
 			total_string_length += exon_annotations[i].size * sizeof(char) * word_size;
 		}
@@ -792,7 +785,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		//
 		char *exon_list = calloc(total_string_length+50, sizeof(char));
 		exon_list[0] = '\0';	// first character is now the null terminator, we can use strcat directly
-		for (i=0; i<4; i++) {
+		for (i=0; i<5; i++) {
 			// flag used to remove un-neccessary ";" in the output
 			//
 			uint8_t format_flag=0;
@@ -813,7 +806,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 				if (format_flag == 0) format_flag++;
 			}
 
-			if (i<3)
+			if (i<4)
 				strcat(exon_list, "\t");
 		}
 
@@ -821,12 +814,11 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		//
 		str_len_needed = strlen(gene_list) + strlen(Synonymous_list) + strlen(exon_list) + 20;   // 20 is added for extra spacing
 		if (str_len_needed > orig_str_len) {
-			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
-			if (!tmp) {
+			*info_in_and_out = realloc(*info_in_and_out, str_len_needed * sizeof(char));
+			if (*info_in_and_out == NULL) {
 				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
-			*info_in_and_out = tmp;
 		}
 
 		sprintf(*info_in_and_out, "%s\t%s\t%s\t%s", gene_list, Synonymous_list, ".", exon_list);
@@ -837,16 +829,16 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		//
 		stringArrayDestroy(genes);
 		stringArrayDestroy(Synonymous);
-		for (i=0; i<4; i++)
+		for (i=0; i<5; i++)
 			stringArrayDestroy(&exon_annotations[i]);
 
 		if (genes != NULL) free(genes);
 		if (Synonymous != NULL) free(Synonymous);
 		if (exon_annotations != NULL) free(exon_annotations);
 
+		if (exon_list != NULL) free(exon_list);
 		if (gene_list != NULL) free(gene_list);
 		if (Synonymous_list != NULL) free(Synonymous_list);
-		if (exon_list != NULL) free(exon_list);
 	}
 }
 
@@ -874,11 +866,8 @@ void genePercentageCoverageInit(Low_Coverage_Genes *refseq_cds_genes, Low_Covera
 	if (user_inputs->annotation_type == 1) {
 		// dynamic calculation
 		//
-		sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_target_start, cds_target_end", dbs->db_coords, chrom_id);
-	} else {
-		// static way
-		//
-		sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_target_start, cds_target_end", dbs->db_coords, chrom_id);
+		sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_end", dbs->db_coords, chrom_id);
+		//sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM (select * from %s WHERE chrom='%s' ORDER BY cds_start) as T order by cds_target_start", dbs->db_coords, chrom_id);
 	}
 
 	if (mysql_query(dbs->con,sql))
@@ -899,6 +888,7 @@ void genePercentageCoverageInit(Low_Coverage_Genes *refseq_cds_genes, Low_Covera
 		refseq_cds_genes->gene_coverage = calloc(refseq_cds_genes[0].total_size, sizeof(Gene_Coverage));
 
 		while ((row = mysql_fetch_row(dbs->mysql_results))) {
+			//printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]);
 			// update Gene_Coverage variable ==> refseq_cds_genes->gene_coverage
 			//
 			refseq_cds_genes->gene_coverage[counter].gene_symbol = calloc(strlen(row[7])+1, sizeof(char));
@@ -1022,8 +1012,8 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			uint32_t start_t  = target_info->coords[i].start;
 			uint32_t end_t    = target_info->coords[i].end;
 
-			if (start_t == 144615130) {
-				printf("stop\n");
+			if (start_t == 235505325) {
+				printf("stopped\n");
 			}
 
 			// now use binary search to find the index of the intersects
@@ -1038,8 +1028,12 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 			int16_t decrease=0;
 			int32_t j;
 
+			// if found, we have to walk through both end of the found position as there might be more to intersect
+			// left side first
+			//
 			for (j=found-1; j>=0; j--) {
 				// here I need to use cds_coordinates for the checking. The reason is given at binarySearchLowCoverage()
+				// The following is the breakout condition:
 				//                       start_t ================= end_t
 				// <<<== start_c ----------- end_c
 				//
@@ -1049,15 +1043,14 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 				decrease++;
 			}
 
-			found -= decrease;
-
-			// if found, we have to walk through both end of the found position as there might be more to intersect
 			// update the info based on the found region
 			//
+			found -= decrease;
 
-			// Walk through the right hand size of the refseq_cds_genes array
+			// Walk through the right hand side of the refseq_cds_genes array
 			//
 			for (j=found; j<refseq_cds_genes->total_size; j++) {
+				// Here is the break out condition:
 				//  start_t ============= end_t
 				//                      start_c ----------- end_c ==>>>
 				//
@@ -1147,16 +1140,16 @@ void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *trans
 
 		MYSQL_ROW row;
 		while ((row = mysql_fetch_row(dbs->mysql_results))) {
-			transcript_cov->num_of_genes = (uint32_t) strtol(row[0], NULL, 10);
+			transcript_cov->num_of_transcripts = (uint32_t) strtol(row[0], NULL, 10);
 			break;
 		}
 
 		// Update Transcript_Coverage_Percentage variable xcript_cov_pct
 		// if I use the array notation, I have to use "[idx]." way, if I use point way, I have to use '->' instead
 		//
-		transcript_cov->transcript_cov_pct = calloc(transcript_cov->num_of_genes, sizeof(Transcript_Coverage_Percentage));
+		transcript_cov->transcript_cov_pct = calloc(transcript_cov->num_of_transcripts, sizeof(Transcript_Coverage_Percentage));
 		uint32_t i;
-		for (i=0; i<transcript_cov->num_of_genes; i++) {
+		for (i=0; i<transcript_cov->num_of_transcripts; i++) {
 			transcript_cov->transcript_cov_pct[i].gene_symbol = NULL;
 			transcript_cov->transcript_cov_pct[i].gene_name = NULL;
 			transcript_cov->transcript_cov_pct[i].gene_cov_percentage = 0.0;
@@ -1224,13 +1217,13 @@ void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *trans
 		}
 
 		printf("Number of unique refseq names is %d\n", num_of_uniq_gene_names);
-		transcript_cov->num_of_genes = num_of_uniq_gene_names;
+		transcript_cov->num_of_transcripts = num_of_uniq_gene_names;
 
 		// Update Transcript_Coverage_Percentage variable xcript_cov_pct
 		// if I use the array notation, I have to use "[idx]." way, if I use point way, I have to use '->' instead
 		//
-	   	transcript_cov->transcript_cov_pct = calloc(transcript_cov->num_of_genes, sizeof(Transcript_Coverage_Percentage));
-		for (i=0; i<transcript_cov->num_of_genes; i++) {
+	   	transcript_cov->transcript_cov_pct = calloc(transcript_cov->num_of_transcripts, sizeof(Transcript_Coverage_Percentage));
+		for (i=0; i<transcript_cov->num_of_transcripts; i++) {
 			transcript_cov->transcript_cov_pct[i].gene_symbol = NULL;
 			transcript_cov->transcript_cov_pct[i].gene_name = NULL;
 			transcript_cov->transcript_cov_pct[i].gene_cov_percentage = 0.0;
@@ -1245,17 +1238,19 @@ void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *trans
 			free(refseq_array_tmp[i]);
 			refseq_array_tmp[i]=NULL;
 		}
+		if (refseq_array_tmp != NULL) free(refseq_array_tmp);
 
 		for (i=0; i<counter; i++) {
 			free(refseq_array[i]);
 			refseq_array[i]=NULL;
 		}
+		if (refseq_array != NULL) free(refseq_array);
 	}
 }
 
 void transcriptPercentageCoverageDestroy(Transcript_Coverage *transcript_cov) {
 	uint32_t i;
-	for (i=0; i<transcript_cov->num_of_genes; i++) {
+	for (i=0; i<transcript_cov->num_of_transcripts; i++) {
 		if (transcript_cov->transcript_cov_pct[i].gene_symbol) {
 			free(transcript_cov->transcript_cov_pct[i].gene_symbol);
 			transcript_cov->transcript_cov_pct[i].gene_symbol=NULL;
@@ -1283,9 +1278,9 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	// print low_cov_genes for debugging
 	//printLowCoverageGeneStructure(low_cov_genes);
 	//
-	//if (start_in == 89623861) {
-	//	printf("stop\n");
-	//}
+	if (start_in == 235506630) {
+		printf("stop\n");
+	}
 	
 	int32_t found = binarySearchLowCoverage(low_cov_genes, start_in, stop_in, 0);
 
@@ -1297,7 +1292,15 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 	int32_t i;
 
 	for (i=found-1; i>=0; i--) {
-		// here I need to use cds_start and cds_end
+		// here I need to use cds_start and cds_end for the entire CDS
+		// 1).   cds_start  ------------------------------  cds_end
+		//                    start_in ==========
+		//
+		// 2).   cds_start  ------------------------------  cds_end
+		//						==================== stop_in
+		//
+		// 3).   start_in ======================================== stop_in
+		//					 cds_start  ------------------  cds_end
 		//
 		if ((low_cov_genes->gene_coverage[i].cds_start <= start_in && start_in < low_cov_genes->gene_coverage[i].cds_end) ||
                (low_cov_genes->gene_coverage[i].cds_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].cds_end) ||
@@ -1310,15 +1313,26 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
 
 	found -= decrease;
 
-	// walk through the low_cov_genes->gene_coverage on the right hand size
+	// walk through the low_cov_genes->gene_coverage on the right hand side
 	//
 	for (i=found; i<low_cov_genes->total_size; i++) {
 		// we will exit only when the cds_start is larger than stop_in
+		//			cds_start --------------------------- cds_end
+		//	========== stop_in 	
 		//
 		if (low_cov_genes->gene_coverage[i].cds_start > stop_in)
 			break;
 
 		//printf("index %"PRIu32"\tsymbol %s and gene to match %s\n", i, low_cov_genes->gene_coverage[i].gene_symbol, row[4]);
+		// 1).	cds_target_start ------------------------------------ cds_target_end
+		//							start_in ==============
+		//
+		// 2).	cds_target_start ------------------------------------ cds_target_end
+		//							=========== stop_in
+		//
+		// 3).	cds_target_start ------------------------------------ cds_target_end
+		//			start_in ============================================= stop_in
+		//
 		if ((low_cov_genes->gene_coverage[i].cds_target_start <= start_in && start_in < low_cov_genes->gene_coverage[i].cds_target_end) ||
 			   (low_cov_genes->gene_coverage[i].cds_target_start <= stop_in && stop_in < low_cov_genes->gene_coverage[i].cds_target_end) || 
 			   (start_in <= low_cov_genes->gene_coverage[i].cds_target_start && low_cov_genes->gene_coverage[i].cds_target_end <= stop_in))	{
@@ -1348,7 +1362,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		char *tmp = realloc(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, report_string_size * sizeof(char));
 		if (!tmp) {
 			fprintf(stderr, "Memory re-allocation failed at processExonArrays\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions = tmp;
 	}
@@ -1365,7 +1379,9 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
 			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
 		} else {
-			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
+			// to append
+			//
+			sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, cds_target_start, cds_target_end);
 		}
     } else if (cds_target_start <= start && end <= cds_target_end) {
 		//  cds_target_start =================== cds_target_end
@@ -1377,7 +1393,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, start, end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, start, end);
         }
 
     } else if (cds_target_start <= end && end <= cds_target_end) {
@@ -1390,7 +1406,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, cds_target_start, end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, cds_target_start, end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, cds_target_start, end);
         }
 
     } else if (cds_target_start <= start && start <= cds_target_end) {
@@ -1403,7 +1419,7 @@ void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_i
 		if (strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions) == 0) {
             sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions, "%"PRIu32"-%"PRIu32, start, cds_target_end);
         } else {
-            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions)+1, ";%"PRIu32"-%"PRIu32, start, cds_target_end);
+            sprintf(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions + strlen(low_cov_genes->gene_coverage[refseq_exon_index].low_cov_regions), ";%"PRIu32"-%"PRIu32, start, cds_target_end);
         }
     }
 }

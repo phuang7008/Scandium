@@ -10,7 +10,7 @@
  *      Revision:		none
  *      Compiler:		gcc
  *
- *      Author:			Peiming (Peter) Huang
+ *      Author:			Peiming (Peter) Huang, phuang@bcm.edu
  *      Company:		Baylor College of Medicine
  *
  * =====================================================================================
@@ -26,15 +26,17 @@
 #include "utils.h"
 
 // define (initialize) global variables declared at the terms.h file
+//
 bool N_FILE_PROVIDED = false;
 bool TARGET_FILE_PROVIDED = false;
+bool USER_DEFINED_DATABASE = false;
 
 // Before open any file for processing, it is always a good idea to make sure that file exists
 //
 bool checkFile(char * fName) {
     if(access(fName, F_OK|R_OK) == -1) {
         fprintf(stderr, "No such file as %s;  File not found.\n", fName);
-		exit(1);
+		exit(EXIT_FAILURE);
     }
 	return true;
 }
@@ -45,55 +47,63 @@ uint64_t check_file_size(const char *filename) {
 		return st.st_size;
 
 	fprintf(stderr, "Something is wrong when check the filesize for file: %s\n", filename);
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 // split a string into an array of words
-// 0: RefSeq	1:CCDS		2:VEGA/Gencode		3:miRNA
+// 0: RefSeq	1:CCDS		2:VEGA/Gencode		3:miRNA		4:everything else (such as SNP, Pseudo gene etc)
 // As the string size varies, it might be a good idea to set them to a pre-defined size
 // The reason is that when we need to remove duplicates by shifting, the size using strlen
 // for the previous one might not be big enough for the later one
 // So I will set it here as 50. The longest one seems to be 26
 //
 void splitStringToArray(char *stringPtr, stringArray *arrayPtr) {
-	char *tokPtr;
-	char **stringStorage = calloc(4, sizeof(char*));
-	size_t i, j;
+	size_t i, j, max_length;
 	size_t word_size=50;
+	uint32_t source_category_size = 5;
+	char *tokPtr;
+	char **stringStorage = calloc(source_category_size, sizeof(char*));
 
 	// split the first delimiter '\t'
 	//
 	tokPtr = strtok(stringPtr, "\t");
 	stringStorage[0] = calloc(strlen(tokPtr)+1, sizeof(char));
 	strcpy(stringStorage[0], tokPtr);
+	max_length = strlen(tokPtr)+2;
 
 	for(i = 1; (tokPtr = strtok(NULL, "\t")) != NULL; i++) {
 		stringStorage[i] = calloc(strlen(tokPtr)+1, sizeof(char));
 		strcpy(stringStorage[i], tokPtr);
+		if (max_length < (strlen(tokPtr)+2))
+			max_length = strlen(tokPtr)+2;
 	}
-
-	if (tokPtr != NULL)
-		free(tokPtr);
 
 	// now handle the individual string from different sources
 	// the second delimiter is ";"
+	// because the strtok() funciton destroy the original string, 
+	// we will make a copy here
 	//
-	for (i=0; i<4; i++) {
-		// check if we have enough space available
+	char *copy_info;
+	copy_info = calloc(max_length, sizeof(char));
+	for (i=0; i<source_category_size; i++) {
+		// check if we have enough space available for current category
 		//
-		if (arrayPtr[i].size >= arrayPtr[i].capacity) { 
+		if (arrayPtr[i].size == arrayPtr[i].capacity) { 
 			arrayPtr[i].capacity = arrayPtr[i].capacity*2;
-			char **tmp = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
-			if (!tmp) {
+			arrayPtr[i].theArray = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
+			if (arrayPtr[i].theArray == NULL) {
 				fprintf(stderr, "Memory re-allocation failed at splitStringToArray!\n");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
-			arrayPtr[i].theArray = tmp;
 		}
 
-		// fetch the first element
+		// make a copy first
 		//
-		tokPtr = strtok(stringStorage[i], ";");
+		strcpy(copy_info, stringStorage[i]);
+
+		// fetch the first element on the copied string
+		//
+		tokPtr = strtok(copy_info, ";");
 		arrayPtr[i].theArray[arrayPtr[i].size] = calloc(word_size, sizeof(char));
 		strcpy(arrayPtr[i].theArray[arrayPtr[i].size], tokPtr);
 		arrayPtr[i].size++;
@@ -105,12 +115,11 @@ void splitStringToArray(char *stringPtr, stringArray *arrayPtr) {
 			//
 			if (arrayPtr[i].size >= arrayPtr[i].capacity) {
 				arrayPtr[i].capacity = arrayPtr[i].capacity*2;
-				char **tmp = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
-				if (!tmp) {
+				arrayPtr[i].theArray = realloc(arrayPtr[i].theArray, arrayPtr[i].capacity * sizeof(char*));
+				if (arrayPtr[i].theArray == NULL) {
 					fprintf(stderr, "Memory re-allocation failed at splitStringToArray!\n");
-					exit(1);
+					exit(EXIT_FAILURE);
 				}
-				arrayPtr[i].theArray = tmp;
 			}
 
 			arrayPtr[i].theArray[arrayPtr[i].size] = calloc(word_size, sizeof(char));
@@ -121,7 +130,7 @@ void splitStringToArray(char *stringPtr, stringArray *arrayPtr) {
 
 	// clean up
     //
-	for (i=0; i<4; i++) {
+	for (i=0; i<source_category_size; i++) {
 		if (stringStorage[i] != NULL)
 			free(stringStorage[i]);
 	}
@@ -129,8 +138,8 @@ void splitStringToArray(char *stringPtr, stringArray *arrayPtr) {
 	if (stringStorage != NULL)
 		free(stringStorage);
 
-	if (tokPtr != NULL)
-		free(tokPtr);
+	if (copy_info != NULL)
+		free(copy_info);
 }
 
 // this function is used to remove duplicated words from array1 (the main one)
@@ -198,6 +207,40 @@ void stringArrayDestroy(stringArray *arrayIn) {
 		free(arrayIn->theArray);
 }
 
+// I found this on the internet
+//
+char* stristr( const char* str1, const char* str2 ) {
+    const char* p1 = str1 ;
+    const char* p2 = str2 ;
+    const char* r = *p2 == 0 ? str1 : 0 ;
+
+    while ( *p1 != 0 && *p2 != 0 ) {
+        if ( tolower( (unsigned char)*p1 ) == tolower( (unsigned char)*p2 ) ) {
+            if ( r == 0 ) {
+                r = p1 ;
+            }
+
+            p2++ ;
+        } else {
+            p2 = str2 ;
+            if ( r != 0 ) {
+                p1 = r + 1 ;
+            }
+
+            if ( tolower( (unsigned char)*p1 ) == tolower( (unsigned char)*p2 ) ) {
+                r = p1 ;
+                p2++ ;
+            } else {
+                r = 0 ;
+            }
+        }
+
+        p1++;
+    }
+
+    return *p2 == 0 ? (char*)r : 0 ;
+}
+
 void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 	uint16_t i;
 
@@ -238,12 +281,13 @@ void usage() {
 
 	printf("The Followings Are Optional:\n");
 	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
+	printf("\t-f <the file that contains user defined database (for annotation only)>\n");
 	printf("\t-g <the percentage used for gVCF blocking: Default 5 for 500%%>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
 	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
 	printf("\t-t <target file. If this is specified, all of the output file names related to this will contain .Capture_>\n");
-	printf("\t-y <type of annotation: 1 for dynamic or 2 for static. (Default 1: dynamic)>\n\n");
+	printf("\t-y <type of annotation: 1 for dynamic, 2 for static and 3 for user-defined-annotations. (Default 1: dynamic. However, if -f option is specified, it will be automatically switch to 3)>\n\n");
 	printf("\t-c <database catetory if you choose static annotation type: 1:VCRome+PKv2, 2:eMerge or 3: right_10K. (Default 1: VCRome+PKv2)>\n\n");
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
@@ -252,18 +296,18 @@ void usage() {
 	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
 
-	printf("The Followings are for the range block output (used for Uniformity analysis)\n");
-	printf("\t-l <the lower bound for the range block output. Default: 1>\n");
-	printf("\t-u <the upper bound for the range block output. Default: 150>\n\n");
+	printf("The Followings are for the block region output (used for Uniformity analysis)\n");
+	printf("\t-l <the lower bound for the block region output. Default: 1>\n");
+	printf("\t-u <the upper bound for the block region output. Default: 150>\n\n");
 
 	printf("The Followings Are Flags\n");
-	printf("\t[-a] write the annotation information for genes, exons and transcript. Default off\n");
+	printf("\t[-a] Turn off the annotation information for genes, exons and transcript. Default: ON\n");
 	printf("\t[-d] Remove Duplicates! Specify this flag only when you want to use Duplicates reads. Default: ON (not specified)\n");
-	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default off\n");
-	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default off\n");
+	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
+	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
 
-	printf("\t[-G] Write/Dump the WIG formatted file. Default off\n");
-	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default off\n");
+	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
+	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
 	printf("\t[-h] Print this help/usage message\n");
 }
 
@@ -307,16 +351,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	while ((arg = getopt(argc, argv, "ab:B:c:dD:g:GH:i:L:l:m:n:o:p:st:T:u:wWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:L:l:m:n:o:p:st:T:u:wWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
-				user_inputs->annotation_on = true; break;
+				user_inputs->annotation_on = false; break;
 			case 'b':
 				if (!isNumber(optarg)) {
 					fprintf (stderr, "Entered base quality filter score %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
@@ -336,14 +380,19 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 					strcpy(user_inputs->database_version, "hg19");
 
 				break;
+			case 'f':
+				USER_DEFINED_DATABASE = true;
+				user_inputs->user_defined_database_file = (char*) malloc((strlen(optarg)+1) * sizeof(char));
+				strcpy(user_inputs->user_defined_database_file, optarg);
+				break;
 			case 'g': user_inputs->gVCF_percentage = atoi(optarg); break;
             case 'G': user_inputs->Write_WIG = true; break;
-            case 'h': usage(); exit(1);
+            case 'h': usage(); exit(EXIT_FAILURE);
 			case 'H':
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered High coverage cutoff value %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->high_coverage_to_report = atoi(optarg);
                 break;
@@ -356,7 +405,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->low_coverage_to_report = atoi(optarg);
                 break;
@@ -364,7 +413,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				if (!isNumber(optarg)) {
 					fprintf (stderr, "Entered lower_bound value %s is not a number\n", optarg);
 					usage();
-					exit(1);
+					exit(EXIT_FAILURE);
 				}
 				user_inputs->lower_bound = atoi(optarg);
 				break;
@@ -372,7 +421,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
 				user_inputs->min_map_quality = atoi(optarg);
                 break;
@@ -396,7 +445,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered number of threads %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->num_of_threads = atoi(optarg);
 				break;
@@ -404,7 +453,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered upper_bound value %s is not a number\n", optarg);
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->upper_bound = atoi(optarg);
 				break;
@@ -422,8 +471,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 else
 					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
                 usage();
-                exit(1);
-            default: fprintf(stderr, "Non-option argument %c\n", optopt); usage(); exit(1);
+                exit(EXIT_FAILURE);
+            default: fprintf(stderr, "Non-option argument %c\n", optopt); usage(); exit(EXIT_FAILURE);
         }
     }
 
@@ -433,14 +482,14 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		printf("\nYou specify neigher -t (for Capture Project) nor -w (for WGS analysis)\n");
 		printf("Please specify either -t or -w or both before proceed. Thanks!\n\n");
 		usage();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// check the mandatory arguments (will turn this on for the final test/run)
     if (user_inputs->bam_file == NULL) {
         printf("\n-i\toption is mandatory!\n\n");
 		usage();
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
 	// check database version
@@ -448,13 +497,13 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			&& strcmp(user_inputs->database_version, "hg38") != 0) {
 		printf("\n-D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n\n");
 		usage();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	
 	if (user_inputs->output_dir == NULL) {
 		printf("\n-o\toption is mandatory!\n\n");
 		usage();
-		exit(1);
+		exit(EXIT_FAILURE);
 	} else {
 		// check to see if the directory exist!
 		DIR* dir = opendir(user_inputs->output_dir);
@@ -464,19 +513,19 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		} else if (ENOENT == errno) {
 			printf("\nThe output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n\n");
 			usage();
-			exit(1);
+			exit(EXIT_FAILURE);
 		} else {
 			/* opendir() failed for some other reason, such as permission */
 			printf("\nCan't open the output directory! Please check to see if the permission is set correctly. Thanks!\n\n");
 			usage();
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 	}
 
 	if (user_inputs->upper_bound < user_inputs->lower_bound) {
 		printf("\nThe value for -u should be larger than the value for -l option \n\n");
 		usage();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// Need to check out that all files user provided exist before proceeding
@@ -485,15 +534,17 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     if (TARGET_FILE_PROVIDED) checkFile(user_inputs->target_file);
 
 	// need to get the basename from BAM/CRAM filename
-	char *tmp_basename = basename(strdup(user_inputs->bam_file));
+	//char *tmp_basename = basename(strdup(user_inputs->bam_file));
+	char *tmp_basename = basename(user_inputs->bam_file);
 	if (!tmp_basename || strlen(tmp_basename) == 0) {
 		printf("\nSomething went wrong for extracting the basename from the input BAM/CRAM file\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	char string_to_add[350];
 
 	// For all Capture related output files
+	//
 	if (TARGET_FILE_PROVIDED) {
 		// output average coverage for all target regions (capture)
 		sprintf(string_to_add, ".Capture_AllSites_REPORT.txt");
@@ -548,7 +599,46 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		}
 	}
 
+	// for User-Defined-Database
+	//
+	if (USER_DEFINED_DATABASE) {
+		// output average coverage for all regions from the User-Defined-Database
+		//
+		sprintf(string_to_add, ".UserDefinedDB_AllSites_REPORT.txt");
+		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_all_site_file, string_to_add);
+		writeHeaderLine(user_inputs->user_defined_db_all_site_file, 1);
+
+		// for target regions have no coverage at all
+		//
+		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_missed_targets_file, 
+						".UserDefinedDB_missed_targets.txt");
+		writeHeaderLine(user_inputs->user_defined_db_missed_targets_file, 2);
+
+		// output low coverage regions for User-Defined-Database
+		//
+		sprintf(string_to_add, ".UserDefinedDB_below%dx_REPORT.txt", user_inputs->low_coverage_to_report);          
+		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_low_cov_file, string_to_add);
+		writeHeaderLine(user_inputs->user_defined_db_low_cov_file, 1);
+
+		// for low coverage gene/exon/transcript reports
+		//
+		if (user_inputs->annotation_on) {                                                                     
+			sprintf(string_to_add, ".UserDefinedDB_below%dx_Gene_pct.txt", user_inputs->low_coverage_to_report);    
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_gene_pct_file, string_to_add);
+			writeHeaderLine(user_inputs->user_defined_db_gene_pct_file, 3);
+
+			sprintf(string_to_add, ".UserDefinedDB_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);    
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_exon_pct_file, string_to_add);
+			writeHeaderLine(user_inputs->user_defined_db_exon_pct_file, 4);
+
+			sprintf(string_to_add, ".UserDefinedDB_below%dx_Transcript_pct.txt", user_inputs->low_coverage_to_report);
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->user_defined_db_transcript_file, string_to_add);
+			writeHeaderLine(user_inputs->user_defined_db_transcript_file, 5);
+		}
+	}
+
 	// For whole Genome report
+	//
 	if (user_inputs->wgs_coverage) {
 		// output WGS coverage summary report
 		sprintf(string_to_add, ".WGS_Coverage_Summary_Report.csv");
@@ -610,7 +700,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only) and need detailed annotations\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonymon", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonymon", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
 	} else if (type == 2) {
 		// for capture missed target file
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
@@ -647,6 +737,11 @@ void outputUserInputOptions(User_Input *user_inputs) {
 
 	if (user_inputs->n_file)
 		fprintf(stderr, "\tThe file that contains all Ns regions is: %s\n", user_inputs->n_file);
+
+	if (USER_DEFINED_DATABASE) {
+		fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_file);
+		fprintf(stderr, "\t\tAll annotations will be based on this file!\n");
+	}
 
 	fprintf(stderr, "\tThe minimum mapping quality is: %d\n", user_inputs->min_map_quality);
 	fprintf(stderr, "\tThe minimum base quality is: %d\n", user_inputs->min_base_quality);
@@ -718,7 +813,7 @@ User_Input * userInputInit() {
 	user_inputs->gVCF_percentage = 5;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
-	user_inputs->annotation_on = false;
+	user_inputs->annotation_on = true;
 	user_inputs->wgs_coverage = false;
 	user_inputs->Write_WIG = false;
 	user_inputs->Write_WGS = false;
@@ -738,17 +833,8 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->database_version)
 		free(user_inputs->database_version);
 
-	if (user_inputs->target_file)
-		free(user_inputs->target_file);
-
 	if (user_inputs->bam_file)
 		free(user_inputs->bam_file);
-
-	if (user_inputs->capture_cov_file) 
-		free(user_inputs->capture_cov_file);
-
-	if (user_inputs->missed_targets_file)
-		free(user_inputs->missed_targets_file);
 
 	if (user_inputs->output_dir)
 		free(user_inputs->output_dir);
@@ -756,6 +842,8 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->n_file)
 		free(user_inputs->n_file);
 
+	// whole genome output files clean-up
+	//
 	if (user_inputs->wgs_wig_file)
 		free(user_inputs->wgs_wig_file);
 
@@ -764,6 +852,23 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->wgs_cov_report)
 		free(user_inputs->wgs_cov_report);
+
+	if (user_inputs->wgs_low_cov_file)
+		free(user_inputs->wgs_low_cov_file);
+
+	if (user_inputs->wgs_high_cov_file)
+		free(user_inputs->wgs_high_cov_file);
+
+	if (user_inputs->wgs_range_file)
+		free(user_inputs->wgs_range_file);
+
+	// Capture (target) output files clean-up
+	//
+	if (user_inputs->target_file)
+		free(user_inputs->target_file);
+
+	if (user_inputs->capture_cov_file) 
+		free(user_inputs->capture_cov_file);
 
 	if (user_inputs->capture_cov_report)
 		free(user_inputs->capture_cov_report);
@@ -777,6 +882,12 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->capture_high_cov_file)
 		free(user_inputs->capture_high_cov_file);
 
+	if (user_inputs->capture_range_file)
+		free(user_inputs->capture_range_file);
+
+	if (user_inputs->missed_targets_file)
+		free(user_inputs->missed_targets_file);
+
 	if (user_inputs->low_cov_gene_pct_file)
 		free(user_inputs->low_cov_gene_pct_file);
 
@@ -786,11 +897,28 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->low_cov_transcript_file)
 		free(user_inputs->low_cov_transcript_file);
 
-	if (user_inputs->wgs_low_cov_file)
-        free(user_inputs->wgs_low_cov_file);
+	// For User-Defined Database output files clean-up
+	//
+	if (user_inputs->user_defined_database_file)
+		free(user_inputs->user_defined_database_file);
 
-	if (user_inputs->wgs_high_cov_file)
-        free(user_inputs->wgs_high_cov_file);
+	if (user_inputs->user_defined_db_all_site_file)
+		free(user_inputs->user_defined_db_all_site_file);
+
+	if (user_inputs->user_defined_db_missed_targets_file)
+		free(user_inputs->user_defined_db_missed_targets_file);
+
+	if (user_inputs->user_defined_db_low_cov_file)
+		free(user_inputs->user_defined_db_low_cov_file);
+
+	if (user_inputs->user_defined_db_gene_pct_file)
+		free(user_inputs->user_defined_db_gene_pct_file);
+
+	if (user_inputs->user_defined_db_exon_pct_file)
+		free(user_inputs->user_defined_db_exon_pct_file);
+
+	if (user_inputs->user_defined_db_transcript_file)
+		free(user_inputs->user_defined_db_transcript_file);
 
 	if (user_inputs)
 		free(user_inputs);
@@ -834,6 +962,19 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type) {
 	//printf("after clean hash string\n");
 }
 
+void cleanKhashStrInt(khash_t(khStrInt) *hash_to_clean) {
+	khint_t k;
+	for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k) {
+		if (kh_exist(hash_to_clean, k)) {
+			// clean key if the key exist
+			//
+			if (kh_key(hash_to_clean, k)) free((char *) kh_key(hash_to_clean, k));
+		}
+	}
+
+	if (hash_to_clean) kh_destroy(khStrInt, hash_to_clean);
+}
+
 uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id) {
 	uint32_t i=0;
 	for(i=0; i<header->n_targets; i++) {
@@ -843,7 +984,7 @@ uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id) {
 	}
 
 	fprintf(stderr, "Can't locate the chromosome name %s at the function get_chrom_index_from_id\n", chrom_id);
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 // Note: this function should never be used to update any information regarding the Chromosome_Tracking variable
@@ -859,13 +1000,13 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 	Chromosome_Tracking *chrom_tracking = calloc(1, sizeof(Chromosome_Tracking));
 	if (!chrom_tracking) {
 		fprintf(stderr, "Memory allocation for Chromosome Tracking variable failed\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	chrom_tracking->coverage = calloc(header->n_targets, sizeof(uint32_t*));
 	if (!chrom_tracking->coverage) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->coverage");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	//since the thread finishes unevenly, some chromosome might be processed before its predecessor,
@@ -876,7 +1017,7 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 	chrom_tracking->chromosome_ids = calloc(header->n_targets, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
-	       exit(1);
+	       exit(EXIT_FAILURE);
 	}
 	for(i=0; i<header->n_targets; i++)
 		// need to increase the size if we need to analysis any other chromosomes (such as decoy)
@@ -887,7 +1028,7 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 	chrom_tracking->chromosome_lengths = calloc(header->n_targets, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	for(i=0; i<header->n_targets; i++)
         chrom_tracking->chromosome_lengths[i] = 0;
@@ -895,7 +1036,7 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 	chrom_tracking->chromosome_status = calloc(header->n_targets, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	for(i=0; i<header->n_targets; i++)
         chrom_tracking->chromosome_status[i] = 0;
@@ -912,7 +1053,7 @@ void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_i
 	strcpy(chrom_tracking->chromosome_ids[index], chrom_id);
 	if (chrom_tracking->chromosome_ids[index] == NULL) {
 		printf("Allocation failed for chrom %s\n", chrom_id);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// As the 0 position will be empty as the position will be 1-based
@@ -922,7 +1063,7 @@ void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_i
 	chrom_tracking->coverage[index] = calloc(chrom_len + 1, sizeof(uint32_t));
 	if (!chrom_tracking->coverage[index]) {
 		fprintf(stderr, "Memory allocation failed for chromosome_tracking->coverage");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/*
@@ -960,30 +1101,30 @@ void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
 // This function is used to dynamically allocate the memory and then copy everything in
 //
 void dynamicStringAllocation(char *str_in, char **storage_str) {
-	char *tmp;
 	if (!str_in) { printf("String is null\n"); }
-
-	if (strlen(str_in) == 0) { 
-		//printf("String is empty\n"); 
-		strcpy(str_in, "."); 
-	}
 
 	if (*storage_str) {
 		if (strlen(str_in) > strlen(*storage_str)) {
-			tmp = realloc(*storage_str, strlen(str_in) + 2);
-			if (!tmp) {
+			*storage_str = realloc(*storage_str, (strlen(str_in) + 2)*sizeof(char));
+			if (*storage_str == NULL) {
 				fprintf(stderr, "Dynamic Memory allocation failed\n");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
-			*storage_str = tmp;
 		}
 	} else {
-		*storage_str = calloc(strlen(str_in) + 2, sizeof(char));
+		if (str_in == NULL || strlen(str_in) == 0) {
+			*storage_str = calloc(5, sizeof(char));
+		} else {
+			*storage_str = calloc(strlen(str_in) + 2, sizeof(char));
+		}
 	}
 
-	strcpy(*storage_str, str_in);
-
-	//if (tmp) { free(tmp); tmp=NULL; }
+	if (str_in == NULL || strlen(str_in) == 0) { 
+		//printf("String is empty\n"); 
+		strcpy(*storage_str, "."); 
+	} else {
+		strcpy(*storage_str, str_in);
+	}
 }
 
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {
@@ -1014,11 +1155,10 @@ int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Trackin
     return -1;
 }
 
-Stats_Info * statsInfoInit() {
-	Stats_Info *stats_info = malloc(sizeof(Stats_Info));
+void statsInfoInit(Stats_Info *stats_info) {
 	if (!stats_info) {
 		fprintf(stderr, "Memory allocation failed for Stats_Info\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	stats_info->target_cov_histogram = kh_init(m32);
@@ -1030,7 +1170,8 @@ Stats_Info * statsInfoInit() {
     stats_info->target_coverage_for_median = kh_init(m32);
     stats_info->genome_coverage_for_median = kh_init(m32);
 
-	stats_info->cov_stats = coverageStatsInit();
+	stats_info->cov_stats = calloc(1, sizeof(Coverage_Stats));
+	coverageStatsInit(stats_info->cov_stats);
 
 	// initializing all numbers to 0
 	int i = 0;
@@ -1041,15 +1182,12 @@ Stats_Info * statsInfoInit() {
 
 	for (i=0; i<101; i++)
 		stats_info->target_coverage[i] = 0;
-
-	return stats_info;
 }
 
-Coverage_Stats * coverageStatsInit() {
-	Coverage_Stats *cov_stats = malloc(sizeof(Coverage_Stats));
+void coverageStatsInit(Coverage_Stats * cov_stats) {
 	if (!cov_stats) {
 		fprintf(stderr, "Memory allocation failed for Coverage_Stats\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	cov_stats->total_genome_bases = 0;
@@ -1079,8 +1217,6 @@ Coverage_Stats * coverageStatsInit() {
 	cov_stats->base_with_max_coverage = 0;
 	cov_stats->median_genome_coverage = 0;
 	cov_stats->median_target_coverage = 0;
-
-	return cov_stats;
 }
 
 void statsInfoDestroy(Stats_Info *stats_info) {
@@ -1094,7 +1230,10 @@ void statsInfoDestroy(Stats_Info *stats_info) {
 	//free(stats_info->five_prime);
 	//free(stats_info->three_prime);
 
-	free(stats_info->cov_stats);
+	if (stats_info->cov_stats) { 
+		free(stats_info->cov_stats);
+		stats_info->cov_stats = NULL;
+	}
 	if (stats_info) { free(stats_info); stats_info=NULL; }
 }
 
@@ -1159,7 +1298,7 @@ void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t v
         kh_value(hash_in, k_iter) = 0;
     } else if (ret == -1) {
         fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     kh_value(hash_in, k_iter) += val;
@@ -1175,7 +1314,7 @@ void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint32_t v
 		//printf("add value is 0 %d ret, with key %"PRIu32"\n", ret, pos_key);
     } else if (ret == -1) {
         fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     kh_value(hash_in, k_iter) += val;
@@ -1192,7 +1331,7 @@ uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key) {
 
 		if (ret == -1) {
         	fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-        	exit(1);
+        	exit(EXIT_FAILURE);
     	}
 
 		// this is needed as if the bucket is never used, the value will be whatever left there, and the value is undefined!
@@ -1213,7 +1352,7 @@ uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {
 
 		if (ret == -1) {
 			fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 
 		//if (ret == 1)

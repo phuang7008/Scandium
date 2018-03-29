@@ -132,7 +132,7 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
  * @param stop_in: the stop position for the capture region
  * @param dbs, the structure contain MySQL and Database information
  */
-char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, Databases *dbs, omp_lock_t *query_lock);
+//char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, Databases *dbs, omp_lock_t *query_lock);
 
 //void transcriptPercentageCoverageInit(Transcript_Coverage *transcript_cov, char *chrom_id, Databases *dbs, User_Input *user_inputs);
 void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *transcript_cov, Low_Coverage_Genes *low_cov_genes, User_Input *user_inputs, Databases *dbs);

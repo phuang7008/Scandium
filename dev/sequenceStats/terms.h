@@ -44,11 +44,14 @@
 
 #define DYMMY				"dummy"	//
 #define WRITE_EXOME			0		//write whole genome coverage statistics
+//#define KHSTRINT			32
 
 // We need to declared the followings as glabal since the program will change these values!!!
 // The naming convention for this type of data is CAPTICAL_WORD1_WORD2_WORD3...
 extern bool N_FILE_PROVIDED;		// this is the file that contains regions of all Ns in the reference
 extern bool TARGET_FILE_PROVIDED;
+extern bool USER_DEFINED_DATABASE;
+extern int khStrInt;
 
 /**
  * define a structure that holds the file strings from user inputs
@@ -59,6 +62,7 @@ typedef struct {
 	char * n_file;					// provide the regions with Ns in the reference genome in bed format
 	char * output_dir;				// output directory (mandatory)
 	char * target_file;
+	char * user_defined_database_file;
 	char * database_version;		// either hg19 (hg37) or hg38
 
 	// For whole genome (WGS) related outputs
@@ -80,6 +84,14 @@ typedef struct {
 	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
 	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
 	char * low_cov_transcript_file;	// for low cov percentage of every gene in capture file with all different transcripts
+
+	// For User-Defined-Database (annotations)
+	char * user_defined_db_all_site_file;
+	char * user_defined_db_missed_targets_file;
+	char * user_defined_db_low_cov_file;
+	char * user_defined_db_gene_pct_file;
+	char * user_defined_db_exon_pct_file;
+	char * user_defined_db_transcript_file;
 
 	//misc
 	int8_t annotation_type;			// 1: dynamic, 2: static
@@ -172,6 +184,37 @@ typedef struct {
 	MYSQL_RES *mysql_results;
 } Databases;
 
+typedef struct {
+	char *chrom_id;
+	uint32_t num_of_cds;
+} User_Defined_Database;
+
+typedef struct {
+	uint32_t num_of_chroms;
+	uint64_t num_of_lines;
+	User_Defined_Database *ud_database_per_chrom;
+} User_Defined_Database_Wrapper;
+
+/*
+ * store the raw user-defined-database with the structure like the following
+ * num_of_chromosomes				25 + alt + hla + decoy etc.
+ * chrom_id	 (array)				"1"		"2"		"3"	...	"7"		"Y"		"alt" ...
+ * annotation_size (array)			 0		 5		 17		 12		 22		 35  ...
+ * annotations (array of arrays)							"7	117292897	117292985	CFTR|ENST00000600166_cds_1
+ *															"7	117304742	117304914	CFTR|ENST00000600166_cds_2
+ *															"7	117305513	117305618	CFTR|ENST00000600166_cds_3
+ *															"7	117355812	117355913	CFTR|ENST00000600166_cds_4
+ *															.....
+ */
+typedef struct {
+	uint32_t *annotation_size;
+	uint32_t num_of_chromosomes;
+	char **chrom_id;
+	char *** annotations;
+	int32_t number_of_unique_genes;
+	int32_t number_of_unique_transcripts;
+} Raw_User_Defined_Database;
+
 /**
  * define a structure that holds the exonic, inter-genic and intronic regions
  * single '*' for 1-D pointer, double '**' for 2-D array, while three '***' for 2-D array of strings
@@ -249,7 +292,7 @@ typedef struct {
 	int16_t  exon_id;		// for SNP, it is -1. So it should be signed int
 	uint16_t exon_count;
 	uint32_t cds_length;
-    uint16_t num_of_low_cov_bases;
+    uint32_t num_of_low_cov_bases;
 	char *low_cov_regions;
 } Gene_Coverage;
 
@@ -269,7 +312,7 @@ typedef struct {
 
 typedef struct {
 	Transcript_Coverage_Percentage *transcript_cov_pct;
-	uint32_t num_of_genes;
+	uint32_t num_of_transcripts;
 } Transcript_Coverage;
 
 #include "htslib/khash.h"
@@ -288,7 +331,9 @@ KHASH_MAP_INIT_INT(m8, uint16_t)
  * define a khash like structure that has string as key and khash_t(m32) as values
  */
 KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
-//KHASH_MAP_INIT_STR(str, khash_t(m32)*)
+
+//KHASH_MAP_INIT_STR(KHSTRINT, uint32_t)
+KHASH_MAP_INIT_STR(khStrInt, uint32_t)
 //KHASH_SET_INIT_STR(str)
 
 /**

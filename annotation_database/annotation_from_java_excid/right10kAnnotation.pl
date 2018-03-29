@@ -20,7 +20,7 @@ eval {
 	$dbh->do("DROP TABLE IF EXISTS $db_anno");
 };
 
-# now create table again
+# now create table nameain
 $dbh->do(qq{
   CREATE TABLE $db_anno (
   `aid`  INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -61,32 +61,49 @@ while (<IN>) {
 
     # now do the insertion
     #
-    foreach my $g_name (keys %annotations) {
-		# my $cds_list = join(";", sort @{$annotations{$g_name}});
+    foreach my $g_symbol (keys %annotations) {
+		# my $cds_list = join(";", sort @{$annotations{$g_symbol}});
 		#
 		my $cds_list="0";
-		my $refseq_flag=0;
-		my $gencode_flag=0;
-		foreach my $ag (sort @{$annotations{$g_name}}) {
+		my $refseq_list  = ".";
+		my $gencode_list = ".";
+		my $other_list =".";
+
+		foreach my $name (sort @{$annotations{$g_symbol}}) {
 			if ($cds_list eq "0") {
-				$cds_list = $ag;
-				$gencode_flag = 1 if ($cds_list=~/ENST/);
-				$refseq_flag  = 1 if ($cds_list=~/NM/);
+				$gencode_list = $name if ($name=~/ENST/i);
+				$refseq_list  = $name if ($name=~/NM|NR/i);
+				$other_list   = $name if ($name=~/SNP|Pseudo/i);
 			} else {
-				if ($gencode_flag == 1 and $refseq_flag == 0) {
-					if ($ag=~/NM/) {
-						$cds_list .= "\t$ag";
-						$refseq_flag = 1;
+				if ($name=~/ENST/i) {
+					if (length($gencode_list) > 1) {
+						$gencode_list .= ";$name";
 					} else {
-						$cds_list .= ";$ag";
+						$gencode_list = $name;
 					}
-				} else {
-					$cds_list .= ";$ag";
+				}
+
+				if ($name=~/NM|NR/i) {	
+					if (length($refseq_list) > 1) {
+						$refseq_list .= ";$name";
+					} else {
+						$refseq_list = $name;
+					}
+				}
+
+				if ($name=~/SNP|Pseudo/i) {
+					if (length($other_list) > 1) {
+						$other_list .= ";$name";
+					} else {
+						$other_list = $name;
+					}
 				}
 			}
 		}
 
-        $sql = "INSERT INTO $db_anno VALUES (0, '$items[0]', $items[1], $items[2], '$g_name', '.', '.', '$cds_list')";
+		$cds_list = $refseq_list."\t.\t".$gencode_list."\t.".$other_list."\n";
+
+        $sql = "INSERT INTO $db_anno VALUES (0, '$items[0]', $items[1], $items[2], '$g_symbol', '.', '.', '$cds_list')";
         $sth = $dbh->prepare($sql) or die "Query problem $!\n";
         $sth->execute() or die "Execution problem $!\n";
     }
