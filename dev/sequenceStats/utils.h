@@ -34,7 +34,7 @@ bool checkFile(char * fName);
  */
 uint64_t check_file_size(const char *filename);
 
-/* Split a string to a word array
+/* Split a string to a word hash
  * Note: arrayPtr should be inialized outside the function before passing it to the call!
  * We use a dynamic way for memory allocation!
 
@@ -55,14 +55,7 @@ uint64_t check_file_size(const char *filename);
  * @param stringPtr, a string pointer. It's content will be splitted into words
  * @param arrayPtr, a stringArray pointer. It is used to store string array information
 */ 
-void splitStringToArray(char *stringPtr, stringArray *arrayPtr);
-
-/**
- * to remove duplated words from a give string
- * @param array1, a stringArrat pointer that contains an string array with duplicates to be removed!
- * @param array2, a stringArray pointer that contains an string array that its string content need to be removed from array1
- */
-void removeDuplicatesFromStringArray(stringArray *array1, stringArray *array2);
+void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint8_t index);
 
 void stringArrayDestroy(stringArray *arrayIn);
 
@@ -72,6 +65,16 @@ void stringArrayDestroy(stringArray *arrayIn);
  * @param substr2, the substring to search for
  */
 char* stristr( const char* string1, const char* substr2 );
+
+/*
+ * it is used to calculation the size of low coverage regions from a StrInt Hash table
+ * In addition, it will generate the low coverage regions in sorted order in string format
+ * @param low_cov_regions, a StrInt hash table contain the start and end position of low coverage region
+ * @return total low coverage region size
+ */
+uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char **output);
+
+uint32_t processLowCovRegionFromStrArray(stringArray *low_cov_regions, char **output);
 
 void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
 
@@ -86,14 +89,6 @@ void usage();
  * @return char * without 'chr' prefix
  */
 char * removeChr(char * cName);
-
-/**
- * converts fractions into percentages with 2 decimal positions
- * @param num
- * @param dom
- * @return
- */
-double getPercentage(int num, int dom);
 
 /**
  * check if the input string is a number
@@ -158,6 +153,8 @@ void cleanKhashInt(khash_t(m32) *hash_to_clean);
 
 void cleanKhashStrInt(khash_t(khStrInt) *hash_to_clean);
 
+void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean);
+
 /**
  * This function is used to clean the khash_t (string key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
@@ -171,15 +168,6 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
  * @return allocated string pointer
  */
 void dynamicStringAllocation(char *str_in, char **storage_str);
-
-/**
- * Find the corresponding chromosome index from input chromosome id
- * @param header: the bam/cram/sam header
- * @param chrom_id
- * @return the index of the corresponding chromosome id
- */
-uint32_t getChromIndexFromID(bam_hdr_t *header, char *chrom_id);
-//uint32_t getChromIndexFromID(uint16_t chr_count, char *chrom_id);
 
 /**
  * initialize the Chromosome_Tracking variable
@@ -267,8 +255,6 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
  */
 float calculatePercentage(uint32_t num, uint32_t dom);
 
-void getDatabaseName(User_Input *user_inputs, char* db_name_in_out);
-
 /** 
  * combine all the coverage stats from individual thread to stats_info
  * @param stats_info
@@ -276,28 +262,31 @@ void getDatabaseName(User_Input *user_inputs, char* db_name_in_out);
  */
 void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
 
+/* obtain the hash key for the value passed in                                                                
+ * the keys are defined every 1000 position                                                                   
+ * @param position_in, the position for the key                                                               
+ * @return hash key                                                                                           
+ */
+uint32_t getHashKey(uint32_t position_in);
+
+void lowCoverageGeneHashBucketKeyInit(khash_t(khStrLCG) *low_cov_gene_hash, char *key_in);
+
+void geneCoverageInit(Gene_Coverage *gc);
+
+void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *seen_transcript);
+
+void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool copy_gene);
+
+void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray, uint32_t size_in, uint32_t cds_t_start, uint32_t cds_t_end);
+
+void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray);
+
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
 
-/**
- * It is used to sort the input Gene_Coverage variable based on gene_symbol
- * @param gene_coverage1, the Gene_Coverage input variable 1
- * @param gene_coverage2, the Gene_Coverage input variable 2
+/*
+ * the following comparison is used to compare the int array
  */
-int compare(const void *gene_coverage1, const void *gene_coverage2);
-
-/**
- * It is used to sort the input Transcript_Cov_PCT variable based on refseq_name
- * @param transcript_cov_pct1, the Transcript_Cov_PCT input variable 1
- * @param transcript_cov_pct2, the Transcript_Cov_PCT input variable 2
- */
-int compare2(const void *transcript_cov_pct1, const void *transcript_cov_pct2);
-
-/**
- * The following comparison is used to compare the refseq_name array variable (string array)
- * @param refseq_array1, the string array input 1
- * @param refseq_array2, the string array input 2
- */
-int compare3(const void *refseq_array1, const void *refseq_array2);
+int compare(const void * val1, const void * val2);
 
 /**
  * It is used to print a string array before (OR after sorting) for viewing and comparison.

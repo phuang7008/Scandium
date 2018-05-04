@@ -52,6 +52,8 @@ extern bool N_FILE_PROVIDED;		// this is the file that contains regions of all N
 extern bool TARGET_FILE_PROVIDED;
 extern bool USER_DEFINED_DATABASE;
 extern int khStrInt;
+extern int khStrStrArray;
+extern int khStrLCG;
 
 /**
  * define a structure that holds the file strings from user inputs
@@ -85,17 +87,7 @@ typedef struct {
 	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
 	char * low_cov_transcript_file;	// for low cov percentage of every gene in capture file with all different transcripts
 
-	// For User-Defined-Database (annotations)
-	char * user_defined_db_all_site_file;
-	char * user_defined_db_missed_targets_file;
-	char * user_defined_db_low_cov_file;
-	char * user_defined_db_gene_pct_file;
-	char * user_defined_db_exon_pct_file;
-	char * user_defined_db_transcript_file;
-
 	//misc
-	int8_t annotation_type;			// 1: dynamic, 2: static
-	int8_t database_category;		// 1: VCRome+PKv2, 2: eMerge, 3: right 10K
 	int8_t min_map_quality;
 	int8_t min_base_quality;
 	uint8_t low_coverage_to_report;		// default 20, users are allowed to change it as an input option
@@ -148,6 +140,7 @@ typedef struct {
  */
 typedef struct {
 	bam1_t **chunk_of_reads;
+	uint32_t capacity;
 	uint32_t size;
 } Read_Buffer;
 
@@ -284,57 +277,46 @@ typedef struct {
 typedef struct {
 	char *gene_symbol;
 	char *gene_name;
-	//char *chrom_id;
+	bool targeted;
 	uint32_t cds_start;		// for the RefSeq coding regions only
 	uint32_t cds_end;		// for the RefSeq coding regions only
-    uint32_t cds_target_start;		
-    uint32_t cds_target_end;
+	uint32_t cds_target_start;		
+	uint32_t cds_target_end;
 	int16_t  exon_id;		// for SNP, it is -1. So it should be signed int
 	uint16_t exon_count;
 	uint32_t cds_length;
-    uint32_t num_of_low_cov_bases;
-	char *low_cov_regions;
+	uint16_t num_of_low_cov_bases;
+	stringArray * low_cov_regions;	// it will be an array of string structure
 } Gene_Coverage;
 
 typedef struct {
 	Gene_Coverage *gene_coverage;
+	uint32_t capacity;
 	uint32_t total_size;
 } Low_Coverage_Genes;
-
-/**
- * define a data structure to store the information related to transcript percentage coverage
- */
-typedef struct {
-	char *gene_symbol;
-	char *gene_name;
-	float gene_cov_percentage;
-} Transcript_Coverage_Percentage;
-
-typedef struct {
-	Transcript_Coverage_Percentage *transcript_cov_pct;
-	uint32_t num_of_transcripts;
-} Transcript_Coverage;
 
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
-// m32 means the key is 32 bit, while the value is a char type
-//KHASH_MAP_INIT_INT(32, char)
-
 // m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
+//
 KHASH_MAP_INIT_INT(m32, uint32_t)
-//KHASH_MAP_INIT_INT(m32)
 KHASH_MAP_INIT_INT(m16, uint16_t)
 KHASH_MAP_INIT_INT(m8, uint16_t)
 
 /**
- * define a khash like structure that has string as key and khash_t(m32) as values
+ * define a khash like structure that has string as key and various structures as values
+ * Note: name part of init must be unique for the key, value types.
+ * In our case, 33/32/31 (defined in main.c) are arbitrary symbolic names for hashtables
+ * that contains string keys and Low_Coverage_Genes* and int values.
  */
+KHASH_MAP_INIT_STR(khStrStrArray, stringArray*)
+
+KHASH_MAP_INIT_STR(khStrInt, uint32_t)
+
 KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
 
-//KHASH_MAP_INIT_STR(KHSTRINT, uint32_t)
-KHASH_MAP_INIT_STR(khStrInt, uint32_t)
-//KHASH_SET_INIT_STR(str)
+KHASH_MAP_INIT_STR(khStrLCG, Low_Coverage_Genes*)
 
 /**
  * define a coverage statistics structure
@@ -393,4 +375,5 @@ typedef struct {
 
     Coverage_Stats *cov_stats;
 } Stats_Info;
+
 #endif //TERMS_H

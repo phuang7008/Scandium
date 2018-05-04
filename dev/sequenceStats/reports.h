@@ -127,18 +127,12 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
  * find out the detailed gene/transcript coverage percentage
  * @param type, type of processing; 1 for capture target bed file, 2 for user-defined-database (the first 3 columns)
  */
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Low_Coverage_Genes *low_cov_genes, uint8_t type);
-
-/*
- * write the transcript coverage information to a file
- * @param type: 1 for capture target file, while 2 for user-defined-database
- */
-void writeTranscriptCoveragePercentage(Transcript_Coverage *transcript_cov,  User_Input *user_inputs, uint8_t type);
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, khash_t(khStrLCG) *low_cov_gene_hash, uint8_t type);
 
 /*
  * write the gene/transcript coverage percentage to a file
  * @param type, type of processing: 1 for target bed file, 2 for user-defined-database (the first 3 columns)
  */
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, Low_Coverage_Genes *low_cov_genes, Transcript_Coverage *transcript_cov, uint8_t type);
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, uint8_t type);
 
 #endif // REPORTS_H

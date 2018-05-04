@@ -52,10 +52,11 @@ void fromStringToIntArray(char *str_in, uint32_t *array_in);
  * @param exon_count: the number of exons need to be known before calling this function
  * @param start: the start positions for low coverage region
  * @param end:   the end positions for low coverage region
- * @low_cov_genes: the structure that holds all the refseq information of one chromosome
+ * @low_cov_gene_hash: the structure that holds all the refseq information of one chromosome
  * @refseq_exon_index: the found index that points to the refseq regions intercept with low coverage region
  */
-void processExonArrays(Low_Coverage_Genes *low_cov_genes, uint32_t refseq_exon_index, uint32_t start, uint32_t end);
+//void processExonArrays(Low_Coverage_Genes *low_cov_gene_hash, uint32_t refseq_exon_index, uint32_t start, uint32_t end);
+void processExonArrays(Gene_Coverage *gene_coverage, uint32_t start, uint32_t end);
 
 /**
  * the function will combine all the strings stored as key and formatted them for output
@@ -71,8 +72,6 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type);
 
 void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databases *dbs, char *chrom_id, uint32_t index, User_Input *user_inputs, uint8_t type);
-
-int32_t checkInterGenicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, uint32_t low_index);
 
 //char * checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index);
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t index, char **info_in_and_out, uint32_t low_index);
@@ -92,39 +91,34 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 
 int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index);
 
-int32_t binarySearchLowCoverage(Low_Coverage_Genes *low_cov_genes, uint32_t start, uint32_t end, uint32_t low_search_index);
-
 bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t location_index);
-
-void fromStringToIntArray(char *str_in, uint32_t *array_in);
-
-void processingMySQL(Databases *dbs, char *sql, uint32_t pos_start, uint32_t pos_end, Low_Coverage_Genes *low_cov_genes, uint32_t LCG_array_index, uint8_t type);
 
 /**
  * this is used to initialize the gene percentage coverage structure
- * @param refseq_cds_genes, the variable to hold the official refseq genes' cds info
+ * @param low_cov_gene_hash, the variable to hold the official refseq genes' cds info
  * @param chrom_id, the chromosome id we are going to handle
  * @param dbs, the structure contain MySQL and Database information
  * @param user_inputs, contains all the original user's inputs
  */
-void genePercentageCoverageInit(Low_Coverage_Genes *refseq_cds_genes, Low_Coverage_Genes *low_cov_genes, char *chrom_id, Databases *dbs, User_Input *user_inputs);
+void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, User_Input *user_inputs, khash_t(khStrStrArray) *gene_transcripts);
 
 /**
  * This is used to clean up the Low_Coverage_Genes variables
  * @param Low_Coverage_Genes variable
  */
-void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_genes);
+//void genePercentageCoverageDestroy(Low_Coverage_Genes *low_cov_gene_hash);
+void genePercentageCoverageDestroy(khash_t(khStrLCG) *low_cov_gene_hash);
 
 /**
  * This is used to intersect the refseq cds bed regions with target bed regions
  * @param chrom_id, the chromosome id we are going to handle
  * @param target_info, the target bed regions that user provided
- * @param refseq_cds_genes, official refseq gene's cds information
- * @param low_cov_genes, the target regions that intersect with refseq_cds_genes
+ * @param low_cov_gene_hash, official refseq gene's cds information
+ * @param low_cov_gene_hash, the target regions that intersect with low_cov_gene_hash
  */
-void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, Low_Coverage_Genes *refseq_cds_genes, Low_Coverage_Genes *low_cov_genes);
+void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, khash_t(khStrLCG) *low_cov_gene_hash);
 
-void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, Low_Coverage_Genes *low_cov_genes);
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, khash_t(khStrLCG) *low_cov_gene_hash);
 
 /*
  * produce the gene annotation for the capture region
@@ -134,20 +128,17 @@ void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char
  */
 //char* produceGeneAnnotations(uint32_t start_in, uint32_t stop_in, char *chrom_id, Databases *dbs, omp_lock_t *query_lock);
 
-//void transcriptPercentageCoverageInit(Transcript_Coverage *transcript_cov, char *chrom_id, Databases *dbs, User_Input *user_inputs);
-void transcriptPercentageCoverageInit(char* chrom_id, Transcript_Coverage *transcript_cov, Low_Coverage_Genes *low_cov_genes, User_Input *user_inputs, Databases *dbs);
-
-void transcriptPercentageCoverageDestroy(Transcript_Coverage *transcript_cov);
+void transcriptPercentageCoverageInit(char* chrom_id, khash_t(khStrLCG) *transcript_hash, khash_t(khStrLCG) *low_cov_gene_hash);
 
 /**
  * record the intersected regions between the target bed regions and the official refseq CDS regions
- * @param refseq_cds_genes, the official refseq CDS regions
- * @param low_cov_genes, the target bed regions (at this moment, we presume all regions are of high quality)
+ * @param low_cov_gene_hash, the official refseq CDS regions
+ * @param low_cov_gene_hash, the target bed regions (at this moment, we presume all regions are of high quality)
  * @param refseq_found_index, the index on the refseq CDS region that intersects with the target bed region
- * @param target_counter, the counter index on the target region that intersects with the refseq_cds_genes
+ * @param target_counter, the counter index on the target region that intersects with the low_cov_gene_hash
  * @param start, the start position for the intersection
  * @param end, the end position for the intersection
  */
-void recordIntersectedRegions(Low_Coverage_Genes *refseq_cds_genes, Low_Coverage_Genes *low_cov_genes, int32_t refseq_found_index, uint32_t target_counter, uint32_t start, uint32_t end);
+void recordIntersectedRegions(Low_Coverage_Genes *low_cov_gene_hash, int32_t refseq_found_index, uint32_t target_counter, uint32_t start, uint32_t end);
 
 #endif // ANNOTATION_H
