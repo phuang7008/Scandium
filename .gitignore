@@ -1,13 +1,13 @@
 # Ignore everything
-*
+# *
 
 # But not these files...
 #!*.vimrc
 #!*.vim
 #!*.bashrc
 #!.gitignore
-!*.c
-!*.cpp
-!*.h
-!*.hpp
-!Makefile
+# !*.c
+# !*.cpp
+# !*.h
+# !*.hpp
+# !Makefile
