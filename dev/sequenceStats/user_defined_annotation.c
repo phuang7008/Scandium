@@ -39,7 +39,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 	// variables used for reading file
 	//
 	char *gene_symbol = calloc(50,  sizeof(char));
-	char *gene_name   = calloc(70,  sizeof(char));
+	char *transcript_name   = calloc(70,  sizeof(char));
 	char *gene_info   = calloc(100, sizeof(char));
 	char *target_line = calloc(100, sizeof(char));
 	char *line = NULL;
@@ -60,7 +60,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
 			if (j==0) {
-				strcpy(target_line, removeChr(tokPtr));
+				strcpy(target_line, tokPtr);
 				
 				// check to see if the hashkey exists for current chromosome id
 				//
@@ -106,7 +106,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 
 		kh_value(user_defined_targets, iter)++;
 
-		// now process gene_info to extract gene_symbol and gene_name
+		// now process gene_info to extract gene_symbol and transcript_name
 		// ABCB1|ENST00000265724_cds_18
 		//
 		char *gene_token;
@@ -136,30 +136,30 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 		j=0;
 		while ((name_token=strtok_r(savePtr, "_", &savePtr))) {
 			if (j==0) {
-				strcpy(gene_name, name_token);
+				strcpy(transcript_name, name_token);
 
 				// some transcript name like the following:
 				// NM_005957_cds_6_3_1333
 				//
-				if ( (stristr(name_token, "NM") != NULL) || (stristr(name_token, "NR") != NULL) )
+				if ( (stristr(name_token, "NM") != NULL) || (stristr(name_token, "NR") != NULL) || (stristr(name_token, "XM") != NULL))
 					nm_flag=true;
 			}
 
 			if (j==1) {
 				if (nm_flag) {
-					strcat(gene_name, "_");
-					strcat(gene_name, name_token);
+					strcat(transcript_name, "_");
+					strcat(transcript_name, name_token);
 				}
 			}
 			j++;
 		}
 
-		// Now combine both gene_symbol and gene_name together to form a unique gene ID
+		// Now combine both gene_symbol and transcript_name together to form a unique gene ID
 		//
-		char *gene = calloc(strlen(gene_symbol)+strlen(gene_name)+10, sizeof(char));
+		char *gene = calloc(strlen(gene_symbol)+strlen(transcript_name)+10, sizeof(char));
 		strcpy(gene, gene_symbol);
 		strcat(gene, "-");
-		strcat(gene, gene_name);
+		strcat(gene, transcript_name);
 
 		iter = kh_put(khStrInt, cds_lengths, gene, &absent);
 		if (absent) {
@@ -188,7 +188,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 	}
 
 	if (line != NULL) free(line);
-	if (gene_name != NULL) free(gene_name);
+	if (transcript_name != NULL) free(transcript_name);
 	if (gene_info != NULL) free(gene_info);
 	if (gene_symbol != NULL) free(gene_symbol);
 	if (target_line != NULL) free(target_line);
@@ -222,11 +222,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 			udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds = kh_value(chromosome_info, iter);
 			udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id = calloc(strlen(kh_key(chromosome_info, iter))+1, sizeof(char));
 
-			// This is needed as removeChar() function takes char * as the argument,
-			// while kh_key returns kh_cstr_t type
-			//
-			strcpy(tmp_cid, kh_key(chromosome_info, iter));
-			strcpy(udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id, removeChr(tmp_cid));
+			strcpy(udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id, kh_key(chromosome_info, iter));
 			chrom_idx++;
 		}
 	}
@@ -240,20 +236,47 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 	fclose(fp);
 }
 
-void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Regions_Wrapper *exon_regions_wrapper, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts) {
+void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exon_regions, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts) {
 	// As we already know the total number of line and the cds count for each chromosome
 	// we will just need to create the story memory here
 	// Note: since the chrom_ids on the User_Defined_Database_Wrapper is not in order, 
+	// the exon_regions->chromosome_ids array won't be in order as well
 	//
-	uint32_t i, j;
-	uint32_t chrom_idx;
-	for (i=0; i<udd_wrapper->num_of_chroms; i++) {
-		if (strcmp(udd_wrapper->ud_database_per_chrom[i].chrom_id, chrom_id) == 0) {
-			exon_regions_wrapper->size_g   = udd_wrapper->ud_database_per_chrom[i].num_of_cds;
-			exon_regions_wrapper->capacity = udd_wrapper->ud_database_per_chrom[i].num_of_cds;
+	exon_regions->chrom_list_size = udd_wrapper->num_of_chroms;
+	exon_regions->chromosome_ids  = calloc(exon_regions->chrom_list_size, sizeof(char*));
 
-			exon_regions_wrapper->gene_regions = calloc(exon_regions_wrapper->size_g, sizeof(Gene_Regions));
-			chrom_idx = i;
+	exon_regions->starts = calloc(exon_regions->chrom_list_size, sizeof(uint32_t*));
+	exon_regions->ends   = calloc(exon_regions->chrom_list_size, sizeof(uint32_t*));
+	exon_regions->size_r = calloc(exon_regions->chrom_list_size, sizeof(uint32_t*));
+	
+	exon_regions->prev_search_loc_index   = 0;
+	exon_regions->prev_search_chrom_index = 0;
+
+	exon_regions->gene = calloc(exon_regions->chrom_list_size, sizeof(char**));
+	exon_regions->Synonymous = calloc(exon_regions->chrom_list_size, sizeof(char**));
+	exon_regions->prev_genes = calloc(exon_regions->chrom_list_size, sizeof(char**));
+	exon_regions->exon_info = calloc(exon_regions->chrom_list_size, sizeof(char**));
+
+	uint32_t i, j;
+	for (i=0; i<exon_regions->chrom_list_size; i++) {
+		// assign chromosome id here so that the indices will be the same across different variables
+		//
+		exon_regions->chromosome_ids[i] = calloc(strlen(udd_wrapper->ud_database_per_chrom[i].chrom_id)+1, sizeof(char));
+		strcpy(exon_regions->chromosome_ids[i], udd_wrapper->ud_database_per_chrom[i].chrom_id);
+
+		exon_regions->size_r[i] = udd_wrapper->ud_database_per_chrom[i].num_of_cds;
+		exon_regions->starts[i] = calloc(exon_regions->size_r[i], sizeof(uint32_t));
+		exon_regions->ends[i]   = calloc(exon_regions->size_r[i], sizeof(uint32_t));
+		exon_regions->gene[i]   = calloc(exon_regions->size_r[i], sizeof(char*));
+		exon_regions->Synonymous[i] = calloc(exon_regions->size_r[i], sizeof(char*));
+		exon_regions->prev_genes[i] = calloc(exon_regions->size_r[i], sizeof(char*));
+		exon_regions->exon_info[i]  = calloc(exon_regions->size_r[i], sizeof(char*)); 
+
+		for (j=0; j<exon_regions->size_r[i]; j++) {
+			exon_regions->gene[i][j] = NULL;
+			exon_regions->Synonymous[i][j] = NULL;
+			exon_regions->prev_genes[i][j] = NULL;
+			exon_regions->exon_info[i][j]  = NULL;
 		}
 	}
 
@@ -275,6 +298,12 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 		raw_user_defined_database->annotations[i] = calloc(udd_wrapper->ud_database_per_chrom[i].num_of_cds, sizeof(char*));
 
 		raw_user_defined_database->annotation_size[i] = 0;
+	}
+
+	// now reset the num_of_cds variable inside udd_wrapper->ud_database_per_chrom for the future usage
+	//
+	for (i=0; i<udd_wrapper->num_of_chroms; i++) {
+		udd_wrapper->ud_database_per_chrom[i].num_of_cds = 0;
 	}
 
 	// open user-defined-database file for read again and populate the exon_regions
@@ -303,7 +332,6 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 
 	size_t len = 0;
 	ssize_t read;
-	uint32_t cds_counter=0;
 	
 	while ((read = getline(&line, &len, fp)) != -1) {
 		// make a copy first as strtok will destroy the 'line' variable
@@ -318,7 +346,7 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 		strcpy(orig_line, line);
 		char *savePtr = line;
 		char *tokPtr;
-		bool chrom_hit = false;
+		uint32_t chrom_idx;
 
 		// line example:
 		// 7       87178664        87178834        ABCB1|ENST00000543898_cds_12
@@ -326,34 +354,34 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 		j=0;
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
 			if (j==0) {
-				// need to check if it is the current chromosome passed in
-				// need to remove 'chr' from the chromosome id
+				// need to find the index for current chromosome
 				//
-				if (strcmp(removeChr(tokPtr), chrom_id) == 0) {
-					chrom_hit = true;
-					break;
+				for (i=0; i<exon_regions->chrom_list_size; i++) {
+					// need to remove 'chr' from the chromosome id
+					//
+					if (strcmp(tokPtr, exon_regions->chromosome_ids[i]) == 0) {
+						chrom_idx = i;
+						break;
+					}
 				}
-			}
-				
-			if (!chrom_hit) {
-				break;
 			}
 
 			if ( j == 1) {
 				// for start position
 				//
-				exon_regions_wrapper->gene_regions[cds_counter].start = (uint32_t) strtol(tokPtr, NULL, 10);
+				exon_regions->starts[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = (uint32_t) strtol(tokPtr, NULL, 10);
 			}
 
 			if (j == 2) {
 				// for end position
 				//
-				exon_regions_wrapper->gene_regions[cds_counter].end = (uint32_t) strtol(tokPtr, NULL, 10);
+				exon_regions->ends[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = (uint32_t) strtol(tokPtr, NULL, 10);
 
 				// need to handle the case where start == end (convert 1-based to 0-based)
 				//
-				if (exon_regions_wrapper->gene_regions[cds_counter].start == exon_regions_wrapper->gene_regions[cds_counter].end) 
-					exon_regions_wrapper->gene_regions[cds_counter].start--;
+				if (exon_regions->starts[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] == 
+						exon_regions->ends[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds]) 
+					exon_regions->starts[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds]--;
 			}
 
 			if (j == 3) {
@@ -365,9 +393,6 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 			j++;
 		}
 
-		if (!chrom_hit)
-			break;
-
 		// once we have annotation saved, we will use strtok_r again to do the splitting
 		// for annotation: gene|cds_info:
 		// ABCB1|ENST00000543898_cds_12
@@ -378,15 +403,25 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 
 		while ((token = strtok_r(savePtr, "|", &savePtr))) {
 			if (j==0) {
-				exon_regions_wrapper->gene_regions[cds_counter].gene = calloc(strlen(token)+1, sizeof(char));
-				strcpy(exon_regions_wrapper->gene_regions[cds_counter].gene, token);
+				exon_regions->gene[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(strlen(token)+1, sizeof(char));
+				strcpy(exon_regions->gene[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], token);
 
-				exon_regions_wrapper->gene_regions[cds_counter].Synonymous = calloc(3, sizeof(char));
-				strcpy(exon_regions_wrapper->gene_regions[cds_counter].Synonymous, ".");
+				exon_regions->Synonymous[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(3, sizeof(char));
+				strcpy(exon_regions->Synonymous[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".");
 
-				exon_regions_wrapper->gene_regions[cds_counter].prev_genes = calloc(3, sizeof(char));
-				strcpy(exon_regions_wrapper->gene_regions[cds_counter].prev_genes, ".");
+				exon_regions->prev_genes[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(3, sizeof(char));
+				strcpy(exon_regions->prev_genes[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".");
 
+				// record gene symbol here
+				/*
+				int absent;
+				iter = kh_put(khStrInt, list_of_genes, token, &absent);                                                   
+				if (absent) {                                                                                         
+					kh_key(list_of_genes, iter)   = strdup(token);                                                        
+					kh_value(list_of_genes, iter) = 0;                                                         
+				}                                                                                                     
+				kh_value(list_of_genes, iter)++;
+				*/
 				strcpy(gene, token);	// store gene symbol for later usage
 			}
 
@@ -406,39 +441,38 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 		// NM_000090_exon_21;NR_037401_exon_0	CCDS2297_exon_21	ENST00000304636.7_exon_21   hsa-mir-3606_exon_0
 		// Note: for UCSC annotation, I will put it along with the CCDS column
 		//
-		exon_regions_wrapper->gene_regions[cds_counter].exon_info = calloc(strlen(tmp_cds_info)+50, sizeof(char));
-
+		exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(strlen(tmp_cds_info)+50, sizeof(char));
 
 		// Here I need to find out the source of the annotation
 		//
-		if ( (stristr(tmp_cds_info, "NM") != NULL) || (stristr(tmp_cds_info, "NR") != NULL) ) {
+		if ( (stristr(tmp_cds_info, "NM") != NULL) || (stristr(tmp_cds_info, "NR") != NULL) || (stristr(tmp_cds_info, "XM") != NULL)) {
 			// refseq
 			//
-			strcpy(exon_regions_wrapper->gene_regions[cds_counter].exon_info, tmp_cds_info);
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, "\t.\t.\t.\t.");
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.\t.\t.");
 		} else if ( (stristr(tmp_cds_info, "CCDS") != NULL) || (stristr(tmp_cds_info, "uc") != NULL) ) {
 			// CCDS
 			//
-			strcpy(exon_regions_wrapper->gene_regions[cds_counter].exon_info, ".\t");
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, tmp_cds_info);
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, "\t.\t.\t.");
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t");
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.\t.");
 		} else if ( (stristr(tmp_cds_info, "OTT") != NULL) || (stristr(tmp_cds_info, "ENST") != NULL) ) {
 			// for VEGA or Gencode
 			//
-			strcpy(exon_regions_wrapper->gene_regions[cds_counter].exon_info, ".\t.\t");
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, tmp_cds_info);
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, "\t.\t.");
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t");
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.");
 		} else if ( (stristr(tmp_cds_info, "hsa") != NULL) || (stristr(tmp_cds_info, "mir") != NULL) ) {
 			// for miRNA
 			//
-			strcpy(exon_regions_wrapper->gene_regions[cds_counter].exon_info, ".\t.\t.\t");
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, tmp_cds_info);
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, "\t.");
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t.\t");
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.");
 		} else {
 			// everything else goes here
 			//
-			strcpy(exon_regions_wrapper->gene_regions[cds_counter].exon_info, ".\t.\t.\t.\t");
-			strcat(exon_regions_wrapper->gene_regions[cds_counter].exon_info, tmp_cds_info);
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t.\t.\t");
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
 		}
 
 		// The following is for the cds/gene percentage coverage culculation
@@ -461,7 +495,7 @@ void processUserDefinedDatabase(char *chrom_id, User_Input *user_inputs, Gene_Re
 				// However, some transcript name like the following:
 				// NM_005957_cds_6_3_1333
 				//
-				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) ) {
+				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) || (stristr(transcript_name, "XM") != NULL)) {
 					strcat(gene, "_");
 					strcat(gene, cds_token);
 				}
@@ -634,7 +668,7 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 				// some transcript name like the following:
 				// NM_005957_cds_6_3_1333
 				//
-				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) )
+				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) || (stristr(transcript_name, "XM") != NULL))
 					flag_2nd_field=true;
 			}
 
@@ -702,8 +736,8 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 			kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].gene_symbol = calloc(strlen(gene_symbol)+1, sizeof(char));
 			strcpy(kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].gene_symbol, gene_symbol);
 
-			kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].gene_name = calloc(strlen(transcript_name)+1, sizeof(char));
-			strcpy(kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].gene_name, transcript_name);
+			kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].transcript_name = calloc(strlen(transcript_name)+1, sizeof(char));
+			strcpy(kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].transcript_name, transcript_name);
 
 			kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].cds_start  = cds_target_start;
 			kh_value(user_cds_gene_hash, iter)->gene_coverage[idx].cds_end    = cds_target_end;
@@ -759,7 +793,7 @@ void recordUserDefinedTargets(khash_t(khStrInt) *user_defined_targets, Bed_Info 
 			uint32_t j=0;
 			while ((tokPtr = strtok_r(savePtr, ":", &savePtr))) {
 				if (j==0)
-					strcpy(user_defined_bed_info->coords[i].chrom_id,  removeChr(tokPtr));
+					strcpy(user_defined_bed_info->coords[i].chrom_id,  tokPtr);
 
 				if (j==1)
 					user_defined_bed_info->coords[i].start = (uint32_t) strtol(tokPtr, NULL, 10);
@@ -784,7 +818,7 @@ void recordUserDefinedTargets(khash_t(khStrInt) *user_defined_targets, Bed_Info 
 
 // for the low coverage gene annotations
 //
-void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Gene_Regions_Wrapper *exon_regions, Gene_Regions_Wrapper *intron_regions) {
+void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *intron_regions) {
 	// First, we need to find the index that is used to track current chromosome chrom_id
 	//
 	int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);

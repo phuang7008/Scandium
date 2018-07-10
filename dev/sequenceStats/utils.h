@@ -34,6 +34,8 @@ bool checkFile(char * fName);
  */
 uint64_t check_file_size(const char *filename);
 
+void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts);
+
 /* Split a string to a word hash
  * Note: arrayPtr should be inialized outside the function before passing it to the call!
  * We use a dynamic way for memory allocation!

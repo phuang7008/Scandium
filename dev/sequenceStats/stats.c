@@ -113,10 +113,10 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 		}
  
 		// check to see if we have changed the chromosome
-		if ( strcmp(cur_chr, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid])) != 0) {
+		if ( strcmp(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]) != 0) {
 
 			// update the last_chr value, as we are going to handle new chromosome 
-			strcpy(cur_chr, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]));
+			strcpy(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]);
 
 			printf("Start processing chromosome id %s for thread %d\n", cur_chr, thread_id);
 
@@ -144,7 +144,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         	///////////////////////////////////////////////////////////////////
 		}
 
-        processRecord(user_inputs, cov_stats, coverage_hash, removeChr(header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]), read_buff_in->chunk_of_reads[i], target_buffer_status);
+        processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status);
     }
 
     printf("Done read bam for thread %d\n", thread_id);
@@ -260,7 +260,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 			if (kh_exist(coverage_hash, outer_iter)) {
 				// compare with ordered chromosome ID in the header, if it is matched, then process it!
 				//
-				if (strcmp(removeChr(header->target_name[i]), kh_key(coverage_hash, outer_iter)) == 0) {
+				if (strcmp(header->target_name[i], kh_key(coverage_hash, outer_iter)) == 0) {
 					bool need_to_allocate = true;
 
 					if (chrom_tracking->chromosome_lengths[i] > 0)
@@ -270,7 +270,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 		            // Process the current chromosome for the first time!
 					if (need_to_allocate) {
 						uint32_t chrom_len = header->target_len[i];
-						chromosomeTrackingUpdate(chrom_tracking, removeChr(header->target_name[i]), chrom_len, i);
+						chromosomeTrackingUpdate(chrom_tracking, header->target_name[i], chrom_len, i);
 
 						// if it goes to the next chromosome, the previous chromosome should be done processing
 				        // Thus, we need to update the previous chromosome status

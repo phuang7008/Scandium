@@ -50,8 +50,11 @@
 // The naming convention for this type of data is CAPTICAL_WORD1_WORD2_WORD3...
 extern bool N_FILE_PROVIDED;		// this is the file that contains regions of all Ns in the reference
 extern bool TARGET_FILE_PROVIDED;
+extern bool HGMD_PROVIDED;
 extern bool USER_DEFINED_DATABASE;
+extern int khStrStr;
 extern int khStrInt;
+extern int khStrFloat;
 extern int khStrStrArray;
 extern int khStrLCG;
 
@@ -173,6 +176,7 @@ typedef struct {
 	char* db_annotation;	// Database contains annotation column (annotations are partitioned)
 	char* db_coords;		// it contains cds_target_start and cds_start columns, for gene/transcript/exon percentage calculation
 	char* db_introns;		// the intronic regions
+	char* db_hgmd;			// For official HGMD gene/transcripts
 	MYSQL *con;
 	MYSQL_RES *mysql_results;
 } Databases;
@@ -219,7 +223,7 @@ typedef struct {
  *												2:  101343		123908
  *												.
  *												54: 1498903		2809823
- * gene_name for each region on one chrom:		0: 'ABL2'
+ * transcript_name for a region per chrom:		0: 'ABL2'
  *												1: 'BCKL1'	'DSSL3'
  *												.
  *
@@ -276,7 +280,7 @@ typedef struct {
  */
 typedef struct {
 	char *gene_symbol;
-	char *gene_name;
+	char *transcript_name;
 	bool targeted;
 	uint32_t cds_start;		// for the RefSeq coding regions only
 	uint32_t cds_end;		// for the RefSeq coding regions only
@@ -310,6 +314,8 @@ KHASH_MAP_INIT_INT(m8, uint16_t)
  * In our case, 33/32/31 (defined in main.c) are arbitrary symbolic names for hashtables
  * that contains string keys and Low_Coverage_Genes* and int values.
  */
+KHASH_MAP_INIT_STR(khStrStr, char*)
+
 KHASH_MAP_INIT_STR(khStrStrArray, stringArray*)
 
 KHASH_MAP_INIT_STR(khStrInt, uint32_t)

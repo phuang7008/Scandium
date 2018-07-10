@@ -46,7 +46,7 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (mysql_real_connect(dbs->con, "sug-esxa-db1", "phuang", "phuang", "GeneAnnotations", 0, NULL, 0) == NULL) {
+	if (mysql_real_connect(dbs->con, "sug-esxa-db1", "phuang468", "phuang468", "GeneAnnotations", 0, NULL, 0) == NULL) {
 		finish_with_error(dbs->con);
 	}
 
@@ -55,25 +55,28 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 	dbs->db_introns = calloc(50, sizeof(char));
 	dbs->db_coords  = calloc(50, sizeof(char));
 	dbs->db_annotation = calloc(50, sizeof(char));
+	dbs->db_hgmd = calloc(50, sizeof(char));
 
 	if (strcasecmp(user_inputs->database_version, "hg38") == 0) {
-		strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords38");
+		strcpy(dbs->db_coords, "Gene_RefSeq_CDS_Coords38");
 		strcpy(dbs->db_introns, "Intron_Regions38");
 		strcpy(dbs->db_annotation, "Gene_Annotations38");
-		//strcpy(dbs->db_annotation, "VCRomePKv2_Annotation38");
+		strcpy(dbs->db_hgmd, "HGMD38");
 
 	} else {
-		//strcpy(dbs->db_coords, "Gene_RefSeq_Dynamic_CDS_Coords37");
-		strcpy(dbs->db_coords, "PKv2_CDS37");
+		strcpy(dbs->db_coords, "Gene_RefSeq_CDS_Coords37");
 		strcpy(dbs->db_introns, "Intron_Regions37");
 		strcpy(dbs->db_annotation, "Gene_Annotations37");
-		//strcpy(dbs->db_annotation, "VCRomePKv2_Annotation37");
+		strcpy(dbs->db_hgmd, "HGMD37");
 
 	}
 
 	fprintf(stderr, "The dynamic database for gene/transcript/exon percentage calculation is: %s\n", dbs->db_coords);
 	fprintf(stderr, "The dynamic database for gene annotation (partitioned) is %s\n", dbs->db_annotation);
-	fprintf(stderr, "The Intronic database is: %s\n\n", dbs->db_introns);
+	fprintf(stderr, "The Intronic database is: %s\n", dbs->db_introns);
+	if (HGMD_PROVIDED)
+		fprintf(stderr, "The HGMD database is: %s\n", dbs->db_hgmd);
+	fprintf(stderr, "\n");
 }
 
 void databaseCleanUp(Databases *dbs) {
@@ -85,6 +88,9 @@ void databaseCleanUp(Databases *dbs) {
 
 	if (dbs->db_introns != NULL)
 		free(dbs->db_introns);
+
+	if (dbs->db_hgmd != NULL)
+		free(dbs->db_hgmd);
 }
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
@@ -254,8 +260,10 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	uint32_t i, j;
 
+	//printf("current chromsome id is %"PRIu32"\n", regions_in->chrom_list_size);
 	for (i=0; i<regions_in->chrom_list_size; i++) {
 		// for exon and intronic regions
+		//
 		if (type > 1) {
 			for (j=0; j<regions_in->size_r[i]; j++) {
 				if (regions_in->gene[i][j] != NULL) free(regions_in->gene[i][j]);
@@ -827,7 +835,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 //					 -> capacity
 //					 -> gene_coverage [an array of the Gene_Coverage structure type]
 //									 -> [0] gene_symbol
-//									 -> [0] gene_name
+//									 -> [0] transcript_name
 //									 -> [0] cds_target_start
 //									 -> [0] cds_target_end
 //									 -> [0] exon_id
@@ -841,15 +849,15 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 //																	  ->[1] 235856749-235856786
 //																	  ......	
 //									 -> [1] gene_symbol
-//									 -> [1] gene_name
+//									 -> [1] transcript_name
 //									 ......
 //
 void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, User_Input *user_inputs, khash_t(khStrStrArray) *gene_transcripts) {
-	// mysql to obtain total number of distinct gene_name for this specific chromosome
+	// mysql to obtain total number of distinct transcript_name for this specific chromosome
 	//
 	char *sql = calloc(350, sizeof(char));
 
-	sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, gene_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_end", dbs->db_coords, chrom_id);
+	sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, transcript_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_end", dbs->db_coords, chrom_id);
 
 	if (mysql_query(dbs->con,sql))
 		finish_with_error(dbs->con);
@@ -867,7 +875,7 @@ void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chro
 
 	while ((row = mysql_fetch_row(dbs->mysql_results))) {
 		// need to setup the gene-transcripts hash table here as we only want to handle this one for each row
-		// row[7] is gene_symbol while row[8] is transcript name (ie, gene_name)
+		// row[7] is gene_symbol while row[8] is transcript name (ie, transcript_name)
 		//
 		addToGeneTranscriptKhashTable(row[7], row[8], gene_transcripts, seen_transcript);
 
@@ -905,8 +913,8 @@ void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chro
 			gc->gene_symbol = calloc(strlen(row[7])+1, sizeof(char));
 			strcpy(gc->gene_symbol, row[7]);
 
-			gc->gene_name = calloc(strlen(row[8])+1, sizeof(char));
-			strcpy(gc->gene_name, row[8]);
+			gc->transcript_name = calloc(strlen(row[8])+1, sizeof(char));
+			strcpy(gc->transcript_name, row[8]);
 
 			gc->cds_start = (uint32_t) strtol(row[4], NULL, 10);
 			gc->cds_end   = (uint32_t) strtol(row[5], NULL, 10);
@@ -946,9 +954,9 @@ void genePercentageCoverageDestroy(khash_t(khStrLCG) *low_cov_gene_hash) {
 					kh_value(low_cov_gene_hash, iter)->gene_coverage[i].gene_symbol = NULL;
 				}
 
-				if (kh_value(low_cov_gene_hash, iter)->gene_coverage[i].gene_name) {
-					free(kh_value(low_cov_gene_hash, iter)->gene_coverage[i].gene_name);
-					kh_value(low_cov_gene_hash, iter)->gene_coverage[i].gene_name = NULL;
+				if (kh_value(low_cov_gene_hash, iter)->gene_coverage[i].transcript_name) {
+					free(kh_value(low_cov_gene_hash, iter)->gene_coverage[i].transcript_name);
+					kh_value(low_cov_gene_hash, iter)->gene_coverage[i].transcript_name = NULL;
 				}
 
 				if (kh_value(low_cov_gene_hash, iter)->gene_coverage[i].low_cov_regions != NULL) {
@@ -1104,11 +1112,11 @@ void transcriptPercentageCoverageInit(char* chrom_id, khash_t(khStrLCG) *transcr
 			for (i=0; i<kh_value(low_cov_gene_hash, iter_lcg)->total_size; i++) {
 				// Initialize the bucket with the current key
 				//
-				lowCoverageGeneHashBucketKeyInit(transcript_hash, kh_value(low_cov_gene_hash, iter_lcg)->gene_coverage[i].gene_name);
+				lowCoverageGeneHashBucketKeyInit(transcript_hash, kh_value(low_cov_gene_hash, iter_lcg)->gene_coverage[i].transcript_name);
 
 				// need to find out if the key for the current transcript name exists
 				//
-				iter_ts = kh_get(khStrLCG, transcript_hash, kh_value(low_cov_gene_hash, iter_lcg)->gene_coverage[i].gene_name);
+				iter_ts = kh_get(khStrLCG, transcript_hash, kh_value(low_cov_gene_hash, iter_lcg)->gene_coverage[i].transcript_name);
 				if (iter_ts == kh_end(transcript_hash)) {
 					// the key doesn't exists!
 					// This shouldn't happen. So we exit right away!

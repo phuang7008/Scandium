@@ -80,7 +80,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 			// get the first item, which is chromosome id
 			//
 			if (i == 0)
-				strcpy(coords[count].chrom_id,  removeChr(p_token));
+				strcpy(coords[count].chrom_id,  p_token);
 
 			if (i == 1)
 				coords[count].start = (uint32_t) strtol(p_token, NULL, 10);

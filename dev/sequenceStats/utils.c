@@ -24,11 +24,13 @@
 #include <libgen.h>		// for function basename()
 #include "terms.h"
 #include "utils.h"
+#include "annotation.h"
 
 // define (initialize) global variables declared at the terms.h file
 //
 bool N_FILE_PROVIDED = false;
-bool TARGET_FILE_PROVIDED = false;
+bool HGMD_PROVIDED   = false;
+bool TARGET_FILE_PROVIDED  = false;
 bool USER_DEFINED_DATABASE = false;
 
 // Before open any file for processing, it is always a good idea to make sure that file exists
@@ -48,6 +50,55 @@ uint64_t check_file_size(const char *filename) {
 
 	fprintf(stderr, "Something is wrong when check the filesize for file: %s\n", filename);
 	exit(EXIT_FAILURE);
+}
+
+void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts) {
+	// query from the MySQL database
+	//
+	char *sql = calloc(100, sizeof(char));
+	sprintf(sql, "SELECT gene_symbol, transcript FROM %s", dbs->db_hgmd);
+
+	if (mysql_query(dbs->con,sql))
+		finish_with_error(dbs->con);
+
+	dbs->mysql_results = mysql_store_result(dbs->con);
+	if (dbs->mysql_results == NULL)
+		finish_with_error(dbs->con);
+
+	MYSQL_ROW row;
+	while ((row = mysql_fetch_row(dbs->mysql_results))) {
+		int absent;
+
+		// check to see if the current gene exists
+		//
+		khiter_t iter = kh_put(khStrInt, hgmd_genes, row[0], &absent);
+		if (absent) {
+			kh_key(hgmd_genes, iter) = strdup(row[0]);
+		}
+		kh_value(hgmd_genes, iter) = 1;
+
+		// check to see if current transcripts exists
+		//
+		int i=0;
+		char *savePtr = row[1];
+		char *tokPtr;
+		while ((tokPtr = strtok_r(savePtr, ".", &savePtr))) {
+			if (i==0) {
+				iter = kh_put(khStrInt, hgmd_transcripts, tokPtr, &absent);
+				if (absent) {
+					kh_key(hgmd_transcripts, iter) = strdup(tokPtr);
+				}
+				kh_value(hgmd_transcripts, iter) = 1;
+			}
+			i++;
+		}
+	}
+
+	if (dbs->mysql_results) { 
+		mysql_free_result(dbs->mysql_results);
+		dbs->mysql_results = NULL;
+	}
+	free(sql);
 }
 
 // split a string into an array of words
@@ -251,7 +302,12 @@ uint32_t processLowCovRegionFromStrArray(stringArray *merged_low_cov_regions, ch
 		stringLength += strlen(merged_low_cov_regions->theArray[i]) + 1;
 	}
 
-	*output = calloc(stringLength + 10, sizeof(char));
+	*output = realloc(*output, (stringLength + 50) * sizeof(char));
+	if (*output == NULL) {
+		fprintf(stderr, "Memory re-allocation failed at processLowCovRegionFromStrArray()\n");
+		exit(EXIT_FAILURE);
+	}
+
 	*output[0] = '\0';  // set to the null terminator, so we could use strcat() all the way
 
 	for (i=0; i<merged_low_cov_regions->size; i++) {
@@ -380,7 +436,7 @@ void usage() {
 	printf("The Followings Are Optional:\n");
 	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
 	printf("\t-f <the file that contains user defined database (for annotation only)>\n");
-	printf("\t-g <the percentage used for gVCF blocking: Default 5 for 500%%>\n");
+	printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
 	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
@@ -403,6 +459,7 @@ void usage() {
 	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
 
 	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
+	printf("\t[-M] Use HGMD annotation. Default: off\n");
 	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
 	printf("\t[-h] Print this help/usage message\n");
 }
@@ -439,7 +496,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:L:l:m:n:o:p:st:T:u:wWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:L:l:m:Mn:o:p:st:T:u:wWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -512,6 +569,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
 				user_inputs->min_map_quality = atoi(optarg);
                 break;
+			case 'M':
+				HGMD_PROVIDED = true;
+				break;
 			case 'n':
 				N_FILE_PROVIDED = true;
 				user_inputs->n_file = malloc(strlen(optarg)+1 * sizeof(char));
@@ -673,7 +733,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		if (user_inputs->annotation_on) {
 			sprintf(string_to_add, ".Capture_below%dx_Gene_pct.txt", user_inputs->low_coverage_to_report);
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_file, string_to_add);
-			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 3);
+			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 5);
 
 			sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_file, string_to_add);
@@ -681,7 +741,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 			sprintf(string_to_add, ".Capture_below%dx_Transcript_pct.txt", user_inputs->low_coverage_to_report);
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_file, string_to_add);
-			writeHeaderLine(user_inputs->low_cov_transcript_file, 5);
+			writeHeaderLine(user_inputs->low_cov_transcript_file, 3);
 		}
 	}
 
@@ -858,7 +918,7 @@ User_Input * userInputInit() {
 	user_inputs->lower_bound = 1;
 	user_inputs->upper_bound = 150;
 	user_inputs->target_buffer_size = 100;
-	user_inputs->gVCF_percentage = 5;
+	user_inputs->gVCF_percentage = 10;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
 	user_inputs->annotation_on = true;
@@ -1110,20 +1170,9 @@ void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_i
 		exit(EXIT_FAILURE);
 	}
 
-	/*
-	// need to initialization all of them to 0 (it is supposed to be done by the calloc(), 
-	uint32_t i=0;
-	for (i=0; i<chrom_len+1; i++) {
-	//	printf("before initialization the values are %"PRIu32"\t%d\n", i, chrom_tracking->coverage[index][i]);
-		if (i >= chrom_len) printf("I am at %"PRIu32"\n", i);
-		chrom_tracking->coverage[index][i] = 0;
-	} */
-	//printf("After the initializatioin to 0\n");
-
 	if (chrom_tracking->chromosome_status[index] == 0) 
 		chrom_tracking->chromosome_status[index] = 1;
-	chrom_tracking->chromosome_lengths[index] = chrom_len+1;
-	//chrom_tracking->number_tracked++;
+	chrom_tracking->chromosome_lengths[index] = chrom_len;
 }
 
 void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
@@ -1455,7 +1504,7 @@ void lowCoverageGeneHashBucketKeyInit(khash_t(khStrLCG) *low_cov_gene_hash, char
 
 void geneCoverageInit(Gene_Coverage *gc) {
 	gc->gene_symbol = NULL;
-	gc->gene_name   = NULL;
+	gc->transcript_name   = NULL;
 	gc->low_cov_regions = NULL;
 
 	gc->targeted = false;
@@ -1482,16 +1531,16 @@ void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool 
 	// now copy gene symbol and gene name
 	//
 	if (copy_gene) {
-		// need to copy gene symbol and gene_name (ie, transcript name) here
+		// need to copy gene symbol and transcript_name (ie, transcript name) here
 		//
 		gc2->gene_symbol = calloc(strlen(gc1->gene_symbol)+1, sizeof(char));
 		strcpy(gc2->gene_symbol, gc1->gene_symbol);
 
-		gc2->gene_name = calloc(strlen(gc1->gene_name)+1, sizeof(char));
-		strcpy(gc2->gene_name, gc1->gene_name);
+		gc2->transcript_name = calloc(strlen(gc1->transcript_name)+1, sizeof(char));
+		strcpy(gc2->transcript_name, gc1->transcript_name);
 	} else {
 		gc2->gene_symbol = NULL;
-		gc2->gene_name = NULL;
+		gc2->transcript_name = NULL;
 	}
 
 	// copy coordinates
@@ -1612,6 +1661,8 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 				k++;
 				i++;
 			}
+
+			if (region != NULL) free(region);
 		}
 	}
 
@@ -1699,7 +1750,7 @@ void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
 	printf("Total Number of Gene Symbol is %"PRIu32"\n", low_cov_genes->total_size);
 
 	for (i=0; i<low_cov_genes->total_size; i++) {
-		printf("Gene: %s\tRefSeq: %s\n", low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].gene_name);
+		printf("Gene: %s\tRefSeq: %s\n", low_cov_genes->gene_coverage[i].gene_symbol, low_cov_genes->gene_coverage[i].transcript_name);
 	}
 }
 

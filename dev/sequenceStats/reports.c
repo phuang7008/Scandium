@@ -24,7 +24,7 @@
 #include "reports.h"
 #include "utils.h"
 
-void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info,Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
+void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 
 	// First, we need to find the index that is used to track current chromosome chrom_id
 	int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
@@ -83,7 +83,6 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			int32_t start = target_info->coords[i].start;		// need to use signed value as it will get -1 later!!!
 			int32_t end = target_info->coords[i].end;
 			int length = end - start;
-			//int length = end - start + 1;
 			bool collect_target_cov = length > 99 ? true : false ;  // TODO: is it the min length of the exon? Check.
 
 			//if (start == 89623861) {
@@ -189,11 +188,11 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			// For All Sites Report
 			// the end position is not included based on the bed format
 			//
-			produceCaptureAllSitesReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_all_site_fp, inter_genic_regions, intronic_regions, exon_regions);
+			produceCaptureAllSitesReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_all_site_fp, intronic_regions, exon_regions);
 
 			// For low coverage and high coverage Report
 			//
-			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, inter_genic_regions, intronic_regions, exon_regions, 2);
+			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, intronic_regions, exon_regions, 2);
 
 			// For range block coverage information for graphing
 			//
@@ -210,16 +209,11 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 	}
 }
 
-void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
+void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 	uint32_t i=0;
 	uint64_t cov_total=0;
 	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 
-	//if (begin == 135340899) {
-	//	printf("stop\n");
-	//}
-
-	//if (chrom_idx == -1 || chrom_idr == -1) return;
 	if (chrom_idx == -1) return;
 
 	for (i = begin; i < begin+length; i++) {
@@ -241,7 +235,7 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 	fprintf(fh_all_sites, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\t", chrom_id, begin, begin+length, length, ave_coverage);
 
 	if (user_inputs->annotation_on) {
-		char *annotation = getRegionAnnotation(begin, begin+length, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
+		char *annotation = getRegionAnnotation(begin, begin+length, chrom_id, intronic_regions, exon_regions, 2);
 		if (annotation) {
 			fprintf(fh_all_sites, "%s", annotation);
 			free(annotation); 
@@ -257,7 +251,7 @@ void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tr
 // This function is used to write low coverage bases/regions and 
 // high coverage bases/regions for WGS (whole genome) using its own thread.
 //
-void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
+void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 	// First, we need to find the index that is used to track current chromosome chrom_id
 	// 
     int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
@@ -268,14 +262,14 @@ void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking
 	    FILE *wgs_low_x_fp  = fopen(user_inputs->wgs_low_cov_file, "a");
     	FILE *wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
 
-	    writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_id, user_inputs, wgs_low_x_fp, wgs_high_x_fp, inter_genic_regions, intronic_regions, exon_regions, 1);
+	    writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_id, user_inputs, wgs_low_x_fp, wgs_high_x_fp, intronic_regions, exon_regions, 1);
 
         fclose(wgs_low_x_fp);
         fclose(wgs_high_x_fp);
 	}
 }
 
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
 	// for debugging
 	//if (strcmp(chrom_tracking->chromosome_ids[chrom_idx], "1") == 0) return i;
 	
@@ -284,7 +278,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 	int32_t chrom_idr = -1;
    	if (exon_regions != NULL) {
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, exon_regions);
-		if (chrom_idr == -1) return 0;
+		//if (chrom_idr == -1) return 0;
 	}
 
 	if (chrom_idx == -1) return 0;
@@ -318,13 +312,18 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 			// generate the annotation here
 			//
 			if (user_inputs->annotation_on) {
-				char *annotation = getRegionAnnotation(start, end, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
-				if (annotation != NULL) {
-					fprintf(fh_low, "%s", annotation);
-					free(annotation);
-					annotation = NULL;
+				if (chrom_idr == -1 || exon_regions == NULL) {
+					fprintf(fh_low, ".\t.\t.\t.\t.\t.\t.\t.\n");
 				} else {
-					fprintf(fh_low, "%s", "Annotation not available\n");
+					char *annotation = getRegionAnnotation(start, end, chrom_id, intronic_regions, exon_regions, 2);
+					if (annotation != NULL) {
+						fprintf(fh_low, "%s", annotation);
+						free(annotation);
+						annotation = NULL;
+					} else {
+						//fprintf(fh_low, "%s", "Annotation not available\n");
+						fprintf(fh_low, ".\t.\t.\t.\t.\t.\t.\t.\n");
+					}
 				}
 			} else {
 				fprintf(fh_low, ".\t.\t.\t.\t.\t.\t.\t.\n");
@@ -362,13 +361,18 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 			// generate the annotation here
 			//
             if (user_inputs->annotation_on) {
-				char *annotation = getRegionAnnotation(start, end, chrom_id, inter_genic_regions, intronic_regions, exon_regions, 2);
-				if (annotation != NULL) {
-					fprintf(fh_high, "%s", annotation);
-					free(annotation);
-					annotation = NULL;
+				if (chrom_idr == -1 || exon_regions == NULL) {
+					fprintf(fh_high, ".\t.\t.\t.\t.\t.\t.\t.\n");
 				} else {
-					fprintf(fh_high, "%s", "Annotation not available\n");
+					char *annotation = getRegionAnnotation(start, end, chrom_id, intronic_regions, exon_regions, 2);
+					if (annotation != NULL) {
+						fprintf(fh_high, "%s", annotation);
+						free(annotation);
+						annotation = NULL;
+					} else {
+						//fprintf(fh_high, "%s", "Annotation not available\n");
+						fprintf(fh_high, ".\t.\t.\t.\t.\t.\t.\t.\n");
+					}
 				}
             } else {
 				fprintf(fh_high, ".\t.\t.\t.\t.\t.\t.\t.\n");
@@ -381,7 +385,7 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
 // type 1 mean doing speed up seearch (as we need to remember the previous search index), while type 2 won't 
 //
-char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *inter_genic_regions, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
+char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
 	char *annotation = calloc(50, sizeof(char));
 	strcpy(annotation, ".");
 
@@ -480,7 +484,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 	if (index_exon_location == -1) {
 		if (intronic_regions == NULL) {
-			strcat(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
+			strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
 			return annotation;
 		}
 
@@ -601,9 +605,9 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
 				if (max_cov < chrom_tracking->coverage[chrom_idx][i])
 					max_cov = chrom_tracking->coverage[chrom_idx][i];
 
-				// check if max_cov is more than user_inputs->target_buffer_size*100% of min
+				// check if max_cov is more than user_inputs->gVCF_percentage*100% of min
 				//
-				if ( min_cov <= max_cov && max_cov <= min_cov*user_inputs->target_buffer_size) {
+				if ( min_cov <= max_cov && max_cov <= min_cov*user_inputs->gVCF_percentage) {
 					cov_total += chrom_tracking->coverage[chrom_idx][i];
 					i++;
 				} else {
@@ -1045,11 +1049,11 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 // Here is the outline:
 //
 // gene_transcript[gene_symbol] -> a hash table of khash_t(khStrStrArray) with key as gene symbol and value as a stringArray variable
-//								-> [0] gene_name0
-//								-> [1] gene_name1
+//								-> [0] transcript_name0
+//								-> [1] transcript_name1
 //								-> ...
 //
-// transcript_hash[gene_name] -> a hash table of khash_t(khStrLCG) with key as gene_name and value as a Low_Coverage_Genes variable
+// transcript_hash[transcript_name] -> a hash table of khash_t(khStrLCG) with key as transcript_name and value as a Low_Coverage_Genes variable
 //							  -> it is just like low_cov_gene_hash table, except everything is grouped by transcript names
 //							  -> cds_1
 //							  -> cds_2
@@ -1070,12 +1074,12 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 //							  -> ...
 //
 //
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, uint8_t type) {
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts, uint8_t type) {
     // if the target bed file is available, we will need to calculate percentage of gene bases that are covered
 	//
     uint32_t i, j;
 
-    if (TARGET_FILE_PROVIDED || USER_DEFINED_DATABASE) {
+    if (TARGET_FILE_PROVIDED) {
 		// open file handle for writing/appending
 		//
 		FILE *gene_pct_fp;
@@ -1099,6 +1103,11 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 				uint32_t num_of_transcripts = 0;
 				float ave_cov_pct_for_transcripts = 0.00;
 				bool first_ts_output=true;
+				bool hgmd_on=false;
+				bool gene_missing=false;
+				khash_t(khStrInt) *hgmd_transcripts_hash = kh_init(khStrInt);
+				khash_t(khStrInt) *non_hgmd_transcripts_hash = kh_init(khStrInt);
+				int absent;
 
 				for (i=0; i<kh_value(gene_transcripts, iter_gt)->size; i++) {
 					// one transcript at a time
@@ -1107,7 +1116,8 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 					char transcript_name[25];
 					strcpy(transcript_name, kh_value(gene_transcripts, iter_gt)->theArray[i]);
 					khiter_t iter_tsh = kh_get(khStrLCG, transcript_hash, transcript_name);
-					if (strcmp(transcript_name, "NM_000718") == 0)
+
+					if (strcmp(transcript_name, "NM_000047") == 0)
 						printf("Duckling\n");
 
 					if (iter_tsh == kh_end(transcript_hash)) {
@@ -1202,7 +1212,6 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 
 
 									if (gc->low_cov_regions != NULL) {
-										int absent;
 										for (q = 0; q < gc->low_cov_regions->size; q++) {
 											khiter_t it_lcr = kh_put(khStrInt, low_cov_regions_hash, gc->low_cov_regions->theArray[q], &absent);
 											if (absent) {
@@ -1292,22 +1301,68 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 						}
 
 						// now need to output everything for current transcripts
+						// but first we need to double check with HGMD entries
 						//
 						float transcript_pct = (float) (cds_length - total_low_cov_bases)*100 / cds_length;
-						ave_cov_pct_for_transcripts += transcript_pct;
 
-						if (first_ts_output) {
-							fprintf(tspt_pct_fp, "%s\t%s(%.3f)", gene_symbol, transcript_name, transcript_pct);
-							first_ts_output = false;
-						} else {
-							fprintf(tspt_pct_fp, "; %s(%.3f)", transcript_name, transcript_pct);
+						// output transcript information first
+						//
+						fprintf(tspt_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.3f%%\n", chrom_id, gene_symbol, transcript_name, cds_length, exon_count, transcript_pct);
+
+						if (HGMD_PROVIDED) {
+							// check to see if current gene has any hgmd transcripts
+							//
+							khiter_t g_iter_t = kh_get(khStrInt, hgmd_genes, gene_symbol);
+							if (g_iter_t == kh_end(hgmd_genes))
+								gene_missing = true;
 						}
 
-						num_of_transcripts++;
+						if (!HGMD_PROVIDED || gene_missing) {
+							// output everything
+							//
+							storeHGMDinfo(non_hgmd_transcripts_hash, transcript_name, transcript_pct);
 
-						// finally output the gene percentage information for current transcript
-						//
-						fprintf(gene_pct_fp, "%s\t%s\t%s\t%"PRIu32"\t%"PRIu16"\t%0.3f%%\n", chrom_id, gene_symbol, transcript_name, cds_length, exon_count, transcript_pct);
+						} else {
+							// HGMD is ON and gene is in HGMD
+							// now need to check the transcript name
+							// Note: some genes have multiple transcript with the same name, I added -1, -2 suffix to the end of the transcript
+							// Therefore, the transcript_name key will be changed and not found.
+							// Need to do some modification here
+							//
+							char * tmp_t_name  = calloc(strlen(transcript_name)+1, sizeof(char));
+							strcpy(tmp_t_name, transcript_name);
+							char * orig_t_name = calloc(strlen(transcript_name)+1, sizeof(char));
+
+							char *ret = strstr(transcript_name, "-");
+
+							if (ret != NULL) {
+								// need to modify the transcript_name
+								//
+								char *savePtr, *tokPtr;
+								savePtr = tmp_t_name;
+								uint32_t i = 0;
+
+								while ((tokPtr = strtok_r(savePtr, "-", &savePtr))) {
+									if (i == 0)
+										strcpy(orig_t_name, tokPtr);
+									i++;
+								}
+							} else {
+								strcpy(orig_t_name, transcript_name);
+							}
+
+							khiter_t trt_iter = kh_get(khStrInt, hgmd_transcripts, orig_t_name);
+							if (trt_iter != kh_end(hgmd_transcripts)) {
+								storeHGMDinfo(hgmd_transcripts_hash, transcript_name, transcript_pct);
+
+								hgmd_on = true;
+							} else {
+								storeHGMDinfo(non_hgmd_transcripts_hash, transcript_name, transcript_pct);
+							}
+
+							free(orig_t_name);
+							free(tmp_t_name);
+						}
 
 						// clean-up
 						//
@@ -1316,11 +1371,63 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 					} // end of transcript_hash exist for current gene key
 				} // end of all the transcripts for one gene (one transcript at a time)
 
+				// now output the results
+				//
+				int hgmd_transcript_count = 0;
+				khiter_t iter_hgmd;
+				if (HGMD_PROVIDED) {
+
+					if (!gene_missing) {
+						// HGMD is ON and gene is in HGMD
+						//
+						for (iter_hgmd=kh_begin(hgmd_transcripts_hash); iter_hgmd!=kh_end(hgmd_transcripts_hash); ++iter_hgmd) {
+							if (kh_exist(hgmd_transcripts_hash, iter_hgmd)) {
+								if (first_ts_output) {
+									fprintf(gene_pct_fp, "%s\t%s", gene_symbol, kh_key(hgmd_transcripts_hash, iter_hgmd));
+									first_ts_output = false;
+								} else {
+									fprintf(gene_pct_fp, "; %s", kh_key(hgmd_transcripts_hash, iter_hgmd));
+								}
+
+								hgmd_transcript_count++;
+								ave_cov_pct_for_transcripts += kh_value(hgmd_transcripts_hash, iter_hgmd);
+								num_of_transcripts++;
+							}
+						}
+					}
+				}
+				   
+				if (!HGMD_PROVIDED || gene_missing || hgmd_transcript_count ==0 )	{
+					// output everything
+					//
+					for (iter_hgmd=kh_begin(non_hgmd_transcripts_hash); iter_hgmd!=kh_end(non_hgmd_transcripts_hash); ++iter_hgmd) {
+						if (kh_exist(non_hgmd_transcripts_hash, iter_hgmd)) {
+							if (first_ts_output) {
+								fprintf(gene_pct_fp, "%s\t%s", gene_symbol, kh_key(non_hgmd_transcripts_hash, iter_hgmd));
+								first_ts_output = false;
+							} else {
+								fprintf(gene_pct_fp, "; %s", kh_key(non_hgmd_transcripts_hash, iter_hgmd));
+							}
+
+							ave_cov_pct_for_transcripts += kh_value(non_hgmd_transcripts_hash, iter_hgmd);
+							num_of_transcripts++;
+						}
+					}
+				}
+
 				if (num_of_transcripts == 0) continue;
 
-				ave_cov_pct_for_transcripts = ave_cov_pct_for_transcripts / (float) num_of_transcripts;
-				fprintf(tspt_pct_fp, "\t%.2f\n", ave_cov_pct_for_transcripts);
+				ave_cov_pct_for_transcripts = ave_cov_pct_for_transcripts / (float) (100*num_of_transcripts);
+				if (hgmd_on) {
+					fprintf(gene_pct_fp, "\t%.2f\tHGMD\n", ave_cov_pct_for_transcripts);
+				} else {
+					fprintf(gene_pct_fp, "\t%.2f\n", ave_cov_pct_for_transcripts);
+				}
 
+				// clean-up
+				//
+				cleanKhashStrInt(hgmd_transcripts_hash);
+				cleanKhashStrInt(non_hgmd_transcripts_hash);
 			} // end if current gene kh_exist()
 		} // end for loop kh_begin() and kh_end() for gene list (one gene at a time)
 
@@ -1328,4 +1435,20 @@ void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_In
 		fclose(exon_pct_fp);
 		fclose(tspt_pct_fp);
 	}
+}
+
+void storeHGMDinfo(khash_t(khStrInt) *hgmd_transcripts_hash, char* transcript_name, float percentage) {
+	int absent;
+	char *key_str = calloc(50, sizeof(char));
+	sprintf(key_str, "%s(%.3f)", transcript_name, percentage);
+
+	khiter_t tmp_iter = kh_put(khStrInt, hgmd_transcripts_hash, key_str, &absent);
+	if (absent) {
+		// key doesn't exists!
+		//
+		kh_key(hgmd_transcripts_hash, tmp_iter) = strdup(key_str);
+	}
+	kh_value(hgmd_transcripts_hash, tmp_iter) = (uint32_t) (percentage * 100);
+
+	free(key_str);
 }
