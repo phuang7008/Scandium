@@ -3,14 +3,14 @@
  *
  *		Filename:		targets.c
  *
- *		Description:	For the base coverage calculation
+ *		Description:	The implementation of the target.h file
  *
  *      Version:		1.0
  *      Created:		02/06/2017 04:45:04 PM
  *      Revision:		none
  *      Compiler:		gcc
  *
- *      Author:			Peiming (Peter) Huang
+ *      Author:			Peiming (Peter) Huang (phuang@bcm.edu)
  *      Company:		Baylor College of Medicine
  *
  * =====================================================================================
@@ -134,7 +134,7 @@ void outputForDebugging(Bed_Info *bed_info) {
     }
 }
 
-// Here type 1 refers to target bed, while teyp 2 means Ns region bed
+// Here type 1 refers to target bed, while type 2 means Ns region bed
 // For values stored in the status_array:
 // 1: target		2: buffer		3: Ns		4: 1+3 (target+Ns overlaps)		5: 2+3 (buffer+Ns overlaps)
 //
@@ -184,11 +184,17 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			// So I will include it here as well. 
 			// In the future, need to make sure if the bed file format include end position or not!
 			//
-			//if (type == 2 && j < bed_info->coords[i].end) {
-			if (type == 2 && j <= bed_info->coords[i].end) {
+			if (type == 2 && j < bed_info->coords[i].end) {
+			//if (type == 2 && j <= bed_info->coords[i].end) {
 				if (j >= chrom_len) continue;
 
 				stats_info->cov_stats->total_Ns_bases += 1;
+
+				if ((strcmp(bed_info->coords[i].chrom_id, "chrX") == 0) || (strcmp(bed_info->coords[i].chrom_id, "X") == 0))
+					stats_info->cov_stats->total_Ns_bases_on_chrX += 1;
+
+				if ((strcmp(bed_info->coords[i].chrom_id, "chrY") == 0) || (strcmp(bed_info->coords[i].chrom_id, "Y") == 0))
+					stats_info->cov_stats->total_Ns_bases_on_chrY += 1;
 
 				if (target_buffer_status[idx].status_array[j] == 1) {
 					target_buffer_status[idx].status_array[j] = 4;

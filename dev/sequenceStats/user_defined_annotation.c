@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Peiming Huang, phuang@bcm.edu
+ *         Author:  Peiming (Peter) Huang, phuang@bcm.edu
  *        Company:  Baylor College of Medicine, Houston
  *
  * =====================================================================================
@@ -49,6 +49,12 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 
 	while ((read = getline(&line, &len, fp)) != -1) {
 		// printf("%s", line);
+		// here we need to handle the case where it is an empty line
+		// here we compare char not string (char*), so I need to de-reference it
+		//
+		if (*line == '\n')
+			continue;
+
 		char *savePtr = line;
 		int absent = 0;
 		khiter_t iter;
@@ -139,7 +145,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 				strcpy(transcript_name, name_token);
 
 				// some transcript name like the following:
-				// NM_005957_cds_6_3_1333
+				// NM_005957_cds_6
 				//
 				if ( (stristr(name_token, "NM") != NULL) || (stristr(name_token, "NR") != NULL) || (stristr(name_token, "XM") != NULL))
 					nm_flag=true;
@@ -334,6 +340,11 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 	ssize_t read;
 	
 	while ((read = getline(&line, &len, fp)) != -1) {
+		// handle empty line here
+		//
+		if (*line == '\n')
+			continue;
+
 		// make a copy first as strtok will destroy the 'line' variable
 		// change the last character of the line with '\0' to remove the newline character '\r\n'
 		//
@@ -826,7 +837,7 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 
 	// Need to write information to the following files
 	//
-	FILE *missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
+	//FILE *missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
 	FILE *low_x_fp    = fopen(user_inputs->capture_low_cov_file, "a");                            
 	FILE *all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
 	
@@ -879,11 +890,11 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 				target_hit = true;
 		}
 
-		if (!target_hit) {
+		//if (!target_hit) {
 			// need to write to the missed target file
 			//
-			fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
-		}
+			//fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
+		//}
 
 		// For All Sites Report. Note: the end position is not included based on the bed format
 		// Here we don't have to worry about the NULL pointers passed in as it will be handled 
@@ -892,14 +903,13 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 
 		// For low coverage and high coverage Report
 		//
-		//writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, low_x_fp, high_x_fp, NULL, NULL, exon_regions, 2);
-		writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, low_x_fp, NULL, intron_regions, exon_regions, 2);
+		writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, low_x_fp, NULL, intron_regions, exon_regions);
 	}
 
 	fclose(low_x_fp);
 	//fclose(high_x_fp);
 	fclose(all_site_fp);
-	fclose(missed_target_fp); 
+	//fclose(missed_target_fp); 
 }
 
 void cleanUserDefinedDatabase(User_Defined_Database_Wrapper *udd_wrapper) {

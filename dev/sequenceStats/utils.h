@@ -10,7 +10,7 @@
  *      Revision:       none
  *      Compiler:       gcc
  *
- *      Author:         Peiming (Peter) Huang
+ *      Author:         Peiming (Peter) Huang (phuang@bcm.edu)
  *      Company:        Baylor College of Medicine
  *
  * =====================================================================================
@@ -34,9 +34,16 @@ bool checkFile(char * fName);
  */
 uint64_t check_file_size(const char *filename);
 
+/*
+ * It is used to fetch all the HGMD info from the database
+ * @param dbs: a Databases variable used to store all info related to the opened MySQL database
+ * @param hgmd_genes: a variable that is used to store all the HGMD genes
+ * @param hgmd_transcripts: a variable that is used to store all the HGMD transcripts
+ */
 void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts);
 
-/* Split a string to a word hash
+/* 
+ * Split a string to a word hash
  * Note: arrayPtr should be inialized outside the function before passing it to the call!
  * We use a dynamic way for memory allocation!
 
@@ -71,13 +78,22 @@ char* stristr( const char* string1, const char* substr2 );
 /*
  * it is used to calculation the size of low coverage regions from a StrInt Hash table
  * In addition, it will generate the low coverage regions in sorted order in string format
- * @param low_cov_regions, a StrInt hash table contain the start and end position of low coverage region
+ * @param low_cov_regions: a StrInt hash table contain the start and end position of low coverage region
+ * @param output: output string array
  * @return total low coverage region size
  */
 uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char **output);
 
+/* this is used to process low coverage regions for output
+ * @param low_cov_regions: a string array that contains all low coverage regions
+ * @param output: combined all low coverage regions
+ * @return number of low coverage regions
+ */
 uint32_t processLowCovRegionFromStrArray(stringArray *low_cov_regions, char **output);
 
+/* a helper function that is used to clean-up the annotation wrapper
+ * @param annotation_wrapper: the variable to be cleaned
+ */
 void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
 
 /**
@@ -94,8 +110,8 @@ char * removeChr(char * cName);
 
 /**
  * check if the input string is a number
- * @param inStr
- * @return bool
+ * @param inStr: a variable need to be checked
+ * @return true or false
  */
 bool isNum(const char *inStr);
 
@@ -107,7 +123,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]);
 
 /**
  * Output the User Input Options to the end user so he/she can double-check if all the options are correct!
- * user_inputs, the object contains all the user input options
+ * @param user_inputs: a variable contains all the user input options
  */
 void outputUserInputOptions(User_Input *user_inputs);
 
@@ -120,6 +136,11 @@ void outputUserInputOptions(User_Input *user_inputs);
  */
 void createFileName(char *output_dir, char *base_name, char **file_in, char *string_to_append);
 
+/*
+ * for output only. So that users will understand the meaning of each output column
+ * @param file_in: the output file handle
+ * @param type: different type of files will have different header
+ */
 void writeHeaderLine(char *file_in, uint8_t type);
 
 /**
@@ -148,26 +169,34 @@ void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info);
 void coverageStatsInit(Coverage_Stats * cov_stats);
 
 /**
- * This function is used to clean the khash_t (int key) hash table used by the users
+ * This function is used to clean the khash_t (uint32_t key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
  */
 void cleanKhashInt(khash_t(m32) *hash_to_clean);
 
+/*
+ * It is used to clean the kash_t (char* as key, with uint32_t as value) hash table
+ * @param hash_to_clean: loop through the hash table to clean all the allocated memories including keys
+ */
 void cleanKhashStrInt(khash_t(khStrInt) *hash_to_clean);
 
+/* 
+ * It is used to clean the kash_t (char* as key, but string array as value) hash table
+ * @param hash_to_clean: loop through the hash table to clean all the allocated memories including keys and char* array
+ */
 void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean);
 
 /**
  * This function is used to clean the khash_t (string key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
+ * @param type: if it is set to 1, it will clean Temp_Coverage_Array struct variable as well
  */
 void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 
 /**
  * This function is used to dynamically allocate string and grow it accordingly
- * @param storage_str, the string to be dynamically allocated
- * @param str_in, the string to be copied
- * @return allocated string pointer
+ * @param str_in, the string to be added
+ * @param storage_str, the string to be dynamically allocated/expanded
  */
 void dynamicStringAllocation(char *str_in, char **storage_str);
 
@@ -187,16 +216,6 @@ Chromosome_Tracking * chromosomeTrackingInit();
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index);
 
 /**
- * This function is used to update members for the Chromosome_Tracking variable
- * @param chrom_tracking: a Chromosome_Tracking used for tracking
- * @param chrom_id: the current chromosome id
- * @param chrom_len: the length of current chromosome
- * @param index: the members in Chromosome_Tracking variable are stored in arrays, using index will help locate the chromosome info
- * @param status: the status of current chromosomd id
- */
-//void chromosome_tracking_update(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index, int status);
-
-/**
  * To clean up the allocated memory for chromosome tracking
  * @param chrom_tracking: the tracking variable to be cleaned
  */
@@ -204,8 +223,9 @@ void chromosomeTrackingDestroy(Chromosome_Tracking * chrom_tracking);
 
 /**
  * To locate the index of a chromosome id in an array give the chromosome id information
- * @param chrom_id
+ * @param chrom_id: current chromosome id to be handled
  * @param chrom_tracking: the Chromosome_Tracking variable to track the status of chromosome processed
+ * @return a index at the tracking array
  */
 int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Tracking *chrom_tracking);
 
@@ -225,11 +245,12 @@ void statsInfoDestroy(Stats_Info *stats_info);
 
 /**
  * it will set the coverage for all of the Ns regions in the genome to zero
- * @param chrom_id
- * @param Ns_buffer_hash
- * @param chrom_tracking
+ * @param chrom_id: current chromosome id to be handled
+ * @param Ns_info: the detailed Ns info
+ * @param chrom_tracking: a storage used to track each chromosome in details
+ * @param target_buffer_status: it is used to tell which regions are targets and which regions are buffer. 
+ *		Sometimes, Ns regions will overlap with the buffer regions
  */
-//void zeroAllNsRegions(char *chrom_id, khash_t(str) *Ns_buffer_hash, Chromosome_Tracking *chrom_tracking);
 void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking, Target_Buffer_Status *target_buffer_status);
 
 /**
@@ -258,42 +279,112 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
 float calculatePercentage(uint32_t num, uint32_t dom);
 
 /** 
- * combine all the coverage stats from individual thread to stats_info
- * @param stats_info
- * @param cov_stats
+ * combine all the coverage stats from each individual thread and store them in the stats_info
+ * @param stats_info: a storage place for all summarized sequencing stats
+ * @param cov_stats: detailed coverage stats
  */
 void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
 
-/* obtain the hash key for the value passed in                                                                
- * the keys are defined every 1000 position                                                                   
+/* obtain the hash key for the integer value passed in                                                                
+ * the keys are defined every 1000 position for quick lookup
+ * For example: 3241645 (pos) -> 3241000 (key)
  * @param position_in, the position for the key                                                               
  * @return hash key                                                                                           
  */
 uint32_t getHashKey(uint32_t position_in);
 
+/*
+ * To initialize each khash_t(khStrLCG) bucket
+ * @param low_cov_gene_hash: a khash_t hash that is used to store low coverage gene info
+ * @param key_in: the hash key used for a specific bucket. If the key doesn't exist, initialize it accordingly
+ */
 void lowCoverageGeneHashBucketKeyInit(khash_t(khStrLCG) *low_cov_gene_hash, char *key_in);
 
+/*
+ * To initialize the Gene_Coverage structure
+ * @param gc: a instance of Gene_coverage to be initialized
+ */
 void geneCoverageInit(Gene_Coverage *gc);
 
+/*
+ * Add gene transcript info to the corresponding hash table
+ * @param gene_symbol: gene symbol name
+ * @param transcript_name: transcript name
+ * @param gene_transcripts: a hash table used to store transcripts for each everything gene encountered
+ * @param seen_transcripts: if the transcript has been seen before, don't add it again
+ */
 void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *seen_transcript);
 
+/*
+ * Used to copy the low coverage region (a char*) to the Gene_Coverage
+ * @param gc1: the source of low coverage region
+ * @param gc2: the destination of low coverage region
+ * @param copy_gene: also copy all othere gene related information such as exon start and end etc
+ */ 
 void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool copy_gene);
 
+/*
+ * to merge to low coverage regions if they overlap
+ * @param low_cov_regions_hash: the low coverage hash table that contains the overlapped regions
+ * @param mergedArray: a temp array to store merged low coverage regions
+ * @param size_in: need to know the size of regions which is a string array
+ * @param cds_t_start: the targeted cds start position as we are not interested in anything before that
+ * @param cds_t_end: the targeted cds end position as we are not interested in anything beyond that
+ */
 void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray, uint32_t size_in, uint32_t cds_t_start, uint32_t cds_t_end);
 
+/* it is used for reporting purpose. If there is only one low coverage regions, we don't have to do the merge.
+ * We can just print its content accordingly
+ * @param low_cov_regions_hash: a hash table that contains the low coverage region
+ * @param mergedArray: just copy everything into thie mergedArray for outputting
+ */
 void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray);
 
+/*
+ * help function that is used to print the low coverage gene info for debugging
+ * @param low_cov_genes: a struct used to store all the information related to low coverage genes
+ */
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
 
 /*
+ * calculate uniformity metrics
+ * @param stats_info: used to store the uniformity metrics
+ * @param user_inputs: it store the file name -> open for writing
+ * @param primary_chromosome_hash: lookup hash to store primary chromosomes only
+ * @param autosome: it is used to indicate if it is only going to handle non-sex chromosomes
+ * @param primary_chromosomes_only: it is used to indicate if it is only going to handle primary chromosome without alt or decoys
+ */
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *primary_chromosome_hash, bool autosome, bool primary_chromosomes_only);
+
+/*
+ * Instead of taking points around Mode evenly, it will always try to pick the higher points around Mode
+ * @param peak: the Mode or Mean or Median. But here we are going to use Mode
+ * @param cov_freq_dist: it is hash table that is used to store the sequencing coverage frequency distribution for quick lookup
+ * @param user_inputs: the peak size (default 7) could be defined by the end user and store at user_inputs
+ */
+uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs);
+
+/*
+ * it is a help function that is used to load all the primary chromosomes
+ * @param primary_chromosome_hash: a hash table that is used to store the primary chromosomes for quick lookup
+ * @param user_inputs: different version of human genomes define chromosome id differently. For other genomes, users will have to make the adjustment
+ */
+void loadPrimaryChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs);
+
+/*
  * the following comparison is used to compare the int array
+ * @param val1: int array 1 used for comparison
+ * @param val2: int array 2 used for comparison
  */
 int compare(const void * val1, const void * val2);
 
 /**
  * It is used to print a string array before (OR after sorting) for viewing and comparison.
- * strings_in: the string array to be printed!
+ * @param strings_in: the string array to be printed!
+ * @param length_in: specifies the size of input string array
  */
 void print_string_array(char** strings_in, size_t length_in);
+
+//int8_t strcasecmp(char const *a, char const *b);
 
 #endif //UTILS_H

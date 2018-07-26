@@ -3,14 +3,14 @@
  *
  *      Filename:		targets.h
  *
- *		Description:	For the base coverage calculation
+ *		Description:	For the Capture/Target related functionalities
  *
  *      Version:		1.0
  *      Created:		02/06/2017 04:45:04 PM
  *      Revision:		none
  *      Compiler:		gcc
  *
- *      Author:			Peiming (Peter) Huang
+ *      Author:			Peiming (Peter) Huang (phuang@bcm.edu)
  *      Company:		Baylor College of Medicine
  *
  * =====================================================================================
@@ -53,6 +53,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
  * @param user_inputs: contains all the user inputs including the target or Ns bed file names
  * @param bed_info: the storage of bed coordinates and the size of the bed file
  * @param stats_info: a variable that contains various statistical information
+ * @param header: it contains all the chromosome id and length information
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
 void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, bam_hdr_t *header, short type);
@@ -69,7 +70,7 @@ void outputForDebugging(Bed_Info *bed_info);
 void cleanBedInfo(Bed_Info *bed_info);
 
 /**
- * 
+ * It is used to store both target and buffer information
  * @param chromosome_id: the current chromosome to load
  * @param size: the size of the chromosome
  * @param target_buffer_regions: the 2D char array that store the flags either targets('T') or their surrounding buffers ('B')

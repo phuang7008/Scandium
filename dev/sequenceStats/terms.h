@@ -4,14 +4,14 @@
  *
  *		Filename:		terms.h
  *
- *		Description:	define constants to be used in Capture Statistics
+ *		Description:	define constants/struct to be used in Sequencing Statistics
  *
  *		Version:		1.0
  *		Created:		01/30/2017 04:45:04 PM
  *		Revision:		none 
  *		Compiler:		gcc
  *
- *		Author:			Peiming (Peter) Huang
+ *		Author:			Peiming (Peter) Huang (phuang@bcm.edu)
  *		Company:		Baylor College of Medicine
  *
  *		=====================================================================================
@@ -79,12 +79,12 @@ typedef struct {
 	char * wgs_range_file;			// for whole genome range file
 
 	// For Capture related outputs
-	char * missed_targets_file;		// for target regions that have no coverage at all
+	//char * missed_targets_file;		// for target regions that have no coverage at all
 	char * capture_cov_file;		// output the capture target regions coverage count information
 	char * capture_cov_report;		// output the capture target regions coverage summary report
 	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
 	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
-	char * capture_range_file;		// for target range file
+	//char * capture_range_file;		// for target range file
 	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
 	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
 	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
@@ -101,12 +101,15 @@ typedef struct {
 	uint16_t target_buffer_size;		// default 100. For regions immediate adjacent to any target regions
 	short num_of_threads;
 	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
+	uint8_t size_of_peak_area;			// the points around peak area to pick for uniformity calculation
 	bool remove_duplicate;
 	bool remove_supplementary_alignments;
 	bool annotation_on;
+	bool above_10000_on;				// output bases/regions with coverage > 10000
 	bool wgs_coverage;
+	bool Write_cov_fasta;
 	bool Write_WIG;
-	bool Write_WGS;
+	//bool primary_chromosomes_only;		// do we need all chromosomes including decoy, alt etc or primary only
 } User_Input;
 
 /**
@@ -333,15 +336,19 @@ typedef struct {
 	uint32_t total_buffer_bases;		//total number of bases in the buffer region
 	uint32_t total_targeted_bases;		//total number of bases targeted
 	uint32_t total_Ns_bases;			//total number of bases that are N (unknown)
+	uint32_t total_Ns_bases_on_chrX;	//total number of bases that are N (unknown) on X chromosome
+	uint32_t total_Ns_bases_on_chrY;	//total number of bases that are N (unknown) on Y chromosome
 	uint64_t total_aligned_bases;		//total number of aligned bases
 	uint64_t total_target_coverage;		//total number of read bases aligned to the target
 	uint64_t total_genome_coverage;		//total number of read bases aligned to the Genome
 
 	//read stats
 	uint32_t total_reads_paired;			//total number of reads with mate pairs (if any)
+	uint32_t total_reads_proper_paired;		//total number of reads with mate pairs (if any)
 	uint32_t total_reads_aligned;			//total reads aligned to a target region
 	uint32_t total_reads_produced;			//total reads contains in the bam
 	uint32_t total_duplicate_reads;			//total number of duplicate reads
+	uint32_t total_chimeric_reads;			//total number of duplicate reads
 	uint32_t total_supplementary_reads;		//total number of reads with supplementary flag set
 	uint32_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
 
@@ -355,11 +362,16 @@ typedef struct {
 
 	//misc
 	uint32_t total_targets;					//total taregted regions
-	uint16_t read_length;					//the sequenced READ Length
+	uint16_t read_length;					//the sequenced READ Length, it is taken from => read_buff_in->chunk_of_reads[i]->core.l_qseq
 	uint32_t max_coverage;
 	uint32_t base_with_max_coverage;
 	uint16_t median_genome_coverage;
 	uint16_t median_target_coverage;
+	uint32_t mode;
+	double uniformity_metric_all;					// it contains all the alt, decoy etc.
+	double uniformity_metric_all_primary;			// it doesn't contain alt, decoy chromosomes.
+	double uniformity_metric_autosome_only;			// it contains all the alt, decoy etc.
+	double uniformity_metric_primary_autosome_only;	// it doesn't contain alt, decoy chromosomes.
 } Coverage_Stats;
 
 /**

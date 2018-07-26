@@ -3,7 +3,7 @@
  *
  *       Filename:  main.c
  *
- *    Description:  using openmp for parallel processing to gather sequencing statistics
+ *    Description:  using openmp for parallel processing sequencing data
  *
  *        Version:  1.0
  *        Created:  02/22/2017 01:55:55 PM
@@ -76,6 +76,26 @@ int main(int argc, char *argv[]) {
     bam_hdr_t *header=NULL;
     if ((header = sam_hdr_read(sfd)) == 0) return -1;
 
+	// Since the MySQL database won't be used for many cases, we can't rely on users to use -D option
+	// As the Default reference setting is hg37, we will only handle cases where it is hg38.
+	// Here we will dynamically check the chromosome format and set the -D option
+	//
+	uint32_t i;
+	for(i=0; i<header->n_targets; i++) {
+		if ( (strcasecmp(user_inputs->database_version, "hg38") != 0) && (strstr(header->target_name[i], "chr") != NULL) ) {
+			fprintf(stderr, "The reference version isn't set correctly\n");
+			fprintf(stderr, "The previous reference version was %s\n", user_inputs->database_version);
+			strcpy(user_inputs->database_version, "hg38");
+			fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
+			break;
+		}
+	}
+
+	// load primary chromosomes here (used for uniformity analysis only)
+	//
+	khash_t(khStrInt) *primary_chromosome_hash = kh_init(khStrInt);
+	loadPrimaryChromosomes(primary_chromosome_hash, user_inputs);
+
     fetchTotalGenomeBases(header, stats_info);
 
 	// setup a tracking variable to track chromosome working status 
@@ -84,7 +104,6 @@ int main(int argc, char *argv[]) {
 
 	// For target bed file and Ns region bed file
 	//
-	uint32_t i;
 	Bed_Info *target_bed_info=NULL, *Ns_bed_info=NULL;				
 
 	// Target_Buffer_Status need to be set even though there is no target or Ns region specified
@@ -92,6 +111,7 @@ int main(int argc, char *argv[]) {
 	//
 	Target_Buffer_Status *target_buffer_status = calloc(header->n_targets, sizeof(Target_Buffer_Status));
 	for(i=0; i<header->n_targets; i++) {
+
 		strcpy(target_buffer_status[i].chrom_id, header->target_name[i]);
 		target_buffer_status[i].size = header->target_len[i];
 		target_buffer_status[i].index = -1;
@@ -356,9 +376,9 @@ int main(int argc, char *argv[]) {
 					khash_t(khStrLCG) *user_defined_cds_gene_hash = kh_init(khStrLCG);
 
 					userDefinedGeneCoverageInit(user_defined_cds_gene_hash, chrom_tracking->chromosome_ids[i], raw_user_defined_database, gene_transcripts);
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, user_defined_cds_gene_hash, 2);
+					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, user_defined_cds_gene_hash);
 					transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_hash, user_defined_cds_gene_hash);
-					outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts, 2);
+					outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts);
 
 					// clean-up
 					//
@@ -374,10 +394,10 @@ int main(int argc, char *argv[]) {
 				    genePercentageCoverageInit(low_cov_gene_hash, chrom_tracking->chromosome_ids[i], dbs, user_inputs, gene_transcripts);
 					intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, low_cov_gene_hash);
 
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, low_cov_gene_hash, 1);
+					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, low_cov_gene_hash);
 				    transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_hash, low_cov_gene_hash);
 
-					outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts, 1);
+					outputGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts);
 
 				    // clean-up the memory space
 				    //
@@ -423,18 +443,35 @@ int main(int argc, char *argv[]) {
 
 	sam_close(sfd);
 
-	//printf("Outside the threads\n");
+	/* calculate the uniformity metric*/
+	if (user_inputs->wgs_coverage) {
+		// Autosomes only including alt decoys, but without X and Y chromosomes
+		//
+		//calculateUniformityMetrics(stats_info, user_inputs, primary_chromosome_hash, 1, 0);		
+
+		// Primary autosomes only without X, Y, alt and decoys!
+		//
+		calculateUniformityMetrics(stats_info, user_inputs, primary_chromosome_hash, 1, 1);
+
+		// All (including X and Y chromosomes), also include alt, decoys
+		//
+		//calculateUniformityMetrics(stats_info, user_inputs, primary_chromosome_hash, 0, 0);
+
+		// All Primaries (including X and Y chromosomes), BUT without alt, decoy
+		//
+		calculateUniformityMetrics(stats_info, user_inputs, primary_chromosome_hash, 0, 1);
+	}
 
 	// Now need to write the report
+	//
 	writeReport(stats_info, user_inputs);
-	//printf("After the write report\n");
+
+	/* clean-up everything*/
 
 	chromosomeTrackingDestroy(chrom_tracking);
-	//printf("After the chromosome tracking destroy\n");
 
 	if (target_bed_info != NULL)
 		cleanBedInfo(target_bed_info);
-	//printf("After the target destroy\n");
 
 	if (Ns_bed_info != NULL)
 		cleanBedInfo(Ns_bed_info);
@@ -466,8 +503,6 @@ int main(int argc, char *argv[]) {
 		free(read_buff);
 	}
 
-	// do some cleanup
-	//
 	if (intronic_regions != NULL) regionsSkipMySQLDestroy(intronic_regions, 2);
 	if (exon_regions != NULL) regionsSkipMySQLDestroy(exon_regions, 3);
 
@@ -483,6 +518,9 @@ int main(int argc, char *argv[]) {
 		databaseCleanUp(dbs);
 		free(dbs);
 	}
+
+	if (primary_chromosome_hash != NULL)
+		cleanKhashStrInt(primary_chromosome_hash);
 
 	if (hgmd_genes != NULL)
 		cleanKhashStrInt(hgmd_genes);

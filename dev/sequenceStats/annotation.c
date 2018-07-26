@@ -3,7 +3,7 @@
  *
  *       Filename:  annotation.c
  *
- *    Description:  the detailed implementation of sequencing statistics
+ *    Description:  the detailed implementation of the annotation header file
  *
  *        Version:  1.0
  *        Created:  02/22/2017 01:55:55 PM

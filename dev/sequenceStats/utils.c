@@ -437,6 +437,7 @@ void usage() {
 	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
 	printf("\t-f <the file that contains user defined database (for annotation only)>\n");
 	printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
+	printf("\t-k <the number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Default 7>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
 	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
@@ -454,12 +455,15 @@ void usage() {
 
 	printf("The Followings Are Flags\n");
 	printf("\t[-a] Turn off the annotation information for genes, exons and transcript. Default: ON\n");
+	printf("\t[-c] To produce files (cov.fasta) that contain the detailed coverage count info for each base. Defulat: OFF\n");
 	printf("\t[-d] Remove Duplicates is OFF! Specify this flag only when you want to keep Duplicates reads. Default: ON\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
 	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
 
 	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
 	printf("\t[-M] Use HGMD annotation. Default: off\n");
+	//printf("\t[-P] Use primary chromosomes only (for uniformity calculation only). Default: off\n");
+	printf("\t[-V] Output regions with high coverage (used with -H: default 10000). Default: off\n");
 	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
 	printf("\t[-h] Print this help/usage message\n");
 }
@@ -496,7 +500,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:L:l:m:Mn:o:p:st:T:u:wWy:h")) != -1) {
+	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:cdD:f:g:GH:i:k:L:l:m:Mn:o:p:st:T:u:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -510,6 +515,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
 			case 'B': user_inputs->target_buffer_size = atoi(optarg); break;
+            case 'c': user_inputs->Write_cov_fasta = true; break;
             case 'd': user_inputs->remove_duplicate = false; break;
             case 'D': 
 				strcpy(user_inputs->database_version, optarg); 
@@ -545,6 +551,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
                 strcpy(user_inputs->bam_file, optarg);
                 break;
+			case 'k':
+				user_inputs->size_of_peak_area = atoi(optarg); break;
 			case 'L':
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
@@ -582,6 +590,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->output_dir, optarg);
                 break;
             case 'p': user_inputs->percentage = atof(optarg); break;
+			//case 'P': user_inputs->primary_chromosomes_only = true; break;
 			case 's': user_inputs->remove_supplementary_alignments = true; break;
             case 't':
 				TARGET_FILE_PROVIDED = true;
@@ -604,11 +613,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->upper_bound = atoi(optarg);
 				break;
+			case 'V': user_inputs->above_10000_on = true; break;
             case 'w': user_inputs->wgs_coverage = true; break;
-            case 'W': user_inputs->Write_WGS = true; break;
             case '?':
-					  if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g'
-							  || optopt == 'H' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
+					  if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
+							  || optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
 							  || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 't'
 							  || optopt == 'T' || optopt == 'u')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
@@ -698,15 +707,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		writeHeaderLine(user_inputs->capture_all_site_file, 1);
 
 		// For capture coverage summary report
-		sprintf(string_to_add, ".Capture_Coverage_Summary_Report.csv");
+		sprintf(string_to_add, ".Capture_Coverage_Summary_Report.txt");
 		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_report, string_to_add);
 
 		// for cov.fasta file name
-		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_file, ".Capture_cov.fasta");
+		if (user_inputs->Write_cov_fasta)
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_file, ".Capture_cov.fasta");
 
 		// for target regions have no coverage at all
-		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->missed_targets_file, ".Capture_missed_targets.txt");
-		writeHeaderLine(user_inputs->missed_targets_file, 2);
+		//createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->missed_targets_file, ".Capture_missed_targets.txt");
+		//writeHeaderLine(user_inputs->missed_targets_file, 2);
 
 		// for off target good hit wig.fasta file name
 		if (user_inputs->Write_WIG)
@@ -719,27 +729,32 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 		// output too high coverage regions for target (capture)
 		//
-		sprintf(string_to_add, ".Capture_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
-		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_file, string_to_add);
-		writeHeaderLine(user_inputs->capture_high_cov_file, 1);
+		if (user_inputs->above_10000_on) {
+			sprintf(string_to_add, ".Capture_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_file, string_to_add);
+			writeHeaderLine(user_inputs->capture_high_cov_file, 1);
+		}
 
 		// output range block file for Uniformity Analysis
 		//
-		sprintf(string_to_add, ".Capture_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
-		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_range_file, string_to_add);
+		//sprintf(string_to_add, ".Capture_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
+		//createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_range_file, string_to_add);
 
 		// for low coverage gene/exon/transcript reports
 		//
 		if (user_inputs->annotation_on) {
-			sprintf(string_to_add, ".Capture_below%dx_Gene_pct.txt", user_inputs->low_coverage_to_report);
+			//sprintf(string_to_add, ".Capture_below%dx_Gene_pct.txt", user_inputs->low_coverage_to_report);
+			sprintf(string_to_add, ".Capture_Gene_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 5);
 
-			sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
+			//sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
+			sprintf(string_to_add, ".Capture_Exon_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_exon_pct_file, 4);
 
-			sprintf(string_to_add, ".Capture_below%dx_Transcript_pct.txt", user_inputs->low_coverage_to_report);
+			//sprintf(string_to_add, ".Capture_below%dx_Transcript_pct.txt", user_inputs->low_coverage_to_report);
+			sprintf(string_to_add, ".Capture_Transcript_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_transcript_file, 3);
 		}
@@ -749,7 +764,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	//
 	if (user_inputs->wgs_coverage) {
 		// output WGS coverage summary report
-		sprintf(string_to_add, ".WGS_Coverage_Summary_Report.csv");
+		sprintf(string_to_add, ".WGS_Coverage_Summary_Report.txt");
 		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_report, string_to_add);
 
 		// output low coverage regions for WGS
@@ -759,17 +774,19 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	    // output too high coverage regions for the whole genome
 		//
-		sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
-	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add);
-		writeHeaderLine(user_inputs->wgs_high_cov_file, 1);
+		if (user_inputs->above_10000_on) {
+			sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
+			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add);
+			writeHeaderLine(user_inputs->wgs_high_cov_file, 1);
+		}
 
 		// output the range block file for Uniformity Analysis
 		//
-		sprintf(string_to_add, ".WGS_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
+		sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
 	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_range_file, string_to_add);
 
 		// for whole genome (wgs) file name
-    	if (user_inputs->Write_WGS) {
+    	if (user_inputs->Write_cov_fasta) {
         	createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta");
     	    //printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	    }
@@ -869,16 +886,22 @@ void outputUserInputOptions(User_Input *user_inputs) {
 		fprintf(stderr, "\tThe detailed gene annotation is OFF\n");
 	}
 
-	if (user_inputs->Write_WGS) {
-		fprintf(stderr, "\tThe whole genome coverage dump is ON (this will create a WGS cov.fasta file\n");
+	if (user_inputs->Write_cov_fasta) {
+		fprintf(stderr, "\tThe coverage dump at base level is ON (this will create a cov.fasta file\n");
 	} else {
-		fprintf(stderr, "\tThe whole genome coverage dump is OFF\n");
+		fprintf(stderr, "\tThe coverage dump is OFF\n");
 	}
 
 	if (user_inputs->Write_WIG) {
 		fprintf(stderr, "\tThe WIG file creation is ON\n");
 	} else {
 		fprintf(stderr, "\tThe WIG file creation is OFF\n");
+	}
+
+	if (user_inputs->above_10000_on) {
+		fprintf(stderr, "\tThe above_%dx file creation is ON\n", user_inputs->high_coverage_to_report);
+	} else {
+		fprintf(stderr, "\tThe above_10000x file creation is OFF\n");
 	}
 
 	if (user_inputs->wgs_coverage) {
@@ -898,6 +921,12 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	} else {
 		fprintf(stderr, "\tRemove supplementaty alignments is OFF\n");
 	}
+
+	/*if (user_inputs->primary_chromosomes_only) {
+		fprintf(stderr, "\tUse primary chromosomes for the Uniformity calculation\n");
+	} else {
+		fprintf(stderr, "\tUse All chromosomes for the Uniformity calculation\n");
+	}*/
 
 	fprintf(stderr, "User Input Options ===> DONE!\n\n");
 	//printf("The  is: %d\n", user_inputs->);
@@ -921,12 +950,15 @@ User_Input * userInputInit() {
 	user_inputs->gVCF_percentage = 10;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
+	user_inputs->size_of_peak_area = 7;
 	user_inputs->annotation_on = true;
+	user_inputs->above_10000_on = false;
 	user_inputs->wgs_coverage = false;
+	user_inputs->Write_cov_fasta = false;
 	user_inputs->Write_WIG = false;
-	user_inputs->Write_WGS = false;
 	user_inputs->remove_duplicate = true;
 	user_inputs->remove_supplementary_alignments = false;
+	//user_inputs->primary_chromosomes_only = false;
 
 	user_inputs->database_version = calloc(10, sizeof(char));
 	strcpy(user_inputs->database_version, "hg37");
@@ -988,11 +1020,11 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->capture_high_cov_file)
 		free(user_inputs->capture_high_cov_file);
 
-	if (user_inputs->capture_range_file)
-		free(user_inputs->capture_range_file);
+	//if (user_inputs->capture_range_file)
+	//	free(user_inputs->capture_range_file);
 
-	if (user_inputs->missed_targets_file)
-		free(user_inputs->missed_targets_file);
+	//if (user_inputs->missed_targets_file)
+	//	free(user_inputs->missed_targets_file);
 
 	if (user_inputs->low_cov_gene_pct_file)
 		free(user_inputs->low_cov_gene_pct_file);
@@ -1286,13 +1318,18 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->total_buffer_bases = 0;
 	cov_stats->total_targeted_bases = 0;
 	cov_stats->total_aligned_bases = 0;
+	cov_stats->total_Ns_bases = 0;
+	cov_stats->total_Ns_bases_on_chrX = 0;
+	cov_stats->total_Ns_bases_on_chrY = 0;
 	cov_stats->total_target_coverage = 0;
 	cov_stats->total_genome_coverage = 0;
 
 	cov_stats->total_reads_paired = 0;
+	cov_stats->total_reads_proper_paired = 0;
 	cov_stats->total_reads_aligned = 0;
 	cov_stats->total_reads_produced = 0;
 	cov_stats->total_duplicate_reads = 0;
+	cov_stats->total_chimeric_reads = 0;
 	cov_stats->total_supplementary_reads = 0;
 	cov_stats->total_paired_reads_with_mapped_mates = 0;
 
@@ -1309,6 +1346,12 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->base_with_max_coverage = 0;
 	cov_stats->median_genome_coverage = 0;
 	cov_stats->median_target_coverage = 0;
+
+	cov_stats->mode = 0;
+	cov_stats->uniformity_metric_all = 0.0;
+	cov_stats->uniformity_metric_all_primary = 0.0;
+	cov_stats->uniformity_metric_autosome_only = 0.0;
+	cov_stats->uniformity_metric_primary_autosome_only = 0.0;
 }
 
 void statsInfoDestroy(Stats_Info *stats_info) {
@@ -1441,6 +1484,8 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 	stats_info->cov_stats->total_reads_paired    += cov_stats->total_reads_paired;
 	stats_info->cov_stats->total_aligned_bases   += cov_stats->total_aligned_bases;
 	stats_info->cov_stats->total_duplicate_reads += cov_stats->total_duplicate_reads;
+	stats_info->cov_stats->total_chimeric_reads  += cov_stats->total_chimeric_reads;
+	stats_info->cov_stats->total_reads_proper_paired += cov_stats->total_reads_proper_paired;
 	stats_info->cov_stats->total_supplementary_reads += cov_stats->total_supplementary_reads;
 	stats_info->cov_stats->on_target_read_hit_count  += cov_stats->on_target_read_hit_count;
 	stats_info->cov_stats->in_buffer_read_hit_count  += cov_stats->in_buffer_read_hit_count;
@@ -1734,6 +1779,244 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 	free(allNum);
 }
 
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *primary_chromosome_hash, bool autosome, bool primary_chromosomes_only) {
+	// need to set Ns number first
+	//
+	if (stats_info->cov_stats->total_Ns_bases == 0) {
+		if (strcmp(user_inputs->database_version, "hg38") == 0) {
+			stats_info->cov_stats->total_Ns_bases = 173893331;
+		} else {
+			// for hg19/hg37
+			//
+			stats_info->cov_stats->total_Ns_bases = 237019493;
+		}
+	}
+
+	uint64_t uniformity_total_bases = 0;
+	khash_t(m32) *cov_freq_dist = kh_init(m32);
+
+	// open range/between file for read
+	//
+	FILE *range_fp = fopen(user_inputs->wgs_range_file, "r");
+	char *line = NULL;                                                                                        
+	size_t len = 0;                                                                                           
+	ssize_t read;                                                                                             
+	char *tokPtr;
+	char *chrom_id = calloc(50, sizeof(char));
+
+	while ((read = getline(&line, &len, range_fp)) != -1) {
+		// skip if it is comment line
+		//
+		if (strstr(line, "#") != NULL)
+			continue;
+
+		char *savePtr = line;                                                                                 
+		uint8_t i=0;
+		uint32_t tmp_cov=0, tmp_len=0;
+
+		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+			if (i==0)
+				strcpy(chrom_id, tokPtr);
+
+			if (i==3)
+				tmp_len = (uint32_t) strtol(tokPtr, NULL, 10);
+
+			if (i==4) 
+				tmp_cov = (uint32_t) strtol(tokPtr, NULL, 10);
+
+			i++;
+		}
+
+		// skip sex chromosomes if we are only interested in autosomes
+		//
+		if (autosome == 1) {
+			if ( (strcmp(chrom_id, "chrX") == 0) || (strcmp(chrom_id, "X") == 0) || (strcmp(chrom_id, "CHRX") == 0)
+				 || (strcmp(chrom_id, "chrY") == 0) || (strcmp(chrom_id, "Y") == 0) || (strcmp(chrom_id, "CHRY") == 0) ) {
+				continue;
+			}
+		}
+
+		// if we are only handle primary chromosomes for this calculation, we need to check it here
+		//
+		if (primary_chromosomes_only) {
+			khiter_t iter_p = kh_get(khStrInt, primary_chromosome_hash, chrom_id);
+			if (iter_p == kh_end(primary_chromosome_hash)) {
+				// chrom_id is not one of the primary chromosomes, so skip it!
+				//
+				continue;
+			}
+		}
+
+		int absent = 0;                                                                                       
+		khiter_t iter = kh_put(m32, cov_freq_dist, tmp_cov, &absent);
+		if (absent) {
+			kh_key(cov_freq_dist, iter) = tmp_cov;
+			kh_value(cov_freq_dist, iter) = 0;		// need to initialize it first
+		}
+		kh_value(cov_freq_dist, iter) += tmp_len;
+
+		uniformity_total_bases += tmp_len;
+	}
+
+	free(chrom_id);
+
+	// need to remove Ns_bases
+	//
+	uniformity_total_bases -= stats_info->cov_stats->total_Ns_bases; 
+
+	// now find the mode
+	//
+	uint32_t count_at_mode=0;
+	uint64_t total_area_under_histogram=0;
+	khiter_t iter;
+	for (iter = kh_begin(cov_freq_dist); iter != kh_end(cov_freq_dist); ++iter) {
+		if (kh_exist(cov_freq_dist, iter)) {
+
+			total_area_under_histogram += kh_value(cov_freq_dist, iter);
+
+			if (kh_key(cov_freq_dist, iter) == 0) {
+				// remove Ns bases and continue
+				//
+				kh_value(cov_freq_dist, iter) -= stats_info->cov_stats->total_Ns_bases;
+				continue;
+			}
+
+			if (kh_value(cov_freq_dist, iter) > count_at_mode) {
+				stats_info->cov_stats->mode = kh_key(cov_freq_dist, iter);
+				count_at_mode = kh_value(cov_freq_dist, iter);
+			}
+		}
+	}
+
+	// remove Ns
+	//
+	total_area_under_histogram -= stats_info->cov_stats->total_Ns_bases;
+
+	// calculate the peak area under histogram
+	//
+	uint64_t peak_area_under_hist = dynamicCalculateAreaUnderHistogram(stats_info->cov_stats->mode, cov_freq_dist, user_inputs);
+	if (autosome == 1) {
+		// Here we need to adjust the total_area_under_histogram as it didn't add Ns for X and Y, but we subtract them anyway
+		// Therefore, we need to add them back to make up the loss
+		//
+		total_area_under_histogram += stats_info->cov_stats->total_Ns_bases_on_chrX;
+		total_area_under_histogram += stats_info->cov_stats->total_Ns_bases_on_chrY;
+
+		if (primary_chromosomes_only) {
+			printf("\nUniformity for primary autosome ONLY, without alt, decoys etc.\n");
+			stats_info->cov_stats->uniformity_metric_primary_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
+		} else {
+			printf("\nUniformity for autosome ONLY (including alt, decoy etc.)\n");
+			stats_info->cov_stats->uniformity_metric_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
+		}
+	} else {
+		// for all chromosome
+		//
+		if (primary_chromosomes_only) {
+			printf("\nUniformity for All Primary Chromosomes, including X and Y chromosomes. But without alt, decoys etc.\n");
+			stats_info->cov_stats->uniformity_metric_all_primary = (double) peak_area_under_hist / (double) total_area_under_histogram;
+		} else {
+			printf("\nUniformity for All (including X, Y chromosomes, alt and decoys etc.\n");
+			stats_info->cov_stats->uniformity_metric_all = (double) peak_area_under_hist / (double) total_area_under_histogram;
+		}
+	}
+
+	printf("peak__area_under_histogram\t%"PRIu64"\n", peak_area_under_hist);
+	printf("total_area_under_histogram\t%"PRIu64"\n", total_area_under_histogram);
+	//printf("uniformity_total_bases is %"PRIu64"\n", uniformity_total_bases);
+	
+	// clean-up
+	//
+	cleanKhashInt(cov_freq_dist);
+}
+
+uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs) {
+
+	uint64_t peak_area_under_histogram=0;
+	uint8_t counter=0;
+
+	khiter_t iter;
+	iter = kh_get(m32, cov_freq_dist, peak);
+	if (iter == kh_end(cov_freq_dist)) {
+		fprintf(stderr, "Peak hash value shouldn't be empty\n");
+		exit(EXIT_FAILURE);
+	}
+	peak_area_under_histogram = kh_value(cov_freq_dist, iter);
+	counter = 1;
+
+	uint32_t left  = peak - 1;
+	uint32_t right = peak + 1;
+
+	while(1) {
+		uint32_t left_val = 0;
+		iter = kh_get(m32, cov_freq_dist, left);
+		if (iter != kh_end(cov_freq_dist)) {
+			left_val = kh_value(cov_freq_dist, iter);
+		} else {
+			fprintf(stderr, "Peak left side hash value doesn't exist\n");
+		}
+
+		uint32_t right_val=0;
+		iter = kh_get(m32, cov_freq_dist, right);
+		if (iter != kh_end(cov_freq_dist)) {
+			right_val = kh_value(cov_freq_dist, iter);
+		} else {
+			fprintf(stderr, "Peak right side hash value doesn't exist\n");
+		}
+
+		if (left_val > right_val) {
+			peak_area_under_histogram += left_val;
+			counter++;
+			left--;
+		} else if (right_val > left_val) {
+			peak_area_under_histogram += right_val;
+			counter++;
+			right++;
+		} else {
+			// they are equal
+			//
+			if ((user_inputs->size_of_peak_area - counter) >= 2) {
+				peak_area_under_histogram += right_val * 2;
+				left--;
+				right++;
+				counter += 2;
+			} else {
+				peak_area_under_histogram += right_val;
+				right++;
+				counter++;
+			}
+		}
+
+		if (counter == user_inputs->size_of_peak_area)
+			break;
+	}
+
+	return peak_area_under_histogram;
+}
+
+void loadPrimaryChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs) {
+	int i=0, absent=0;
+
+	if ( (strcasecmp(user_inputs->database_version, "hg38") == 0) || (strstr(user_inputs->database_version, "38") != NULL) ) {
+		const char *chromosomes[] = { "chr1",  "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13",
+							"chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"};
+
+		for (i=0; i<25; i++) {
+			khiter_t k_iter = kh_put(khStrInt, primary_chromosome_hash, strdup(chromosomes[i]), &absent);
+			kh_value(primary_chromosome_hash, k_iter) = 1;
+		}
+
+	} else {
+		const char *chromosomes[] = { "1",  "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+									  "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y", "MT"};
+		for (i=0; i<25; i++) {
+			khiter_t k_iter = kh_put(khStrInt, primary_chromosome_hash, strdup(chromosomes[i]), &absent);
+			kh_value(primary_chromosome_hash, k_iter) = 1;
+		}
+	}
+
+}
+
 // the following comparison is used to compare the uint32_t array
 //
 int compare(const void * val1, const void * val2) {
@@ -1767,3 +2050,22 @@ void print_string_array(char** strings_in, size_t length_in) {
 
 	printf("\n");
 }
+
+/*int8_t strcasecmp(char const *a, char const *b) {
+	if (a == NULL && b == NULL)
+		return 0;
+
+	if (a == NULL || b == NULL)
+		return 1;
+
+	if (strlen(a) != strlen(b))
+		return 1;
+
+	for (;; a++, b++) {
+		int d = tolower(*a) - tolower(*b);
+		if (d != 0)
+			return d;
+	}
+
+	return 0;
+}*/

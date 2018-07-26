@@ -3,7 +3,7 @@
  *
  *       Filename:  reports.c
  *
- *    Description:  the detailed implementation of sequencing statistics
+ *    Description:  the detailed implementation of report.h
  *
  *        Version:  1.0
  *        Created:  02/22/2017 01:55:55 PM
@@ -35,7 +35,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 	uint32_t i=0;
 	if(user_inputs->wgs_coverage) {
 
-		if (user_inputs->Write_WGS) {
+		if (user_inputs->Write_cov_fasta) {
 			FILE *wgs_cov_fasta_fp = fopen(user_inputs->wgs_cov_file, "a");
 			printf("Whole Genome cov.fasta output for chrom id %s is on\n", chrom_id);
 
@@ -63,16 +63,19 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 	// if the target bed file is available, we will need to handle it here and write the results to cov.fasta file
 	//
 	if (TARGET_FILE_PROVIDED) {
-		FILE * capture_cov_fp = fopen(user_inputs->capture_cov_file, "a");
-		FILE * missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
+		FILE * capture_cov_fp;
+		if (user_inputs->Write_cov_fasta) capture_cov_fp = fopen(user_inputs->capture_cov_file, "a");
 
 		// now need to report those Capture regions with low or too high coverages
 		// NOTE: the bed format is different here, the end position is included!
 		//
+		FILE *capture_high_x_fp;
+		if (user_inputs->above_10000_on) capture_high_x_fp = fopen(user_inputs->capture_high_cov_file, "a");
+
 		FILE *capture_low_x_fp    = fopen(user_inputs->capture_low_cov_file, "a");
-		FILE *capture_high_x_fp   = fopen(user_inputs->capture_high_cov_file, "a");
 		FILE *capture_all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
-		FILE *capture_range_fp    = fopen(user_inputs->capture_range_file, "a");
+		//FILE *capture_range_fp    = fopen(user_inputs->capture_range_file, "a");
+		//FILE * missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
 
 		for(i = 0; i < target_info->size; i++) {
 
@@ -114,7 +117,8 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			}
 
 			bool target_hit = false;
-			fprintf(capture_cov_fp, ">%s %"PRIu32" %"PRIu32"\n", chrom_id, start, end);
+			if (user_inputs->Write_cov_fasta)
+				fprintf(capture_cov_fp, ">%s %"PRIu32" %"PRIu32"\n", chrom_id, start, end);
 
 			bool space_it = false;
 			if(end - start > 10000) space_it = true;
@@ -123,7 +127,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 				if (j+start >= chrom_tracking->chromosome_lengths[idx])
 					continue;
 
-				if (space_it && j%100 == 0) fputc('\n', capture_cov_fp);    // enter a new line after every 100 bases
+				if (user_inputs->Write_cov_fasta && space_it && j%100 == 0) fputc('\n', capture_cov_fp);    // enter a new line after every 100 bases
 
 				uint32_t cov = chrom_tracking->coverage[idx][j+start];
 				addBaseStats(stats_info, cov, 1, 0);
@@ -132,7 +136,8 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 					target_hit = true;
 
 				// output to the cov.fasta file
-				fprintf(capture_cov_fp, "%d ", cov);
+				//
+				if (user_inputs->Write_cov_fasta) fprintf(capture_cov_fp, "%d ", cov);
 
 				if (collect_target_cov) {
 					float num, den;
@@ -147,7 +152,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			}
 
 			// output a newline char to the cov.fasta file 
-			fputc('\n', capture_cov_fp);
+			if (user_inputs->Write_cov_fasta) fputc('\n', capture_cov_fp);
 
 
 			if (collect_target_cov) {
@@ -171,7 +176,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			} else {
 				// need to write to the missed target file
 				//
-				fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
+				//fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
 				bool hit = false;
 				for (j = start - user_inputs->target_buffer_size; j < start && !hit; j++) {
 					if (j >= chrom_tracking->chromosome_lengths[idx])
@@ -192,20 +197,21 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 
 			// For low coverage and high coverage Report
 			//
-			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, intronic_regions, exon_regions, 2);
+			writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, capture_low_x_fp, capture_high_x_fp, intronic_regions, exon_regions);
 
 			// For range block coverage information for graphing
 			//
-			writeCoverageRanges(start, length, chrom_tracking, idx, user_inputs, capture_range_fp);
+			//writeCoverageRanges(start, length, chrom_tracking, idx, user_inputs, capture_range_fp);
 		}
 
 		fclose(capture_low_x_fp);
-		fclose(capture_high_x_fp);
 		fclose(capture_all_site_fp);
-		fclose(capture_range_fp);
+		//fclose(capture_range_fp);
 
-		fclose(capture_cov_fp);
-		fclose(missed_target_fp);
+		//fclose(missed_target_fp);
+		if (user_inputs->Write_cov_fasta) fclose(capture_cov_fp);
+
+		if (user_inputs->above_10000_on) fclose(capture_high_x_fp);
 	}
 }
 
@@ -260,16 +266,17 @@ void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking
 	    // NOTE: the bed format is different here, the end position is included!
 		//
 	    FILE *wgs_low_x_fp  = fopen(user_inputs->wgs_low_cov_file, "a");
-    	FILE *wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
+    	FILE *wgs_high_x_fp;
+	   	if (user_inputs->above_10000_on) wgs_high_x_fp = fopen(user_inputs->wgs_high_cov_file, "a");
 
-	    writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_id, user_inputs, wgs_low_x_fp, wgs_high_x_fp, intronic_regions, exon_regions, 1);
+	    writeLow_HighCoverageReport(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_id, user_inputs, wgs_low_x_fp, wgs_high_x_fp, intronic_regions, exon_regions);
 
         fclose(wgs_low_x_fp);
-        fclose(wgs_high_x_fp);
+        if (user_inputs->above_10000_on) fclose(wgs_high_x_fp);
 	}
 }
 
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs,FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions) {
 	// for debugging
 	//if (strcmp(chrom_tracking->chromosome_ids[chrom_idx], "1") == 0) return i;
 	
@@ -780,21 +787,27 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 		average_coverage = (double) stats_info->cov_stats->total_genome_coverage/ (double) total_genome_non_Ns_bases;
 		outputGeneralInfo(out_fp, stats_info, average_coverage, user_inputs, 1);
 
-		fprintf(out_fp, "Base Stats\n");
-	    fprintf(out_fp, "Bases Targeted:,%"PRIu64"\n", total_genome_non_Ns_bases);
+		fprintf(out_fp, "#Base_Stats\n");
+	    fprintf(out_fp, "Bases_Targeted\t%"PRIu64"\n", total_genome_non_Ns_bases);
 
 		for(i=0; i<15; i++) {
 			int32_t val = getValueFromKhash32(stats_info->genome_base_with_N_coverage, bins[i]);
 			if (i==0) { val -= stats_info->cov_stats->total_Ns_bases; }		// need to remove all Ns
 
 			float percent = calculatePercentage(val, total_genome_non_Ns_bases);
-			if (i==0) fprintf(out_fp, "Bases with %d coverage:,%"PRIu32",(%.2f%%)\n", bins[i], val, percent);
-			if (i>0)  fprintf(out_fp, "Bases with %d+ coverage:,%"PRIu32",(%.2f%%)\n", bins[i], val, percent);
+			if (i==0) {
+				fprintf(out_fp, "Bases_with_%dx_coverage\t%"PRIu32"\n", bins[i], val);
+				fprintf(out_fp, "%%_of_Bases_with_%dx_coverage\t%.2f%%\n", bins[i], percent);
+			}
+
+			if (i>0)  {
+				fprintf(out_fp, "Bases_with_%dx+_coverage\t%"PRIu32"\n", bins[i], val);
+				fprintf(out_fp, "%%_of_Bases_with_%dx+_coverage\t%.2f%%\n", bins[i], percent);
+			}
 		}
 
-		fprintf(out_fp, "Max Coverage:,%"PRIu32",(%"PRIu32")\n", stats_info->cov_stats->max_coverage, stats_info->cov_stats->base_with_max_coverage);
 	    fprintf(out_fp, "\n");
-		fprintf(out_fp, "Coverage Histogram for Whole Genome (may look weird if target regions overlap...)\n");
+		fprintf(out_fp, "#Coverage_Frequency_Distribution_for_Whole_Genome\n");
 
 		for (i=1; i<=1000; i++) {
             k_iter = kh_put(m32, stats_info->genome_cov_histogram, i, &ret);
@@ -822,8 +835,6 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 		for (k_iter=0; k_iter!=kh_end(stats_info->target_coverage_for_median); k_iter++) {
 			if (kh_exist(stats_info->target_coverage_for_median, k_iter)) {
 
-				// Divya: 29826 number of Ns in our VCrome + PKv2 design; will need to change if design changes
-				//if (sum >= (stats_info->cov_stats->total_targeted_bases - 29826)/2) 
 				if (sum >= stats_info->cov_stats->total_targeted_bases/2) {
 					stats_info->cov_stats->median_target_coverage = k_iter--;
 					break;
@@ -838,33 +849,44 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 
 		//printf("Before output general information\n");
 		outputGeneralInfo(trt_fp, stats_info, average_coverage, user_inputs, 2);
-		//printf("After output general information\n");
 
-		fprintf(trt_fp, "Target Stats\n");
+		fprintf(trt_fp, "#Target_Stats\n");
+        fprintf(trt_fp, "Total_Targets\t%"PRIu32"\n", stats_info->cov_stats->total_targets);
 
 		float percent = calculatePercentage(stats_info->cov_stats->hit_target_count, stats_info->cov_stats->total_targets);
-        fprintf(trt_fp, "Targets Hit:,%"PRIu32",(%.2f%%)\n", stats_info->cov_stats->hit_target_count, percent);
+        fprintf(trt_fp, "Total_Number_of_Targets_with_Coverage_Hit\t%"PRIu32"\n", stats_info->cov_stats->hit_target_count);
+        fprintf(trt_fp, "%%_of_Total_Number_of_Targets_with_Coverage_Hit\t%.2f%%\n", percent);
 
 		percent = calculatePercentage(stats_info->cov_stats->hit_target_buffer_only_count, stats_info->cov_stats->total_targets);
-        fprintf(trt_fp, "Target Buffers Hit:,%"PRIu32",(%.2f%%)\n", stats_info->cov_stats->hit_target_buffer_only_count, percent);
-        fprintf(trt_fp, "Total Targets:,%"PRIu32"\n", stats_info->cov_stats->total_targets);
-        fprintf(trt_fp, "Non target regions with high coverage:,%"PRIu32"\n", stats_info->cov_stats->non_target_good_hits);
-        fprintf(trt_fp, "Base Stats\n");
-        fprintf(trt_fp, "Bases Targeted:,%"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
-        fprintf(trt_fp, "Buffer Bases:,%"PRIu32"\n", stats_info->cov_stats->total_buffer_bases);
+        fprintf(trt_fp, "Number_of_Targets_without_Coverage_but_Buffers_have_Coverage_Hit\t%"PRIu32"\n", stats_info->cov_stats->hit_target_buffer_only_count);
+        fprintf(trt_fp, "%%_of_Number_of_Targets_without_Coverage_but_Buffers_have_Coverage_Hit\t%.2f%%\n", percent);
+
+		if (user_inputs->Write_WIG)
+			fprintf(trt_fp, "Non_target_regions_with_high_coverage\t%"PRIu32"\n", stats_info->cov_stats->non_target_good_hits);
+
+        fprintf(trt_fp, "#Base_Stats\n");
+        fprintf(trt_fp, "Bases_Targeted\t%"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
+        fprintf(trt_fp, "Buffer_Bases\t%"PRIu32"\n", stats_info->cov_stats->total_buffer_bases);
 
 		for(i=0; i<15; i++) {
             uint32_t val = getValueFromKhash32(stats_info->targeted_base_with_N_coverage, bins[i]);
 
             float percent = calculatePercentage(val, stats_info->cov_stats->total_targeted_bases);
-            if (i==0) fprintf(trt_fp, "Bases with %d coverage:,%"PRIu32",(%.2f%%)\n", bins[i], val, percent);
-            if (i>0)  fprintf(trt_fp, "Bases with %d+ coverage:,%"PRIu32",(%.2f%%)\n", bins[i], val, percent);
+            if (i==0) {
+				fprintf(trt_fp, "Bases_with_%dx_coverage\t%"PRIu32"\n", bins[i], val);
+				fprintf(trt_fp, "%%_of_Bases_with_%dx_coverage\t%.2f%%\n", bins[i], percent);
+			}
+
+            if (i>0) {
+				fprintf(trt_fp, "Bases_with_%dx+_coverage\t%"PRIu32"\n", bins[i], val);
+				fprintf(trt_fp, "%%_of_Bases_with_%dx+_coverage\t%.2f%%\n", bins[i], percent);
+			}
         }
 
 		//printf("After the base count for 1000\n");
 
 		fprintf(trt_fp, "\n");
-		fprintf(trt_fp, "Coverage Histogram (may look weird if target regions overlap...)\n");
+		fprintf(trt_fp, "#Coverage_Frequency_Distribution_For_Capture_Enrichment\n");
 
 		for (i=1; i<=1000; i++) {
 			k_iter = kh_put(m32, stats_info->target_cov_histogram, i, &ret);
@@ -881,9 +903,8 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 			}
 		}
 		fprintf(trt_fp, "\n");
-		printf("After histogram plotting\n");
 
-		fprintf(trt_fp, "Target and region coverage plot\n");
+		/*fprintf(trt_fp, "Target and region coverage plot\n");
 		fprintf(trt_fp, "Position,5'count,3'count\n");
 		for(i = 20; i <= PRIMER_SIZE; i+=20) {
         	fprintf(trt_fp, "%d,%"PRIu32",%"PRIu32"\n", i, stats_info->five_prime[PRIMER_SIZE-(i-1)-1], stats_info->three_prime[i-1]);
@@ -893,61 +914,117 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 		fprintf(trt_fp, "target_Pos,count\n");
         for(i = 0; i < 101; i+=2) {
             fprintf(trt_fp, "%d,%"PRIu32"\n", i, stats_info->target_coverage[i]);
-        }
+        }*/
 
 		//printf("Before free the file name second time\n");
 		fclose(trt_fp);
+		printf("END\n");
 	}
 }
 
 void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage, User_Input *user_inputs, uint8_t type) {
-    if (type == 2) fprintf(fp, "BUFFER size:,%d\n", user_inputs->target_buffer_size);
-    fprintf(fp, "Read Stats\n");
+    if (type == 2) fprintf(fp, "BUFFER_size\t%d\n", user_inputs->target_buffer_size);
+    fprintf(fp, "#Read_Stats\n");
      
-    fprintf(fp, "Total Reads Produced:,%"PRIu32"\n", stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Total_Reads_Produced_(aka_TRP)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_produced);
 
     uint64_t yield = stats_info->cov_stats->read_length * (uint64_t) stats_info->cov_stats->total_reads_produced;
-    fprintf(fp, "Total Yield Produced:,%d,%"PRIu64"\n", stats_info->cov_stats->read_length, yield);
+    fprintf(fp, "Sequenced_Read_Length_(Taken_from_BAM_Directly)\t%d\n", stats_info->cov_stats->read_length);
+    fprintf(fp, "Total_Yield_Produced\t%"PRIu64"\n", yield);
 
     yield = stats_info->cov_stats->read_length * (uint64_t) (stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads);
-    fprintf(fp, "Total Unique Yield Produced:,%"PRIu64"\n", yield);
+    fprintf(fp, "Total_Yield_Produced_for_Uniquely_Aligned\t%"PRIu64"\n", yield);
 
-	float percent = calculatePercentage(stats_info->cov_stats->total_duplicate_reads,stats_info->cov_stats->total_reads_aligned);
-    fprintf(fp, "Duplicate Reads:,%"PRIu32",(%.2f%%)\n", stats_info->cov_stats->total_duplicate_reads, percent);
+    float percent = calculatePercentage(stats_info->cov_stats->total_reads_aligned,stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Total_Reads_Aligned_(aka_TRA)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
+    fprintf(fp, "%%_of_Total_Reads_Aligned_(agst_TRP)\t%.2f%%\n", percent);
 
-	//if (user_inputs->remove_supplementary_alignments) {
-		percent = calculatePercentage(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
-		fprintf(fp, "Supplementary Reads: %"PRIu32",(%.2f%%)\n", stats_info->cov_stats->total_supplementary_reads, percent);
-	//}
+    uint64_t uniquely_aligned = stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads;
+	percent = calculatePercentage(uniquely_aligned, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Total_Uniquely_Alinged_Reads_(without_Duplicates)\t%"PRIu64"\n", uniquely_aligned); 
+	fprintf(fp, "%%_of_Total_Uniquely_Alinged_Reads_(agst_TRP)\t%.2f%%\n", percent); 
 
-    percent = calculatePercentage(stats_info->cov_stats->total_reads_aligned,stats_info->cov_stats->total_reads_produced);
-    fprintf(fp, "Total Reads Aligned:,%"PRIu32",(%.2f%%)", stats_info->cov_stats->total_reads_aligned, percent);
+	percent = calculatePercentage(uniquely_aligned, stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "%%_of_Total_Uniquely_Alinged_Reads_(agst_TRA)\t%.2f%%\n", percent); 
 
-	fprintf(fp, ",reads paired:,%"PRIu32, stats_info->cov_stats->total_reads_paired);
-    fprintf(fp, ",reads paired with mapped mates:,%"PRIu32"\n", stats_info->cov_stats->total_paired_reads_with_mapped_mates);
+	percent = calculatePercentage(stats_info->cov_stats->total_duplicate_reads, stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Duplicate_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_duplicate_reads);
+    fprintf(fp, "%%_of_Duplicate_Reads_(agst_TRP)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_duplicate_reads,stats_info->cov_stats->total_reads_aligned);
+    fprintf(fp, "%%_of_Duplicate_Reads_(agst_TRA)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "Supplementary_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_supplementary_reads);
+	fprintf(fp, "%%_of_Supplementary_Reads_(agst_TRA)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Paired_READ\t%"PRIu32"\n", stats_info->cov_stats->total_reads_paired);
+	fprintf(fp, "%%_of_Paired_READ_(agst_TRP)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "%%_of_Paired_READ_(agst_TRA)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Paired_Reads_With_Mapped_Mates\t%"PRIu32"\n", stats_info->cov_stats->total_paired_reads_with_mapped_mates);
+    fprintf(fp, "%%_of_Paired_Reads_With_Mapped_Mates_(agst_TRP)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "%%_of_Paired_Reads_With_Mapped_Mates_(agst_TRA)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Properly_Paired_Reads\t%"PRIu32"\n",stats_info->cov_stats->total_reads_proper_paired);
+	fprintf(fp, "%%_of_Prpperly_Paired_Reads_(agst_TRP)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "%%_of_Prpperly_Paired_Reads_(agst_TRA)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Chimeric_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_chimeric_reads);
+	fprintf(fp, "%%_of_Chimeric_Reads_(agst_TRP)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "%%_of_Chimeric_Reads_(agst_TRA)\t%.2f%%\n", percent);
 
 	if (type == 2) {
 		percent = calculatePercentage(stats_info->cov_stats->in_buffer_read_hit_count, stats_info->cov_stats->total_reads_aligned);
-		fprintf(fp, "Aligned Reads On-Buffer:,%"PRIu32",(%.2f%%)\n", stats_info->cov_stats->in_buffer_read_hit_count, percent);
+		fprintf(fp, "Aligned_Reads_On-Buffer\t%"PRIu32"\n", stats_info->cov_stats->in_buffer_read_hit_count);
+		fprintf(fp, "%%_of_Aligned_Reads_On-Buffer_(agst_TRA)\t%.2f%%\n", percent);
 
 		percent = calculatePercentage(stats_info->cov_stats->on_target_read_hit_count, stats_info->cov_stats->total_reads_aligned);
-		fprintf(fp, "Aligned Reads On-Target:,%"PRIu32",(%.2f%%)\n", stats_info->cov_stats->on_target_read_hit_count, percent);
+		if (user_inputs->remove_duplicate) {
+			fprintf(fp, "Aligned_Reads_On-Target_(Total_Usable_Reads)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
+			fprintf(fp, "%%_of_Aligned_Reads_On-Target_(agst_TRA)\t%.2f%%\n", percent);
+		} else {
+			fprintf(fp, "Aligned_Reads_On-Target_(Include_Duplicates)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
+			fprintf(fp, "%%_of_Aligned_Reads_On-Target_(agst_TRA)\t%.2f%%\n", percent);
+		}
 	}
 
-    fprintf(fp, "Average Coverage:,-,(%.2f)\n", average_coverage);
-    if (type == 1)
-		fprintf(fp, "Median Coverage:,-,(%d)\n", stats_info->cov_stats->median_genome_coverage);
+    fprintf(fp, "Average_Coverage\t%.2f\n", average_coverage);
+    if (type == 1) {
+		fprintf(fp, "Median_Coverage\t%d\n", stats_info->cov_stats->median_genome_coverage);
+		fprintf(fp, "Mode_Coverage_For_Uniformity\t%d\n", stats_info->cov_stats->mode);
+		fprintf(fp, "Uniformity_Primary_Autosome_Only\t%.3f\n", stats_info->cov_stats->uniformity_metric_primary_autosome_only);
+		fprintf(fp, "Uniformity_Primary_Autosome_plus_X_and_Y_Only\t%.3f\n", stats_info->cov_stats->uniformity_metric_all_primary);
+		//fprintf(fp, "Uniformity_Primary_Autosome_plus_Alt_Decoys_HLA\t%.3f\n", stats_info->cov_stats->uniformity_metric_autosome_only);
+		//fprintf(fp, "Uniformity_Primary_Autosome_plus_X_Y_Alt_Decoys_HLA_(Everything)\t%.3f\n", stats_info->cov_stats->uniformity_metric_all);
+	}
 
     if (type == 2)
-		fprintf(fp, "Median Coverage:,-,(%d)\n", stats_info->cov_stats->median_target_coverage);
+		fprintf(fp, "Median_Coverage\t%d\n", stats_info->cov_stats->median_target_coverage);
+
+	fprintf(fp, "Max_Coverage\t%"PRIu32"\n", stats_info->cov_stats->max_coverage);
+	fprintf(fp, "Number_of_Bases_with_Max_Coverage\t%"PRIu32"\n", stats_info->cov_stats->base_with_max_coverage);
 
 	if (type == 2) {
 		uint32_t reads_hit_target_or_buffer = stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count;
 		percent = calculatePercentage(reads_hit_target_or_buffer, stats_info->cov_stats->total_reads_aligned);
-		fprintf(fp, "Reads that hit target or buffer:,%"PRIu32",(%.2f%%)\n", reads_hit_target_or_buffer, percent);
+		fprintf(fp, "Reads_that_hit_target_or_buffer\t%"PRIu32"\n", reads_hit_target_or_buffer);
+		fprintf(fp, "%%_of_Reads_that_hit_target_or_buffer_(agst_TRA)\t%.2f%%\n", percent);
 
-		fprintf(fp, "Total Aligned Reads (expected):,%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
-		fprintf(fp, "Total Aligned Reads (calculated):,%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count + stats_info->cov_stats->off_target_read_hit_count);
+		fprintf(fp, "Total_Aligned_Reads_(expected)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
+		fprintf(fp, "Total_Aligned_Reads_(calculated)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count + stats_info->cov_stats->off_target_read_hit_count);
 	}
 }
 
@@ -1000,7 +1077,7 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 
 // Note: type 1 is for capture target, while type 2 is for user-defined-database
 //
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, khash_t(khStrLCG) *low_cov_gene_hash, uint8_t type) {
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, khash_t(khStrLCG) *low_cov_gene_hash) {
 	// find out the index that is used to track current chromosome id
 	int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 	if (chrom_idx == -1) return;
@@ -1074,7 +1151,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 //							  -> ...
 //
 //
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts, uint8_t type) {
+void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts) {
     // if the target bed file is available, we will need to calculate percentage of gene bases that are covered
 	//
     uint32_t i, j;

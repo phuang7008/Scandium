@@ -43,7 +43,7 @@ void readBufferDestroy(Read_Buffer *read_buff_in);
 /**
  * This function is used to read one chunk (10,000 -- 1,000,000) of aligned reads from bam into the memory 
  * @param sffh: samFile file hander: this is actually refer to the opened bam file handler
- * @param header: bam file header information
+ * @param header: bam/cram file header information that has chromosome id and length info
  * @param chrom_tracking: it has a boolean flag (more_to_read) that is used to signal is bam file reading is finished (shared among all threads)
  * @param read_buff_in: the array of Read_Buffer to be used to store chunk of alignment reads to be processed by individual thread
  */
@@ -54,8 +54,10 @@ uint32_t readBam(samFile *sffh, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
  * @param user_inputs: variable that contains all the user input info
  * @param cov_stats: variable used to store all the statistical information regarding bases and reads
  * @param coverage_hash: the hash table that is used to store temp calculation results
- * @param header: bam file header information
+ * @param header: bam/cram file header information that has chromosome id and length info 
  * @param read_buff_in: the array of Read_Buffer that will be processed by current function
+ * @param target_buffer_status: it contains the target and buffer info for capture sequencing
+ * @param thread_id: the current thread id
  */
 void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id);
 //void process_chunk_of_bam(int thread_id, Chromosome_Tracking *chrom_tracking, Coverage_Hash *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in);
@@ -66,8 +68,9 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
  * @param user_inputs: variable that contains all the user input info
  * @param cov_stats: variable used to store all the statistical information regarding bases and reads
  * @param coverage_hash: the hash table used to store the coverage count
- * @param chrom_id
+ * @param chrom_id: current chromosome id to be handled
  * @param rec: the individual alignment record to be processed
+ * @param target_buffer_status: it contains the target and buffer info for capture sequencing
  */
 void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status);
 //void processRecord(Coverage_Hash *coverage_hash, int hash_index, bam1_t *rec);
@@ -77,6 +80,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
  * This function should be critical as no more than one thread should write to the same array at the same time
  * @param chrom_tracking: the variable that is used to tracking the status of all chromosomes
  * @param coverage_hash: the coverage hash table whose contents will write into the chrom_coverage
+ * @param header: bam/cram file header information that has chromosome id and length info 
  */
 void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash, bam_hdr_t *header);
 

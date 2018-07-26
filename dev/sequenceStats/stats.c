@@ -94,12 +94,18 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 
 		cov_stats->total_reads_aligned++;
         
-		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPAIRED) {			// Read is properly paired
+		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPAIRED) {			// Read is paired
 			cov_stats->total_reads_paired++;
             if(!(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FMUNMAP)) {	// Read is Paird with Mapped Mate 
 				cov_stats->total_paired_reads_with_mapped_mates++;
             }
         }
+
+		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPROPER_PAIR) {	// Read is properly paired
+			cov_stats->total_reads_proper_paired++;
+		} else {
+			cov_stats->total_chimeric_reads++;
+		}
 
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FDUP) {				// Read is a Duplicate (either optical or PCR)
 			cov_stats->total_duplicate_reads++;
