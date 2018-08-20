@@ -28,8 +28,9 @@
 #include <unistd.h>     // for getopt() and usleep()
 #include <math.h>
 #include <zlib.h>
-#include <my_global.h>
 #include <mysql.h>
+#include <sys/stat.h>
+#include <stdio.h>		// for file read and write
 
 // Users defined header files
 #include "htslib/sam.h"
@@ -38,13 +39,8 @@
 #define VERSION_ "##SeqStats v1.0 2017-07-17"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
-//#define BUFFER			100		//buffer region around a target, changed to a user input
 
 #define TARGET_LINE_SIZE	150		//the number of chars to be read for each line within a target file
-
-#define DYMMY				"dummy"	//
-#define WRITE_EXOME			0		//write whole genome coverage statistics
-//#define KHSTRINT			32
 
 // We need to declared the followings as glabal since the program will change these values!!!
 // The naming convention for this type of data is CAPTICAL_WORD1_WORD2_WORD3...
@@ -67,6 +63,7 @@ typedef struct {
 	char * n_file;					// provide the regions with Ns in the reference genome in bed format
 	char * output_dir;				// output directory (mandatory)
 	char * target_file;
+	char * chromosome_bed_file;		// a file contains chromosome ids and regions need to be processed in bed format
 	char * user_defined_database_file;
 	char * database_version;		// either hg19 (hg37) or hg38
 
@@ -93,8 +90,8 @@ typedef struct {
 	//misc
 	int8_t min_map_quality;
 	int8_t min_base_quality;
-	uint8_t low_coverage_to_report;		// default 20, users are allowed to change it as an input option
-	uint16_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
+	uint16_t low_coverage_to_report;	// default 20, users are allowed to change it as an input option
+	uint32_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
 	int16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the range output
 	int16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the range output
 	uint16_t gVCF_percentage;			// default 5 for 500%. For gVCF formula: BLOCKAVE_Xp, where X=gVCF_percentage
@@ -107,7 +104,8 @@ typedef struct {
 	bool annotation_on;
 	bool above_10000_on;				// output bases/regions with coverage > 10000
 	bool wgs_coverage;
-	bool Write_cov_fasta;
+	bool Write_Capture_cov_fasta;
+	bool Write_WGS_cov_fasta;			// need two different flags, one for Capture and one for WGS
 	bool Write_WIG;
 	//bool primary_chromosomes_only;		// do we need all chromosomes including decoy, alt etc or primary only
 } User_Input;
@@ -305,7 +303,7 @@ typedef struct {
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
-// m32 means the key is 32 bit integer, while the value is of unsigned short type (ie uint16_t)
+// m32 means the key is 32 bit integer, while the value is of unsigned int type (ie uint16_t)
 //
 KHASH_MAP_INIT_INT(m32, uint32_t)
 KHASH_MAP_INIT_INT(m16, uint16_t)
@@ -332,15 +330,15 @@ KHASH_MAP_INIT_STR(khStrLCG, Low_Coverage_Genes*)
  */
 typedef struct {
 	//base stats
-	uint64_t total_genome_bases;		//total number of bases in Genome
-	uint32_t total_buffer_bases;		//total number of bases in the buffer region
-	uint32_t total_targeted_bases;		//total number of bases targeted
-	uint32_t total_Ns_bases;			//total number of bases that are N (unknown)
-	uint32_t total_Ns_bases_on_chrX;	//total number of bases that are N (unknown) on X chromosome
-	uint32_t total_Ns_bases_on_chrY;	//total number of bases that are N (unknown) on Y chromosome
-	uint64_t total_aligned_bases;		//total number of aligned bases
-	uint64_t total_target_coverage;		//total number of read bases aligned to the target
-	uint64_t total_genome_coverage;		//total number of read bases aligned to the Genome
+	uint32_t total_genome_bases;			//total number of bases in Genome
+	uint32_t total_Ns_bases;				//total number of bases that are N (unknown)
+	uint32_t total_Ns_bases_on_chrX;		//total number of bases that are N (unknown) on X chromosome
+	uint32_t total_Ns_bases_on_chrY;		//total number of bases that are N (unknown) on Y chromosome
+	uint64_t total_mapped_bases;			//total number of mapped bases
+	uint64_t total_aligned_bases;			//total number of aligned bases (with soft-clipped removed)
+	uint64_t total_genome_coverage;			//total number of read bases aligned to the Genome (used to calculate average coverage)
+	uint64_t base_quality_20;				//total number of aligned bases with quality >= 20
+	uint64_t base_quality_30;				//total number of aligned bases with quality >=30
 
 	//read stats
 	uint32_t total_reads_paired;			//total number of reads with mate pairs (if any)
@@ -353,6 +351,9 @@ typedef struct {
 	uint32_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
 
 	//read stats on target/buffer
+	uint64_t total_target_coverage;			//total number of read bases aligned to the target (used to calculate average coverage)
+	uint32_t total_targeted_bases;			//total number of bases targeted
+	uint32_t total_buffer_bases;			//total number of bases in the buffer region
     uint32_t on_target_read_hit_count;		//total number of reads which align to a target region
     uint32_t off_target_read_hit_count;		//total number of reads which do not align to a target region
     uint32_t in_buffer_read_hit_count;		//total number of reads which align to the buffer region
@@ -370,7 +371,7 @@ typedef struct {
 	uint32_t mode;
 	double uniformity_metric_all;					// it contains all the alt, decoy etc.
 	double uniformity_metric_all_primary;			// it doesn't contain alt, decoy chromosomes.
-	double uniformity_metric_autosome_only;			// it contains all the alt, decoy etc.
+	double uniformity_metric_autosome_only;		// it contains all the alt, decoy etc.
 	double uniformity_metric_primary_autosome_only;	// it doesn't contain alt, decoy chromosomes.
 } Coverage_Stats;
 

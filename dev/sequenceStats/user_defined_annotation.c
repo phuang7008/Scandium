@@ -60,9 +60,9 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 		khiter_t iter;
 
 		// now need to get cds length and count information
-		// 7       87173445        87173591        ABCB1|ENST00000265724_cds_18
+		// 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
 		//
-		uint32_t j=0, start, end;
+		uint32_t j=0, start=0, end=0;
 
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
 			if (j==0) {
@@ -357,7 +357,7 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		strcpy(orig_line, line);
 		char *savePtr = line;
 		char *tokPtr;
-		uint32_t chrom_idx;
+		int32_t chrom_idx=-1;
 
 		// line example:
 		// 7       87178664        87178834        ABCB1|ENST00000543898_cds_12
@@ -374,6 +374,11 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 						chrom_idx = i;
 						break;
 					}
+				}
+
+				if (chrom_idx == -1) {
+					fprintf(stderr, "Something went wrong as the chromosome index shouldn't be -1\n");
+					exit(EXIT_FAILURE);
 				}
 			}
 
@@ -641,7 +646,7 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 		// here is the cds annotation part
 		// ANKK1|ENST00000303941_cds_1_8_2290
 		//
-		char *gene_token, *cds_annotation, *gene_symbol;
+		char *gene_token=NULL, *cds_annotation=NULL, *gene_symbol=NULL;
 		savePtr = gene_annotation;
 		j=0;
 
@@ -664,7 +669,7 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 		// Now processing the following part
 		// ENST00000303941_cds_1_8_2290
 		//
-		char *cds_token, *transcript_name;
+		char *cds_token=NULL, *transcript_name=NULL;
 		savePtr = cds_annotation;
 		bool flag_2nd_field=false;	// if the 2nd field is part of transcript name
 		j=0;

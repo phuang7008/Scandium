@@ -20,6 +20,7 @@
 
 #include <stdbool.h>	// for bool return type
 #include <ctype.h>		// for isdigit()
+#include <errno.h>
 #include "terms.h"
 
 /**
@@ -160,7 +161,7 @@ void userInputDestroy(User_Input *user_inputs);
  * @param header: bam/cram/sam header info
  * @param stats_info: to store the final number of total genome bases
  */
-void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info);
+void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs);
 
 /**
  * for Coverage_Stats variable initialization
@@ -201,10 +202,19 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 void dynamicStringAllocation(char *str_in, char **storage_str);
 
 /**
- * initialize the Chromosome_Tracking variable
+ * initialize the Chromosome_Tracking variable, this approach will process all chromosomes
+ * @param header: a bam header that contains all the chromosome information
  * @return an instance of Chromosome_Tracking upon successful
  */
-Chromosome_Tracking * chromosomeTrackingInit();
+void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking);
+
+/**
+ * Initialize the chromosome_tracking variable using user specified region file
+ * This approach will process those chromosomes specified by user only
+ * @param wanted_chromosome_hash: a kh_hash table stores chromosomes to be processed
+ * @return an instance of Chromosome_Tracking upon successful 
+ */
+uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking);
 
 /**
  * This function is used to update all members for the Chromosome_Tracking variable
@@ -276,7 +286,8 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
  * @param dom: the donominator value
  * @return a float value with 2 decimal points
  */
-float calculatePercentage(uint32_t num, uint32_t dom);
+float calculatePercentage64(uint64_t num, uint64_t dom);
+float calculatePercentage32(uint32_t num, uint32_t dom);
 
 /** 
  * combine all the coverage stats from each individual thread and store them in the stats_info
@@ -365,11 +376,11 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs);
 
 /*
- * it is a help function that is used to load all the primary chromosomes
+ * it is a help function that is used to load all chromosomes need to be processed
  * @param primary_chromosome_hash: a hash table that is used to store the primary chromosomes for quick lookup
  * @param user_inputs: different version of human genomes define chromosome id differently. For other genomes, users will have to make the adjustment
  */
-void loadPrimaryChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs);
+void loadWantedChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs, Stats_Info *stats_info);
 
 /*
  * the following comparison is used to compare the int array
@@ -386,5 +397,11 @@ int compare(const void * val1, const void * val2);
 void print_string_array(char** strings_in, size_t length_in);
 
 //int8_t strcasecmp(char const *a, char const *b);
+
+/* need to check for the naming convention between the chromosome bed file and the input bam/cram files
+ * @param header: the bam/cram header to store the bam/cram header info
+ * @param wanted_chromosome_hash: a kh_hash table to store the chromosome ids that need to be processed
+ */
+void checkNamingConvention(bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash);
 
 #endif //UTILS_H

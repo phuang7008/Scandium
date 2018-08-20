@@ -57,7 +57,7 @@ uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
 	return record_idx;
 }
 
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id) {
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash, Chromosome_Tracking *chrom_tracking) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
 	uint32_t i = 0;
@@ -65,17 +65,43 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 	strcpy(cur_chr, "NOTTHEREALONE");
 
 	for (i=0; i<read_buff_in->size; i++) {
-
 		if(user_inputs->percentage < 1.0) {
-            //srand((uint32_t)time(NULL));	// set random seed and only need to be set ONCE
+			// set random seed and only need to be set ONCE
+            //srand((uint32_t)time(NULL));	
+			// it is already set at the main.c
+			//
             float random_num = (float)rand() / (float)RAND_MAX;
-            //if(random_num < user_inputs->percentage) continue;
             if(random_num > user_inputs->percentage) continue;
+			fprintf(stderr, "Random selection (i.e. downsampling) is ON\n");
         }
 
 		cov_stats->total_reads_produced++;
 
 		// Need to check various 'READ' flags regarding the current read before doing statistics analysis
+		// But the order here is quite important,
+		// mapped vs unmapped first
+		//
+        if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FUNMAP)	{			// Read Unmapped
+             continue;
+		}
+
+		// among mapped reads, need to check if we are only interested in the primary chromosomes
+		//
+		if (primary_chromosome_hash != NULL) {
+			khiter_t iter_p = kh_get(khStrInt, primary_chromosome_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]);
+			if (iter_p == kh_end(primary_chromosome_hash)) {
+				// chrom_id is not one of the primary chromosomes, so skip it!
+				//
+				//if (strcmp(cur_chr, "MT") == 0 || strcmp(cur_chr, "chrM") == 0) {
+				//	strcpy(cur_chr, "MT");
+					//chrom_tracking->more_to_read = false;
+					//break;
+					//printf("%d\t%s\t%d\n", i, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->size); 
+				//}
+				continue;
+			}
+		}
+
 		if(read_buff_in->chunk_of_reads[i]->core.qual < user_inputs->min_map_quality) {
             continue;
         }
@@ -87,13 +113,12 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSECONDARY){        // Read Alignment is not Primary Alignment
             continue;
         }
- 
-        if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FUNMAP)	{			// Read Unmapped
-             continue;
-		}
-
-		cov_stats->total_reads_aligned++;
         
+		// the total_mapped_bases should contain everything including soft-clipped bases
+		//
+		cov_stats->total_mapped_bases += read_buff_in->chunk_of_reads[i]->core.l_qseq;	
+		cov_stats->total_reads_aligned++;
+
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPAIRED) {			// Read is paired
 			cov_stats->total_reads_paired++;
             if(!(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FMUNMAP)) {	// Read is Paird with Mapped Mate 
@@ -128,9 +153,6 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 
 			not_added = true;
 		}
-		//if (strcmp(cur_chr, "17") != 0) return;		// for debugging
-		//if (strcmp(cur_chr, "17") != 0) continue;		// for debugging
-		//if (strstr(cur_chr, "GL000") == 0) continue;		// for debugging
 
 		// Add the instance of khash_t(m32) to the khash_t(str) object (ie coverage_hash) based on the chrom_id
 		if (not_added) {
@@ -194,10 +216,19 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	for (i=0; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
         int cln = cigar[i] >> BAM_CIGAR_SHIFT;  // length
-        if (cop == BAM_CMATCH) {
 
+		/*
+			The “M” CIGAR op (BAM_CMATCH) is forbidden in PacBio BAM files. 
+			PacBio BAM files use the more explicit ops “X” (BAM_CDIFF) and “=” (BAM_CEQUAL). 
+			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
+		*/
+        if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
+			cov_stats->total_aligned_bases += cln;
+
+			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
+			//
 			for (j=0; j<cln; ++j) {
-				cov_stats->total_aligned_bases++;
+
 				//uint32_t pos = start + qual_pos + 1;
 				uint32_t pos = start + qual_pos;
 
@@ -216,6 +247,9 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					}
 				}
 
+				if (qual[qual_pos] >= 20) cov_stats->base_quality_20++;
+				if (qual[qual_pos] >= 30) cov_stats->base_quality_30++;
+
 				if ( (user_inputs->min_base_quality) > 0 && (qual[qual_pos] < user_inputs->min_base_quality) ) {	
 					qual_pos++;
 					// filter based on the MIN_BASE_SCORE
@@ -224,6 +258,23 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 
 				kh_value(coverage_hash, outer_iter)->cov_array[pos]++;
 				qual_pos++;
+			}
+		} else if (cop == BAM_CSOFT_CLIP) {
+			qual_pos += cln;
+		} else if (cop == BAM_CINS) {
+			// as they are not part of the reference, we will not advance the qual_pos
+			//
+			cov_stats->total_aligned_bases += cln;
+			for (j=0; j<cln; ++j) {
+				uint32_t pos = start + qual_pos;                                                              
+				                                                                                                              
+				if (pos < 0) continue;                                                                        
+				if (pos >= chrom_len) break; 
+
+				// insertion bases will be counted as aligned bases
+				//
+				if (qual[qual_pos] >= 20) cov_stats->base_quality_20++;
+				if (qual[qual_pos] >= 30) cov_stats->base_quality_30++;
 			}
 		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL || cop == BAM_CPAD) {
 			qual_pos += cln;
@@ -256,7 +307,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 		so everything we do something after this point, we will still have to check for the existence of the chromosome id
 	*/
 
-	for (i = 0; i < header->n_targets; i++) {
+	for (i = 0; i < chrom_tracking->number_tracked; i++) {
 		// Now go through the coverage_hash map to see if it is currently tracking it
 		// if it tracks new chromosome, we need to allocate memory for the coverage array of the new chromosome
 		//
@@ -265,6 +316,8 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 		for (outer_iter = kh_begin(coverage_hash); outer_iter != kh_end(coverage_hash); ++outer_iter) {
 			if (kh_exist(coverage_hash, outer_iter)) {
 				// compare with ordered chromosome ID in the header, if it is matched, then process it!
+				// using header->target_name is fine as we are not going to exceed the number_tracked
+				// even though user specified chromosome bed file
 				//
 				if (strcmp(header->target_name[i], kh_key(coverage_hash, outer_iter)) == 0) {
 					bool need_to_allocate = true;

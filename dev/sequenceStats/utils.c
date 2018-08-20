@@ -210,7 +210,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 
 			char *savePtr = key;
 			char *tokPtr;
-			uint32_t start, end;
+			uint32_t start=0, end=0;
 			int idx = 0;
 			while ((tokPtr = strtok_r(savePtr, "-", &savePtr))) {
 				if (idx == 0) {
@@ -320,7 +320,7 @@ uint32_t processLowCovRegionFromStrArray(stringArray *merged_low_cov_regions, ch
 		//
 		char *savePtr = merged_low_cov_regions->theArray[i];
 		char *tokPtr;
-		uint32_t start, end, k=0;
+		uint32_t start=0, end=0, k=0;
 
 		while ((tokPtr = strtok_r(savePtr, "-", &savePtr))) {
 			if (k==0)
@@ -435,12 +435,13 @@ void usage() {
 
 	printf("The Followings Are Optional:\n");
 	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
-	printf("\t-f <the file that contains user defined database (for annotation only)>\n");
+	printf("\t-f <file name that contains user defined database (for annotation only)>\n");
 	printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
-	printf("\t-k <the number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Default 7>\n");
+	printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Default 7>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
-	printf("\t-n <the file that contains regions of Ns in the reference genome in bed format>\n");
+	printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
+	printf("\t-r <file name that contains regions users are interested for this analysis. Default: not provided to process all chromosomes >\n");
 	printf("\t-t <target file. If this is specified, all of the output file names related to this will contain .Capture_>\n");
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
@@ -455,7 +456,7 @@ void usage() {
 
 	printf("The Followings Are Flags\n");
 	printf("\t[-a] Turn off the annotation information for genes, exons and transcript. Default: ON\n");
-	printf("\t[-c] To produce files (cov.fasta) that contain the detailed coverage count info for each base. Defulat: OFF\n");
+	printf("\t[-C] To produce Capture cov.fasta that contain the detailed coverage count info for each base. Defulat: OFF\n");
 	printf("\t[-d] Remove Duplicates is OFF! Specify this flag only when you want to keep Duplicates reads. Default: ON\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
 	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
@@ -501,7 +502,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	//When getopt returns -1, no more options available
 	//
 	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
-	while ((arg = getopt(argc, argv, "ab:B:cdD:f:g:GH:i:k:L:l:m:Mn:o:p:st:T:u:VwWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:r:st:T:u:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -514,8 +515,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
-			case 'B': user_inputs->target_buffer_size = atoi(optarg); break;
-            case 'c': user_inputs->Write_cov_fasta = true; break;
+			case 'B': user_inputs->target_buffer_size = (uint16_t) strtol(optarg, NULL, 10); break;
+            case 'C': user_inputs->Write_Capture_cov_fasta = true; break;
             case 'd': user_inputs->remove_duplicate = false; break;
             case 'D': 
 				strcpy(user_inputs->database_version, optarg); 
@@ -535,7 +536,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				user_inputs->user_defined_database_file = (char*) malloc((strlen(optarg)+1) * sizeof(char));
 				strcpy(user_inputs->user_defined_database_file, optarg);
 				break;
-			case 'g': user_inputs->gVCF_percentage = atoi(optarg); break;
+			case 'g': user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10); break;
             case 'G': user_inputs->Write_WIG = true; break;
             case 'h': usage(); exit(EXIT_FAILURE);
 			case 'H':
@@ -544,7 +545,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                     usage();
                     exit(EXIT_FAILURE);
                 }
-                user_inputs->high_coverage_to_report = atoi(optarg);
+                user_inputs->high_coverage_to_report = (uint32_t) strtol(optarg, NULL, 10);
                 break;
             case 'i':
 				user_inputs->bam_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
@@ -552,14 +553,14 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->bam_file, optarg);
                 break;
 			case 'k':
-				user_inputs->size_of_peak_area = atoi(optarg); break;
+				user_inputs->size_of_peak_area = (uint8_t) strtol(optarg, NULL, 10); break;
 			case 'L':
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
                     usage();
                     exit(EXIT_FAILURE);
                 }
-                user_inputs->low_coverage_to_report = atoi(optarg);
+                user_inputs->low_coverage_to_report = (uint16_t) strtol(optarg, NULL, 10);
                 break;
 			case 'l':
 				if (!isNumber(optarg)) {
@@ -567,7 +568,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 					usage();
 					exit(EXIT_FAILURE);
 				}
-				user_inputs->lower_bound = atoi(optarg);
+				user_inputs->lower_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
             case 'm':
                 if (!isNumber(optarg)) {
@@ -590,7 +591,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->output_dir, optarg);
                 break;
             case 'p': user_inputs->percentage = atof(optarg); break;
-			//case 'P': user_inputs->primary_chromosomes_only = true; break;
+			case 'r': 
+				user_inputs->chromosome_bed_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
+				strcpy(user_inputs->chromosome_bed_file, optarg);
+				break;
 			case 's': user_inputs->remove_supplementary_alignments = true; break;
             case 't':
 				TARGET_FILE_PROVIDED = true;
@@ -611,15 +615,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                     usage();
                     exit(EXIT_FAILURE);
                 }
-                user_inputs->upper_bound = atoi(optarg);
+                user_inputs->upper_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
 			case 'V': user_inputs->above_10000_on = true; break;
             case 'w': user_inputs->wgs_coverage = true; break;
+			case 'W': user_inputs->Write_WGS_cov_fasta = true; break;
             case '?':
-					  if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
-							  || optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
-							  || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 't'
-							  || optopt == 'T' || optopt == 'u')
+				if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
+					|| optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
+					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'r' || optopt == 't'
+					|| optopt == 'T' || optopt == 'u')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -711,7 +716,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 		createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_report, string_to_add);
 
 		// for cov.fasta file name
-		if (user_inputs->Write_cov_fasta)
+		if (user_inputs->Write_Capture_cov_fasta)
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_file, ".Capture_cov.fasta");
 
 		// for target regions have no coverage at all
@@ -786,7 +791,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_range_file, string_to_add);
 
 		// for whole genome (wgs) file name
-    	if (user_inputs->Write_cov_fasta) {
+    	if (user_inputs->Write_WGS_cov_fasta) {
         	createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta");
     	    //printf("Create wgs file name %s\n", user_inputs->wgs_file);
 	    }
@@ -886,10 +891,16 @@ void outputUserInputOptions(User_Input *user_inputs) {
 		fprintf(stderr, "\tThe detailed gene annotation is OFF\n");
 	}
 
-	if (user_inputs->Write_cov_fasta) {
-		fprintf(stderr, "\tThe coverage dump at base level is ON (this will create a cov.fasta file\n");
+	if (user_inputs->Write_Capture_cov_fasta) {
+		fprintf(stderr, "\tThe Capture coverage dump at base level is ON (this will create a cov.fasta file\n");
 	} else {
-		fprintf(stderr, "\tThe coverage dump is OFF\n");
+		fprintf(stderr, "\tThe Capture coverage dump is OFF\n");
+	}
+
+	if (user_inputs->Write_WGS_cov_fasta) {
+		fprintf(stderr, "\tThe WGS coverage dump at base level is ON (this will create a cov.fasta file\n");
+	} else {
+		fprintf(stderr, "\tThe WGS coverage dump is OFF\n");
 	}
 
 	if (user_inputs->Write_WIG) {
@@ -954,11 +965,18 @@ User_Input * userInputInit() {
 	user_inputs->annotation_on = true;
 	user_inputs->above_10000_on = false;
 	user_inputs->wgs_coverage = false;
-	user_inputs->Write_cov_fasta = false;
+	user_inputs->Write_Capture_cov_fasta = false;
+	user_inputs->Write_WGS_cov_fasta = false;
 	user_inputs->Write_WIG = false;
 	user_inputs->remove_duplicate = true;
 	user_inputs->remove_supplementary_alignments = false;
-	//user_inputs->primary_chromosomes_only = false;
+
+	user_inputs->n_file = NULL;
+	user_inputs->bam_file = NULL;
+	user_inputs->output_dir = NULL;
+	user_inputs->target_file = NULL;
+	user_inputs->chromosome_bed_file = NULL;
+	user_inputs->user_defined_database_file = NULL;
 
 	user_inputs->database_version = calloc(10, sizeof(char));
 	strcpy(user_inputs->database_version, "hg37");
@@ -1035,6 +1053,9 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->low_cov_transcript_file)
 		free(user_inputs->low_cov_transcript_file);
 
+	if (user_inputs->chromosome_bed_file)
+		free(user_inputs->chromosome_bed_file);
+
 	// For User-Defined Database output files clean-up
 	//
 	if (user_inputs->user_defined_database_file)
@@ -1044,10 +1065,27 @@ void userInputDestroy(User_Input *user_inputs) {
 		free(user_inputs);
 }
 
-void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info) {
+void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs) {
 	int i;
-	for ( i = 0; i < header->n_targets; i++)
+	for ( i = 0; i < header->n_targets; i++) {
+		// for debug only, need to remove it later !!!!!
+		//if (strcmp(header->target_name[i], "MT") == 0 || strcmp(header->target_name[i], "chrM") == 0)
+		//	break;
+
 		stats_info->cov_stats->total_genome_bases += header->target_len[i];
+	}
+
+	// Now need to find out the reference version
+	//
+	for ( i = 0; i < header->n_targets; i++) {
+		if ( (strcasecmp(user_inputs->database_version, "hg38") != 0)
+			&& (strstr(header->target_name[i], "chr") != NULL) ) {
+			fprintf(stderr, "The reference version %s isn't set correctly\n", user_inputs->database_version);
+			strcpy(user_inputs->database_version, "hg38");
+			fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
+			break;
+		}
+	}
 }
 
 void cleanKhashInt(khash_t(m32) *hash_to_clean) {
@@ -1126,20 +1164,10 @@ void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean) {
 // Note: this function should never be used to update any information regarding the Chromosome_Tracking variable
 // It is only used for initialization and dynamically allocate memories!
 //
-Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
-	// number 25 is used as human has a total of 25 chromosomes including MT
-	// However, it seems that everything is considered. 
-	// So we need to fetch the total number of targets from the bam/cram header
-	// if we are going to handle all other non-human contigs or decoy ones, we will have to expand the tracking list
-	//
+void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking) {
 	uint32_t i=0;
-	Chromosome_Tracking *chrom_tracking = calloc(1, sizeof(Chromosome_Tracking));
-	if (!chrom_tracking) {
-		fprintf(stderr, "Memory allocation for Chromosome Tracking variable failed\n");
-		exit(EXIT_FAILURE);
-	}
 
-	chrom_tracking->coverage = calloc(header->n_targets, sizeof(uint32_t*));
+	chrom_tracking->coverage = calloc(num_of_chroms, sizeof(uint32_t*));
 	if (!chrom_tracking->coverage) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->coverage");
 		exit(EXIT_FAILURE);
@@ -1147,40 +1175,54 @@ Chromosome_Tracking * chromosomeTrackingInit(bam_hdr_t *header) {
 
 	//since the thread finishes unevenly, some chromosome might be processed before its predecessor,
 	//hence we need to initialize them here
-	for(i=0; i<header->n_targets; i++)
+	for(i=0; i<num_of_chroms; i++)
 		chrom_tracking->coverage[i] = NULL;
 
-	chrom_tracking->chromosome_ids = calloc(header->n_targets, sizeof(char*));
+	chrom_tracking->chromosome_ids = calloc(num_of_chroms, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
 	       exit(EXIT_FAILURE);
 	}
-	for(i=0; i<header->n_targets; i++)
+	for(i=0; i<num_of_chroms; i++)
 		// need to increase the size if we need to analysis any other chromosomes (such as decoy)
 		// but at this moment, we will just set it to NULL
 		//
         chrom_tracking->chromosome_ids[i] = NULL;
 
-	chrom_tracking->chromosome_lengths = calloc(header->n_targets, sizeof(uint32_t));
+	chrom_tracking->chromosome_lengths = calloc(num_of_chroms, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
 		exit(EXIT_FAILURE);
 	}
-	for(i=0; i<header->n_targets; i++)
+	for(i=0; i<num_of_chroms; i++)
         chrom_tracking->chromosome_lengths[i] = 0;
 
-	chrom_tracking->chromosome_status = calloc(header->n_targets, sizeof(uint8_t));
+	chrom_tracking->chromosome_status = calloc(num_of_chroms, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
 		exit(EXIT_FAILURE);
 	}
-	for(i=0; i<header->n_targets; i++)
+	for(i=0; i<num_of_chroms; i++)
         chrom_tracking->chromosome_status[i] = 0;
 
-	chrom_tracking->number_tracked = header->n_targets;
+	chrom_tracking->number_tracked = num_of_chroms;
 	chrom_tracking->more_to_read = true;
+}
 
-	return chrom_tracking;
+uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking) {
+	// find out how many chromosome we are dealing with
+	//
+	uint32_t num_of_chroms = 0;
+	khiter_t iter;
+
+	for (iter = kh_begin(wanted_chromosome_hash); iter != kh_end(wanted_chromosome_hash); ++iter) {
+		if (kh_exist(wanted_chromosome_hash, iter))
+			num_of_chroms++;
+	}
+
+	chromosomeTrackingInit1(num_of_chroms, chrom_tracking);
+
+	return num_of_chroms;
 }
 
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index) {
@@ -1318,11 +1360,14 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->total_buffer_bases = 0;
 	cov_stats->total_targeted_bases = 0;
 	cov_stats->total_aligned_bases = 0;
+	cov_stats->total_mapped_bases = 0;
 	cov_stats->total_Ns_bases = 0;
 	cov_stats->total_Ns_bases_on_chrX = 0;
 	cov_stats->total_Ns_bases_on_chrY = 0;
 	cov_stats->total_target_coverage = 0;
 	cov_stats->total_genome_coverage = 0;
+	cov_stats->base_quality_20 = 0;
+	cov_stats->base_quality_30 = 0;
 
 	cov_stats->total_reads_paired = 0;
 	cov_stats->total_reads_proper_paired = 0;
@@ -1426,25 +1471,21 @@ void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint32_t v
     }
 
     kh_value(hash_in, k_iter) += val;
-	//if (pos_key == 100) printf("added for combined value is %"PRIu32"\n", kh_value(hash_in, k_iter));
+	//if (pos_key == 1 && kh_value(hash_in, k_iter)%1000000 == 0) printf("key 1 value is %"PRIu32"\n", kh_value(hash_in, k_iter));
+	if (kh_value(hash_in, k_iter) > 4294967290) printf("larger value %"PRIu32"\n", kh_value(hash_in, k_iter));
 
     return;
 }
 
 uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key) {
-	int ret;
     khiter_t k_iter;
 	if (hash32 != NULL) {
-		k_iter = kh_put(m32, hash32, pos_key, &ret);
+		k_iter = kh_get(m32, hash32, pos_key);
 
-		if (ret == -1) {
-        	fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-        	exit(EXIT_FAILURE);
-    	}
-
-		// this is needed as if the bucket is never used, the value will be whatever left there, and the value is undefined!
-    	if (ret == 1)
-            kh_value(hash32, k_iter) = 0;
+		if (k_iter == kh_end(hash32))
+			// this is needed as if the bucket is never used, the value will be whatever left there, and the value is undefined!
+			//
+			return 0;
 
         return kh_value(hash32, k_iter);
     }
@@ -1453,18 +1494,12 @@ uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key) {
 }
 
 uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {
-    int ret;
     khiter_t k_iter;
     if (hash16 != NULL) {
-		k_iter = kh_put(m16, hash16, pos_key, &ret);
+		k_iter = kh_get(m16, hash16, pos_key);
 
-		if (ret == -1) {
-			fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
-			exit(EXIT_FAILURE);
-		}
-
-		//if (ret == 1)
-        //    kh_value(hash16, k_iter) = 0;
+		if (k_iter == kh_end(hash16))
+			return 0;
 
         return kh_value(hash16, k_iter);
     }
@@ -1472,26 +1507,43 @@ uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {
     return 0;
 }
 
-float calculatePercentage(uint32_t num, uint32_t dom) {
-	float val = (double)num/(double)dom;
+float calculatePercentage32(uint32_t num, uint32_t dom) {
+	double val = (double)num/(double)dom;
+	int i_val = val * 10000.0 + 0.5;
+	return (float)i_val/100.0;
+}
+
+float calculatePercentage64(uint64_t num, uint64_t dom) {
+	double val = (double)num/(double)dom;
 	int i_val = val * 10000.0 + 0.5;
 	return (float)i_val/100.0;
 }
 
 void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
+	// read related stats
+	//
 	stats_info->cov_stats->total_reads_produced  += cov_stats->total_reads_produced;
 	stats_info->cov_stats->total_reads_aligned   += cov_stats->total_reads_aligned;
-	stats_info->cov_stats->total_reads_paired    += cov_stats->total_reads_paired;
-	stats_info->cov_stats->total_aligned_bases   += cov_stats->total_aligned_bases;
-	stats_info->cov_stats->total_duplicate_reads += cov_stats->total_duplicate_reads;
 	stats_info->cov_stats->total_chimeric_reads  += cov_stats->total_chimeric_reads;
-	stats_info->cov_stats->total_reads_proper_paired += cov_stats->total_reads_proper_paired;
+	stats_info->cov_stats->total_duplicate_reads += cov_stats->total_duplicate_reads;
 	stats_info->cov_stats->total_supplementary_reads += cov_stats->total_supplementary_reads;
+	stats_info->cov_stats->total_reads_paired    += cov_stats->total_reads_paired;
+	stats_info->cov_stats->total_reads_proper_paired += cov_stats->total_reads_proper_paired;
+	stats_info->cov_stats->total_paired_reads_with_mapped_mates += cov_stats->total_paired_reads_with_mapped_mates;
+
+	// base related stats
+	//
+	stats_info->cov_stats->total_aligned_bases   += cov_stats->total_aligned_bases;
+	stats_info->cov_stats->total_mapped_bases    += cov_stats->total_mapped_bases;
+	stats_info->cov_stats->base_quality_20       += cov_stats->base_quality_20;
+	stats_info->cov_stats->base_quality_30       += cov_stats->base_quality_30;
+
+	// target (capture) related stats
+	//
 	stats_info->cov_stats->on_target_read_hit_count  += cov_stats->on_target_read_hit_count;
 	stats_info->cov_stats->in_buffer_read_hit_count  += cov_stats->in_buffer_read_hit_count;
 	stats_info->cov_stats->off_target_read_hit_count += cov_stats->off_target_read_hit_count;
 
-	stats_info->cov_stats->total_paired_reads_with_mapped_mates += cov_stats->total_paired_reads_with_mapped_mates;
 
 	if (stats_info->cov_stats->read_length == 0) 
 		stats_info->cov_stats->read_length = cov_stats->read_length;
@@ -1721,7 +1773,7 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 	//              e2     e3     e1       e4                      e7     e6            e7
 	//
 	uint16_t flag=0;			// when flag==0, record the region
-	uint32_t p_start, num_of_items=0;
+	uint32_t p_start=0, num_of_items=0;
 	khash_t(m32) *low_cov_hash = kh_init(m32);
 
 	for (i=0; i<k; i++) {
@@ -1779,7 +1831,7 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 	free(allNum);
 }
 
-void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *primary_chromosome_hash, bool autosome, bool primary_chromosomes_only) {
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, bool autosome, bool primary_chromosomes_only) {
 	// need to set Ns number first
 	//
 	if (stats_info->cov_stats->total_Ns_bases == 0) {
@@ -1838,9 +1890,9 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 		// if we are only handle primary chromosomes for this calculation, we need to check it here
 		//
-		if (primary_chromosomes_only) {
-			khiter_t iter_p = kh_get(khStrInt, primary_chromosome_hash, chrom_id);
-			if (iter_p == kh_end(primary_chromosome_hash)) {
+		if (primary_chromosomes_only && wanted_chromosome_hash) {
+			khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, chrom_id);
+			if (iter_p == kh_end(wanted_chromosome_hash)) {
 				// chrom_id is not one of the primary chromosomes, so skip it!
 				//
 				continue;
@@ -1860,7 +1912,7 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 	free(chrom_id);
 
-	// need to remove Ns_bases
+	// need to remove Ns_bases, (the number of Ns bases need to be calculated based on the user input)
 	//
 	uniformity_total_bases -= stats_info->cov_stats->total_Ns_bases; 
 
@@ -1994,27 +2046,71 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 	return peak_area_under_histogram;
 }
 
-void loadPrimaryChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs) {
-	int i=0, absent=0;
+void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input *user_inputs, Stats_Info *stats_info) {
+	// open file for reading
+	//
+	FILE * fp = fopen(user_inputs->chromosome_bed_file, "r");
+	size_t len = 0;
+	ssize_t read;
+	char *line = NULL, *tokPtr=NULL, *chrom_id=NULL;
 
-	if ( (strcasecmp(user_inputs->database_version, "hg38") == 0) || (strstr(user_inputs->database_version, "38") != NULL) ) {
-		const char *chromosomes[] = { "chr1",  "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13",
-							"chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"};
+	while ((read = getline(&line, &len, fp)) != -1) {
+		if (*line == '\n') continue;				// handle empty lines
+		if (strstr(line, "#") != NULL) continue;	// commented out lines
 
-		for (i=0; i<25; i++) {
-			khiter_t k_iter = kh_put(khStrInt, primary_chromosome_hash, strdup(chromosomes[i]), &absent);
-			kh_value(primary_chromosome_hash, k_iter) = 1;
-		}
+		char *savePtr = line;
+		int absent=0;
+		khiter_t iter;
+		uint32_t start=0, end=0;
 
-	} else {
-		const char *chromosomes[] = { "1",  "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
-									  "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y", "MT"};
-		for (i=0; i<25; i++) {
-			khiter_t k_iter = kh_put(khStrInt, primary_chromosome_hash, strdup(chromosomes[i]), &absent);
-			kh_value(primary_chromosome_hash, k_iter) = 1;
+		// now need to process input information with the following format
+		// chr1    0       248956422
+		//
+		uint16_t j=0;
+		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+			if (j == 0) {
+				// check to see if the hashkey exists for current chromosome id
+				//
+				iter = kh_put(khStrInt, wanted_chromosome_hash, strdup(tokPtr), &absent);
+				kh_value(wanted_chromosome_hash, iter) = 1;
+
+				if (chrom_id == NULL) {
+					chrom_id = calloc(strlen(tokPtr)+1, sizeof(char));
+				}
+			}
+
+			if (j == 1) {
+				start = (uint32_t) strtol(tokPtr, NULL, 10);
+			}
+
+			if (j == 2) {
+				end = (uint32_t) strtol(tokPtr, NULL, 10);
+				kh_value(wanted_chromosome_hash, iter) = end;
+
+				// update the total genome size info
+				//
+				stats_info->cov_stats->total_genome_bases += end - start;
+				printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->cov_stats->total_genome_bases);
+			}
+
+			j++;
 		}
 	}
 
+	// check version using chrom_id (for human genome only)
+	// Since the MySQL database won't be used for many cases, we can't rely on users to use -D option
+	// As the Default reference setting is hg37, we will only handle cases where it is hg38.
+	// Here we will dynamically check the chromosome format and set the -D option
+	//
+	if ( (strcasecmp(user_inputs->database_version, "hg38") != 0) && (strstr(chrom_id, "chr") != NULL) ) {
+		fprintf(stderr, "The reference version isn't set correctly\n");
+		fprintf(stderr, "The previous reference version was %s\n", user_inputs->database_version);
+		strcpy(user_inputs->database_version, "hg38");
+		fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
+	}
+
+	if (chrom_id != NULL) free(chrom_id);
+	fclose(fp);
 }
 
 // the following comparison is used to compare the uint32_t array
@@ -2069,3 +2165,21 @@ void print_string_array(char** strings_in, size_t length_in) {
 
 	return 0;
 }*/
+
+void checkNamingConvention(bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash) {
+	bool match=false;
+	uint32_t i=0;
+	for(i=0; i<header->n_targets; i++) {
+		khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, header->target_name[i]);
+		if (iter != kh_end(wanted_chromosome_hash)) {
+			match=true;
+			break;
+		}
+	}
+
+	if (!match) {
+		fprintf(stderr, "The naming conventions for chromosomes are different\n");
+		fprintf(stderr, "between the chromosome bed file and the input bam/cram file\n\n");
+		exit(EXIT_FAILURE);
+	}
+}
