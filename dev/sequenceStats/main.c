@@ -210,9 +210,7 @@ int main(int argc, char *argv[]) {
 	//
 	uint64_t input_bam_file_size = check_file_size(user_inputs->bam_file);
 
-	uint32_t total_chunk_of_reads = 500000;		// for small bam/cram file
-    //total_chunk_of_reads = 3000000;			// Good for 3 threads with 16gb of memory
-    //total_chunk_of_reads = 2200000;			// Good for 3 threads with 9gb  of memory
+	uint32_t total_chunk_of_reads = 300000;		// for small bam/cram file
 	if (input_bam_file_size > 5000000000)		// anything > 5Gb
 		total_chunk_of_reads = 1400000;			// Good for 3 threads with 9gb  of memory
 
@@ -547,6 +545,8 @@ int main(int argc, char *argv[]) {
 
 	if (user_defined_targets) 
 		cleanKhashStrInt(user_defined_targets);
+
+	printf("Program Finished Successfully\n\n");
 
 	return 0;
 }

@@ -42,11 +42,21 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		finish_with_error(dbs->con);
 
 	if (mysql_library_init(0, NULL, NULL)) {
-		fprintf(stderr, "Could not initialize MySQL Library!");
+		fprintf(stderr, "Could not initialize MySQL Library!\n");
 		exit(EXIT_FAILURE);
 	}
 
-	if (mysql_real_connect(dbs->con, "sug-esxa-db1", "phuang468", "phuang468", "GeneAnnotations", 0, NULL, 0) == NULL) {
+	if (user_inputs->user_name == NULL) {
+		fprintf(stderr, "Please enter your MySQL DB login user name and password!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (user_inputs->passwd == NULL) {
+		fprintf(stderr, "Please enter your MySQL DB login user name and password!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (mysql_real_connect(dbs->con, "sug-esxa-db1", user_inputs->user_name, user_inputs->passwd, "GeneAnnotations", 0, NULL, 0) == NULL) {
 		finish_with_error(dbs->con);
 	}
 
@@ -449,7 +459,12 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
 		// need to use SIGNED integer as it might go to negative and cause undefined behavior if using UNSIGNED!
 		//
 		int32_t i;
+		int32_t j=0;
 		for (i=found-1; i>=0; i--) {
+			// the following is added to prevent annotation getting too long and out of control!
+			//
+			if (j>200) break;
+
 			// check if the left exon overlaps with the low coverage region (lcr)
 			//         lcr start   =======================================   lcr end
 			//                                     left exon start  ------------   left exon end
@@ -464,18 +479,25 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
 				//
 				break;
 			}
+			j++;
 		}
 
 		// Here we also need to loop through the right hand side as well!
 		// The checking criteria is the same as the schema used the above
 		//
+		j=0;
 		for (i=found+1; i<regions_in->size_r[chrom_idx]; i++) {
+			// the following is added to prevent annotation getting too long and out of control!
+			//
+			if (i>200) break;
+
 			if ( (start <= regions_in->starts[chrom_idx][i] && regions_in->starts[chrom_idx][i] <= end) ||
 				   (start <= regions_in->ends[chrom_idx][i] && regions_in->ends[chrom_idx][i] <= end) ) {
 				copyAnnotationDetails(annotation_wrapper, regions_in, chrom_idx, i);
 			} else {
 				break;
 			}
+			j++;
 		}
 
 		// Now need to walk through the Annoration array and put everything together

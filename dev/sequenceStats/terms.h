@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##SeqStats v1.0 2017-07-17"
+#define VERSION_ "##Scandium v1.0"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -66,6 +66,8 @@ typedef struct {
 	char * chromosome_bed_file;		// a file contains chromosome ids and regions need to be processed in bed format
 	char * user_defined_database_file;
 	char * database_version;		// either hg19 (hg37) or hg38
+	char * user_name;				// user name for the database
+	char * passwd;					// password for the user
 
 	// For whole genome (WGS) related outputs
 	char * wgs_wig_file;			// output the off target good hit in wig formatted
@@ -364,8 +366,10 @@ typedef struct {
 	//misc
 	uint32_t total_targets;					//total taregted regions
 	uint16_t read_length;					//the sequenced READ Length, it is taken from => read_buff_in->chunk_of_reads[i]->core.l_qseq
-	uint32_t max_coverage;
-	uint32_t base_with_max_coverage;
+	uint32_t wgs_max_coverage;
+	uint32_t base_with_wgs_max_coverage;
+	uint32_t target_max_coverage;
+	uint32_t base_with_target_max_coverage;
 	uint16_t median_genome_coverage;
 	uint16_t median_target_coverage;
 	uint32_t mode;

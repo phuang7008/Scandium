@@ -126,30 +126,35 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
             }
         }
 
+		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FDUP) {				// Read is a Duplicate (either optical or PCR)
+			cov_stats->total_duplicate_reads++;
+            if(user_inputs->remove_duplicate) continue;
+        }
+
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPROPER_PAIR) {	// Read is properly paired
 			cov_stats->total_reads_proper_paired++;
 		} else {
 			cov_stats->total_chimeric_reads++;
 		}
 
-		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FDUP) {				// Read is a Duplicate (either optical or PCR)
-			cov_stats->total_duplicate_reads++;
-            if(user_inputs->remove_duplicate) continue;
-        }
-
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSUPPLEMENTARY) {
 			cov_stats->total_supplementary_reads++;
 			if (user_inputs->remove_supplementary_alignments)
 				continue;
 		}
- 
+
+		// skip if RNAME is "*"
+		//
+		if (strcmp("*", header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]) == 0)
+			continue;
+
 		// check to see if we have changed the chromosome
 		if ( strcmp(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]) != 0) {
 
 			// update the last_chr value, as we are going to handle new chromosome 
 			strcpy(cur_chr, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid]);
 
-			printf("Start processing chromosome id %s for thread %d\n", cur_chr, thread_id);
+			printf("Processing chromosome id %s for thread %d\n", cur_chr, thread_id);
 
 			not_added = true;
 		}
@@ -162,7 +167,9 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			temp_cov_array->cov_array = calloc(header->target_len[read_buff_in->chunk_of_reads[i]->core.tid]+1, sizeof(uint32_t));
 			temp_cov_array->size = header->target_len[read_buff_in->chunk_of_reads[i]->core.tid]+1;
 
-			khiter_t k_iter = kh_put(str, coverage_hash, strdup(cur_chr), &absent);    // get key iterator for chrom_id
+			khiter_t k_iter = kh_put(str, coverage_hash, cur_chr, &absent);    // get key iterator for chrom_id
+			if (absent)
+				kh_key(coverage_hash, k_iter) = strdup(cur_chr);
 			kh_value(coverage_hash, k_iter) = temp_cov_array;
 			not_added = false;
 
@@ -175,7 +182,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status);
     }
 
-    printf("Done read bam for thread %d\n", thread_id);
+    //printf("Done read bam for thread %d\n", thread_id);
 }
 
 void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status) {
@@ -210,8 +217,8 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
 	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
-	uint32_t start = rec->core.pos;
-	uint32_t qual_pos = 0;
+	uint32_t pos_r = rec->core.pos;				// position at the reference
+	uint32_t pos_q = 0;							// position at the query
 
 	for (i=0; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
@@ -229,55 +236,66 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			//
 			for (j=0; j<cln; ++j) {
 
-				//uint32_t pos = start + qual_pos + 1;
-				uint32_t pos = start + qual_pos;
-
-				if (pos < 0) continue;
-				if (pos >= chrom_len) break;
+				if (pos_r < 0) continue;
+				if (pos_r >= chrom_len) break;
 
 				if (TARGET_FILE_PROVIDED && (idx >=0)) {
 					if (!on_target) {
-						if (target_buffer_status[idx].status_array[pos] == 1 || target_buffer_status[idx].status_array[pos] == 4)
+						if (target_buffer_status[idx].status_array[pos_r] == 1 || target_buffer_status[idx].status_array[pos_r] == 4)
 							on_target = true;
 					}
 
 					if (!in_buffer) {
-						if (target_buffer_status[idx].status_array[pos] == 2 || target_buffer_status[idx].status_array[pos] == 5)
+						if (target_buffer_status[idx].status_array[pos_r] == 2 || target_buffer_status[idx].status_array[pos_r] == 5)
 							in_buffer = true;
 					}
 				}
 
-				if (qual[qual_pos] >= 20) cov_stats->base_quality_20++;
-				if (qual[qual_pos] >= 30) cov_stats->base_quality_30++;
+				if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
+				if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
 
-				if ( (user_inputs->min_base_quality) > 0 && (qual[qual_pos] < user_inputs->min_base_quality) ) {	
-					qual_pos++;
+				if ( (user_inputs->min_base_quality) > 0 && (qual[pos_q] < user_inputs->min_base_quality) ) {	
 					// filter based on the MIN_BASE_SCORE
+					//
+					pos_r++;
+					pos_q++;
 					continue;
 				}
 
-				kh_value(coverage_hash, outer_iter)->cov_array[pos]++;
-				qual_pos++;
+				kh_value(coverage_hash, outer_iter)->cov_array[pos_r]++;
+				pos_r++;
+				pos_q++;
 			}
 		} else if (cop == BAM_CSOFT_CLIP) {
-			qual_pos += cln;
-		} else if (cop == BAM_CINS) {
-			// as they are not part of the reference, we will not advance the qual_pos
+			// according to the website: https://github.com/lh3/samtools/blob/master/bam_md.c
+			// at the BAM_CSOFT_CLIP, we shouldn't increment the pos_r
+			// yes, the soft-clip position is not the beginning of the matched reference position
 			//
-			cov_stats->total_aligned_bases += cln;
+			pos_q += cln;
+		} else if (cop == BAM_CINS) {
+			// as they are not part of the reference, we will not advance the pos_r
+			// this is confirmed by the web:  https://github.com/lh3/samtools/blob/master/bam_md.c
+			//
+			//cov_stats->total_aligned_bases += cln;
 			for (j=0; j<cln; ++j) {
-				uint32_t pos = start + qual_pos;                                                              
-				                                                                                                              
-				if (pos < 0) continue;                                                                        
-				if (pos >= chrom_len) break; 
+				if (pos_r < 0) continue;                                                                        
+				if (pos_r >= chrom_len) break; 
 
 				// insertion bases will be counted as aligned bases
 				//
-				if (qual[qual_pos] >= 20) cov_stats->base_quality_20++;
-				if (qual[qual_pos] >= 30) cov_stats->base_quality_30++;
+				if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
+				if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
+				pos_q++;
 			}
-		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL || cop == BAM_CPAD) {
-			qual_pos += cln;
+		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL) {
+			// here we only advance the reference position, but not the query position
+			//
+			pos_r += cln;
+		} else if (cop == BAM_CPAD) {
+			// according to the https://www.biostars.org/p/4211/
+			// BAM_CPAD shouldn't advance pos_r
+			//
+			pos_q += cln;
 		}
 	}
 

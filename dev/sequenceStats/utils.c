@@ -426,7 +426,7 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 //
 void usage() {
 	printf("Version %s\n\n", VERSION_ );
-	printf("Usage:  coverage -i bam/cram -o output_dir [options ...]\n");
+	printf("Usage:  scandium -i bam/cram -o output_dir [options ...]\n");
 	printf("Note: this is a multi-threading program. Each thread need 3gb of memory. So please allocate them accordingly!\n");
 	printf("Note: for example: 3 threads would use 8-9gb of memory, while 4 threads would need 12 gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
@@ -448,7 +448,9 @@ void usage() {
 	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default:hg19>\n");
 	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
 	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
+	printf("\t-P <the MySQL DB login user's Password>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
+	printf("\t-U <the MySQL DB login User name>\n");
 
 	printf("The Followings are for the block region output (used for Uniformity analysis)\n");
 	printf("\t-l <the lower bound for the block region output. Default: 1>\n");
@@ -501,8 +503,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
-	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:r:st:T:u:VwWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:r:st:P:T:u:U:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -591,6 +592,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->output_dir, optarg);
                 break;
             case 'p': user_inputs->percentage = atof(optarg); break;
+			case 'P': 
+				user_inputs->passwd = malloc(strlen(optarg)+1 * sizeof(char));
+				strcpy(user_inputs->passwd, optarg);
+				break;
 			case 'r': 
 				user_inputs->chromosome_bed_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
 				strcpy(user_inputs->chromosome_bed_file, optarg);
@@ -617,14 +622,18 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->upper_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
+			case 'U': 
+				user_inputs->user_name = malloc(strlen(optarg)+1 * sizeof(char));
+				strcpy(user_inputs->user_name, optarg);
+				break;
 			case 'V': user_inputs->above_10000_on = true; break;
             case 'w': user_inputs->wgs_coverage = true; break;
 			case 'W': user_inputs->Write_WGS_cov_fasta = true; break;
             case '?':
 				if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
 					|| optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
-					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'r' || optopt == 't'
-					|| optopt == 'T' || optopt == 'u')
+					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' || optopt == 'r' 
+					|| optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -751,7 +760,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			//sprintf(string_to_add, ".Capture_below%dx_Gene_pct.txt", user_inputs->low_coverage_to_report);
 			sprintf(string_to_add, ".Capture_Gene_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_file, string_to_add);
-			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 5);
+			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 3);
 
 			//sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
 			sprintf(string_to_add, ".Capture_Exon_pct.txt");
@@ -761,7 +770,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			//sprintf(string_to_add, ".Capture_below%dx_Transcript_pct.txt", user_inputs->low_coverage_to_report);
 			sprintf(string_to_add, ".Capture_Transcript_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_file, string_to_add);
-			writeHeaderLine(user_inputs->low_cov_transcript_file, 3);
+			writeHeaderLine(user_inputs->low_cov_transcript_file, 5);
 		}
 	}
 
@@ -829,7 +838,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only) and need detailed annotations\n");
+		fprintf(out_fp, "##This file will be produced when the user specifies a low coverage threshold and need detailed annotations for these low coverage regions\n");
 		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonymon", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
 	} else if (type == 2) {
 		// for capture missed target file
@@ -839,18 +848,18 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	} else if (type == 3) {
 		// for gene percentage coverage annotation reports
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage information related to a Gene/RefSeq pair that intersects with a specific set of target regions from the input target bed file\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Length", "Exon_Count", "Percentage_Of_Coverage");
+		fprintf(out_fp, "##It contains the percentage of coverage for a Gene/RefSeq pair that above the user-specified low coverage threshold\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage", "if_-M_is_on:_HGMD?");
 	} else if (type == 4) {
 		// for exon percentage coverage annotation reports
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage information related to a group of Gene/RefSeq/Exon that intersects with a specific target region from the input target bed file\n");
+		fprintf(out_fp, "##It contains the percentage of coverage for Exons that above the user-specified low coverage threshold\n");
 		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Exon_ID", "Start", "End", "Percentage_Of_Coverage", "Regions_With_Low_Coverage");
 	} else if (type == 5) {
-		// for gene/transcript percentage coverage reports
+		// for transcript percentage coverage reports
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage information related to all RefSeq transcripts under a Gene that intersects with a specific set of target regions from the input target bed file\n");
-		fprintf(out_fp, "##%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage");
+		fprintf(out_fp, "##It contains the percentage of coverage for RefSeq transcripts that above the user-specified low coverage threshold\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Length", "Exon_Count", "Percentage_Of_Coverage");
 	}
 
 	fclose(out_fp);
@@ -977,6 +986,8 @@ User_Input * userInputInit() {
 	user_inputs->target_file = NULL;
 	user_inputs->chromosome_bed_file = NULL;
 	user_inputs->user_defined_database_file = NULL;
+	user_inputs->user_name = NULL;
+	user_inputs->passwd = NULL;
 
 	user_inputs->database_version = calloc(10, sizeof(char));
 	strcpy(user_inputs->database_version, "hg37");
@@ -988,6 +999,12 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->database_version)
 		free(user_inputs->database_version);
+
+	if (user_inputs->user_name)
+		free(user_inputs->user_name);
+
+	if (user_inputs->passwd)
+		free(user_inputs->passwd);
 
 	if (user_inputs->bam_file)
 		free(user_inputs->bam_file);
@@ -1387,8 +1404,10 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 
 	cov_stats->total_targets = 0;
 	cov_stats->read_length = 0;
-	cov_stats->max_coverage = 0;
-	cov_stats->base_with_max_coverage = 0;
+	cov_stats->wgs_max_coverage = 0;
+	cov_stats->base_with_wgs_max_coverage = 0;
+	cov_stats->target_max_coverage = 0;
+	cov_stats->base_with_target_max_coverage = 0;
 	cov_stats->median_genome_coverage = 0;
 	cov_stats->median_target_coverage = 0;
 
@@ -2085,7 +2104,7 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 
 			if (j == 2) {
 				end = (uint32_t) strtol(tokPtr, NULL, 10);
-				kh_value(wanted_chromosome_hash, iter) = end;
+				kh_value(wanted_chromosome_hash, iter) = end-start;
 
 				// update the total genome size info
 				//

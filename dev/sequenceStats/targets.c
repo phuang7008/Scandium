@@ -146,8 +146,13 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
 	for (i = 0; i < bed_info->size; i++) {
 
-		//if (i >= 100986)
-		//	printf("alt in\n");
+		// skip if the chromosome is not going to be processed
+		//
+		if (wanted_chromosome_hash != NULL) {
+			khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, bed_info->coords[i].chrom_id);
+			if (iter_p == kh_end(wanted_chromosome_hash))
+				continue;
+		}
 
         if (strcmp(bed_info->coords[i].chrom_id, cur_chrom_id) != 0) {
 			strcpy(cur_chrom_id, bed_info->coords[i].chrom_id);
@@ -189,13 +194,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			//if (type == 2 && j <= bed_info->coords[i].end) {
 				if (j >= chrom_len) continue;
 
-				if (wanted_chromosome_hash != NULL) {
-					khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, cur_chrom_id);
-					if (iter_p != kh_end(wanted_chromosome_hash))
-						stats_info->cov_stats->total_Ns_bases += 1;
-				} else {
-					stats_info->cov_stats->total_Ns_bases += 1;
-				}
+				stats_info->cov_stats->total_Ns_bases += 1;
 
 				if ((strcmp(bed_info->coords[i].chrom_id, "chrX") == 0) || (strcmp(bed_info->coords[i].chrom_id, "X") == 0))
 					stats_info->cov_stats->total_Ns_bases_on_chrX += 1;
