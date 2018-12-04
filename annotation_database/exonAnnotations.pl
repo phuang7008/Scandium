@@ -49,6 +49,7 @@ while (<IN>) {
 
 	# each line looks like the following:
 	# 1		11868	11873	NR_148357_exon_0_3=LOC102725121=11868=14362=1610;ENST00000456328.2_exon_0_3=DDX11L1=11868=14409=1657
+	# 1		11868	11873	NR_148357|exon_0|gene_3=LOC102725121=11868=14362=1610;ENST00000456328.2|exon_0|gene_3=DDX11L1=11868=14409=1657
 	# process the 4th entry that contains the gene info
 	#
 	my @info = split(/;/, $items[3]);
@@ -63,45 +64,48 @@ while (<IN>) {
 		$exons{$name}++;
 	}
 
-	foreach my $sn (keys %exons) {
-		$sn=~s/\_exon_\d+\_\d+$//;
+	# handle exon part which is NR_148357|exon_0|gene_3
+	#
+	foreach my $ex (keys %exons) {
+		#$ex=~s/\_exon_\d+\_\d+$//;
+		my @ex_info = split(/\|/, $ex);
 
 		my $sql;
 
 		# handle refseq gene symbols
 		#
-        if ($sn=~/^N.*/ || $sn=~/^X.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$sn', replace(refseq_accession, '|', ',')))";
+        if ($ex_info[0]=~/^N.*/ || $ex_info[0]=~/^X.*/) {
+            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$ex_info[0]', replace(refseq_accession, '|', ',')))";
         }
 
 		# handle UCSC gene symbols
 		#
-		if ($sn=~/^uc.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ucsc_id IS NOT NULL AND find_in_set('$sn', replace(ucsc_id, '|', ',')))";
+		if ($ex_info[0]=~/^uc.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ucsc_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ucsc_id, '|', ',')))";
 		}
 
 		# handle EMSEMBL gene symbols
 		#
-		if ($sn=~/^EN.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$sn', replace(ensembl_gene_id, '|', ',')))";
+		if ($ex_info[0]=~/^EN.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ensembl_gene_id, '|', ',')))";
 		}
 
 		# handle VEGA gene symbols, it is only available till HG37
 		#
-		if ($sn=~/^OTT.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (vega_id IS NOT NULL AND find_in_set('$sn', replace(vega_id, '|', ',')))";
+		if ($ex_info[0]=~/^OTT.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (vega_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(vega_id, '|', ',')))";
 		}
 
 		# handle CCDS gene symbols
 		#
-        if ($sn=~/^CCDS.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ccds_id IS NOT NULL AND find_in_set('$sn', replace(ccds_id, '|', ',')))";
+        if ($ex_info[0]=~/^CCDS.*/) {
+            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ccds_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ccds_id, '|', ',')))";
         }
 
 		# handle miRNA information
 		#
-		if ($sn=~/^hsa.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (mirbase IS NOT NULL AND find_in_set('$sn', replace(mirbase, '|', ',')))";
+		if ($ex_info[0]=~/^hsa.*/) {
+			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (mirbase IS NOT NULL AND find_in_set('$ex_info[0]', replace(mirbase, '|', ',')))";
 		}
 
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";

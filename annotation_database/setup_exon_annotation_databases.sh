@@ -29,7 +29,8 @@ new_miRNA_file=""
 
 if [ "$gene_db_version" == "hg38" ]; then
 	new_miRNA_file=`basename ${miRNA_FILE}`_simplified.bed
-	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/chr//gi | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"_exon_0_1="$5; print}' > $new_miRNA_file
+	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"\|exon_1\|miRNA_1="$5; print}' > $new_miRNA_file
+	#awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/chr//gi | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"_exon_0_1="$5; print}' > $new_miRNA_file
 	printf "Producing simplified miRNA file $new_miRNA_file \n"
 else 
 	new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed

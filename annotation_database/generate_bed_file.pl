@@ -30,7 +30,7 @@ while (<IN>) {
 	my @ends   = split ",", $items[9];
 
 	# remove 'chr' in front of chromosome id
-	$items[1]=~s/chr//i;
+	#$items[1]=~s/chr//i;
 
 	if ($items[0]=~/^CCDS.*/) {
 		$items[0]=~s/(CCDS.*)\.\d+$/$1/;
@@ -112,7 +112,8 @@ while (<IN>) {
 		}
 
 		#print "$items[1]\t$starts[$idx]\t$ends[$idx]\t$items[0]_exon_$exon_id\_$items[7]=$items[10]\t$items[10]\n";
-		print "$items[1]\t$starts[$idx]\t$ends[$idx]\t$items[0]_exon_$exon_id\_$items[7]=$items[10]=$cds_start=$cds_end=$cds_length\t$items[10]\n";
+		#print "$items[1]\t$starts[$idx]\t$ends[$idx]\t$items[0]_exon_$exon_id\_$items[7]=$items[10]=$cds_start=$cds_end=$cds_length\t$items[10]\n";
+		print "$items[1]\t$starts[$idx]\t$ends[$idx]\t$items[0]|exon_$exon_id|gene\_$items[7]=$items[10]=$cds_start=$cds_end=$cds_length\t$items[10]\n";
 	}
 }
 
