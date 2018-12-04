@@ -107,9 +107,9 @@ void coverageRangeInfoForGraphing(char *chrom_id, Bed_Info *target_info, Chromos
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param chrom_idx: the chromosome index 
  * @param user_inputs: contains all the user_inputs options
- * @param fh_range: an opened range file handle
+ * @param fh_uniformity: an opened uniformity data report file handle
  */
-void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_range);
+void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_uniformity);
 
 /**
  * output those regions with lower than or higher than user specified coverage values
@@ -159,13 +159,15 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
  * @param hgmd_genes: a lookup hash table that contains all HGMD genes
  * @param hgmd_transcripts: a lookup hash table that contains all HGMD transcripts
  */
-void outputGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts);
+void storeGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts, khash_t(khStrGTP) *gene_transcript_percentage_hash);
 
 /* it is used to store percentage for current gene's transcripts for later usage
  * @param hgmd_transcripts_hash: a lookup hash table that contains all HGMD transcripts
  * @param transcript_name: the transcript name to be handled
  * @param percentage: the percentage of coverage for current transcript
  */
-void storeHGMDinfo(khash_t(khStrInt) *hgmd_transcripts_hash, char* transcript_name, float percentage);
+void storeHGMD_TranscriptPercentageInfo(khash_t(khStrGTP) *gene_transcript_percentage_hash, char *gene_symbol, char* transcript_name, float percentage, bool HGMD_on);
+
+void outputGeneCoverage(khash_t(khStrGTP) *gene_transcript_percentage_hash, User_Input *user_inputs);
 
 #endif // REPORTS_H

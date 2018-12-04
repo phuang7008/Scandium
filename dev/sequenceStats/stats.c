@@ -312,42 +312,31 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 
 //Note: this function needs to be run unde the critical condition, that is only one thread will run this function
 //
-void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash, bam_hdr_t *header) {
+void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash) {
 	khiter_t outer_iter;		// Note: khint_t and khiter_t are the same thing!
 	int32_t i=0, j=0;
 
 	/**
 		First we need to loop through the coverage_hash to find out how many chromosomes it tracks
 		As the keys in hash is not in order, I need to order them here!!!
-		The chromosome id list in the header is ordered, so I am going to use it!
-		Note: not all of the chromosomes will be presented in the alignments. 
-		In this case, the bucket will be empty.  But I will still keep it as empty. 
-		so everything we do something after this point, we will still have to check for the existence of the chromosome id
+		The chromosome id list in the chrom_tracking is ordered, so I am going to use it!
 	*/
 
 	for (i = 0; i < chrom_tracking->number_tracked; i++) {
+		if (chrom_tracking->chromosome_status[i] > 2) continue;
+
 		// Now go through the coverage_hash map to see if it is currently tracking it
 		// if it tracks new chromosome, we need to allocate memory for the coverage array of the new chromosome
 		//
-		if (chrom_tracking->chromosome_status[i] > 2) continue;
-
 		for (outer_iter = kh_begin(coverage_hash); outer_iter != kh_end(coverage_hash); ++outer_iter) {
 			if (kh_exist(coverage_hash, outer_iter)) {
-				// compare with ordered chromosome ID in the header, if it is matched, then process it!
-				// using header->target_name is fine as we are not going to exceed the number_tracked
-				// even though user specified chromosome bed file
+				// compare with ordered chromosome ID , if it is matched, then process it!
 				//
-				if (strcmp(header->target_name[i], kh_key(coverage_hash, outer_iter)) == 0) {
-					bool need_to_allocate = true;
-
-					if (chrom_tracking->chromosome_lengths[i] > 0)
-						// it is already tracked and memory allocated!
-						need_to_allocate = false;
-
-		            // Process the current chromosome for the first time!
-					if (need_to_allocate) {
-						uint32_t chrom_len = header->target_len[i];
-						chromosomeTrackingUpdate(chrom_tracking, header->target_name[i], chrom_len, i);
+				if (strcmp(chrom_tracking->chromosome_ids[i], kh_key(coverage_hash, outer_iter)) == 0) {
+					if (chrom_tracking->chromosome_status[i] == 0) {
+						// Process the current chromosome for the first time!
+						//
+						chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_ids[i], chrom_tracking->chromosome_lengths[i], i);
 
 						// if it goes to the next chromosome, the previous chromosome should be done processing
 				        // Thus, we need to update the previous chromosome status

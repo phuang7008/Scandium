@@ -157,11 +157,11 @@ User_Input * userInputInit();
 void userInputDestroy(User_Input *user_inputs);
 
 /**
- * calculate the total number of genome bases from the bam/cram header info
+ * calculate the total number of genome bases and load chromosome info from the bam/cram header info
  * @param header: bam/cram/sam header info
  * @param stats_info: to store the final number of total genome bases
  */
-void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs);
+void loadGenomeInfoFromBamHeader(khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs);
 
 /**
  * for Coverage_Stats variable initialization
@@ -195,6 +195,11 @@ void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean);
 void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 
 /**
+ *
+ */
+void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage_hash);
+
+/**
  * This function is used to dynamically allocate string and grow it accordingly
  * @param str_in, the string to be added
  * @param storage_str, the string to be dynamically allocated/expanded
@@ -206,7 +211,7 @@ void dynamicStringAllocation(char *str_in, char **storage_str);
  * @param header: a bam header that contains all the chromosome information
  * @return an instance of Chromosome_Tracking upon successful
  */
-void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking);
+void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header);
 
 /**
  * Initialize the chromosome_tracking variable using user specified region file
@@ -214,7 +219,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
  * @param wanted_chromosome_hash: a kh_hash table stores chromosomes to be processed
  * @return an instance of Chromosome_Tracking upon successful 
  */
-uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking);
+uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header);
 
 /**
  * This function is used to update all members for the Chromosome_Tracking variable
@@ -365,7 +370,7 @@ void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
  * @param autosome: it is used to indicate if it is only going to handle non-sex chromosomes
  * @param primary_chromosomes_only: it is used to indicate if it is only going to handle primary chromosome without alt or decoys
  */
-void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *primary_chromosome_hash, bool autosome, bool primary_chromosomes_only);
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, khash_t(m32) *cov_freq_dist, bool autosome, bool primary_chromosomes_only);
 
 /*
  * Instead of taking points around Mode evenly, it will always try to pick the higher points around Mode
@@ -374,6 +379,10 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
  * @param user_inputs: the peak size (default 7) could be defined by the end user and store at user_inputs
  */
 uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs);
+
+void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist);
+
+void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs);
 
 /*
  * it is a help function that is used to load all chromosomes need to be processed

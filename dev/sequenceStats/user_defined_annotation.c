@@ -32,7 +32,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 	//
 	uint64_t total_line_count = 0; 
 
-	// Store all the chromosome info into a KHASH_MAP with string as key and uint32_t as value
+	// Store number of CDSs for a chromosome into the chromosome_info hash (a KHASH_MAP) with string as key and uint32_t as value
 	//
 	khash_t(khStrInt) *chromosome_info = kh_init(khStrInt);
 
@@ -61,6 +61,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 
 		// now need to get cds length and count information
 		// 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+		// 7       87173445        87173591        ABCB1|ENST00000265724|18|gene
 		//
 		uint32_t j=0, start=0, end=0;
 
@@ -113,52 +114,35 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 		kh_value(user_defined_targets, iter)++;
 
 		// now process gene_info to extract gene_symbol and transcript_name
-		// ABCB1|ENST00000265724_cds_18
+		// ABCB1|ENST00000265724|cds_18|gene	or
+		// ABCB1|ENST00000265724|18|gene
 		//
 		char *gene_token;
 		savePtr = gene_info;
-		char *tmp_name=calloc(50, sizeof(char));
+		char *tmp_id = calloc(30, sizeof(char));
+		char *tmp_type = calloc(30, sizeof(char));
 
-		// need to finish the strtok_r() for gene_token
-		//
 		j=0;
 		while ((gene_token = strtok_r(savePtr, "|", &savePtr))) {
 			if (j==0)
 				strcpy(gene_symbol, gene_token);
 
 			if (j==1)
-				strcpy(tmp_name, gene_token);
+				strcpy(transcript_name, gene_token);
+
+			if (j==2)
+				strcpy(tmp_id, gene_token);
+
+			if (j==3)
+				strcpy(tmp_type, gene_token);
 
 			j++;
 		}
 
-		// Now processing transcript info
-		// ENST00000265724_cds_18	or	NM_000531_cds_3
+		// now process tmp_id: cds_18 or 18
 		//
-		char *name_token;
-		savePtr = tmp_name;
-		bool nm_flag=false;
+		//savePtr = tmp_id;
 
-		j=0;
-		while ((name_token=strtok_r(savePtr, "_", &savePtr))) {
-			if (j==0) {
-				strcpy(transcript_name, name_token);
-
-				// some transcript name like the following:
-				// NM_005957_cds_6
-				//
-				if ( (stristr(name_token, "NM") != NULL) || (stristr(name_token, "NR") != NULL) || (stristr(name_token, "XM") != NULL))
-					nm_flag=true;
-			}
-
-			if (j==1) {
-				if (nm_flag) {
-					strcat(transcript_name, "_");
-					strcat(transcript_name, name_token);
-				}
-			}
-			j++;
-		}
 
 		// Now combine both gene_symbol and transcript_name together to form a unique gene ID
 		//
@@ -188,7 +172,8 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 		kh_value(cds_counts, iter)++;
 
 		if (gene != NULL) free(gene);
-		if (tmp_name  != NULL) free(tmp_name);
+		if (tmp_id != NULL) free(tmp_id);
+		if (tmp_type != NULL) free(tmp_type);
 
 		total_line_count++;
 	}
@@ -222,7 +207,6 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 	udd_wrapper->ud_database_per_chrom = calloc(num_of_chrom, sizeof(User_Defined_Database));
 
 	uint32_t chrom_idx=0;
-	char *tmp_cid = calloc(50, sizeof(char));
 	for (iter = kh_begin(chromosome_info); iter != kh_end(chromosome_info); ++iter) {
 		if (kh_exist(chromosome_info, iter)) {
 			udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds = kh_value(chromosome_info, iter);
@@ -232,8 +216,6 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 			chrom_idx++;
 		}
 	}
-
-	if (tmp_cid != NULL) free(tmp_cid);
 
 	// clean-up
 	//
@@ -326,7 +308,6 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 	char *buf_cds_count  = calloc(50, sizeof(char));	// store tmp cds count  to a string
 	char *orig_line  = calloc(300, sizeof(char));		// deep copy of a line read as strtok will destroy the string
 	char *annotation = calloc(200, sizeof(char));		// store the last part of the annotation for the future usage
-	char *tmp_cds_info = calloc(150, sizeof(char));
 	char *line = NULL;
 
 	// store unique gene symbol and transcripts
@@ -345,7 +326,7 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		if (*line == '\n')
 			continue;
 
-		// make a copy first as strtok will destroy the 'line' variable
+		// make a copy first as strtok_r will destroy the 'line' variable
 		// change the last character of the line with '\0' to remove the newline character '\r\n'
 		//
 		if (line[strlen(line)-1] == '\n')
@@ -360,7 +341,7 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		int32_t chrom_idx=-1;
 
 		// line example:
-		// 7       87178664        87178834        ABCB1|ENST00000543898_cds_12
+		// 7       87178664        87178834        ABCB1|ENST00000543898|cds_12|gene
 		//
 		j=0;
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
@@ -368,8 +349,6 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 				// need to find the index for current chromosome
 				//
 				for (i=0; i<exon_regions->chrom_list_size; i++) {
-					// need to remove 'chr' from the chromosome id
-					//
 					if (strcmp(tokPtr, exon_regions->chromosome_ids[i]) == 0) {
 						chrom_idx = i;
 						break;
@@ -401,7 +380,7 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 			}
 
 			if (j == 3) {
-				// It seems that I can't do multiple strtok at a time as it will mess up the internal string poiter
+				// It seems that I can't do multiple strtok_r at a time as it will mess up the internal string poiter
 				// So I save it first here for the later usage
 				//
 				strcpy(annotation, tokPtr);
@@ -410,11 +389,12 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		}
 
 		// once we have annotation saved, we will use strtok_r again to do the splitting
-		// for annotation: gene|cds_info:
-		// ABCB1|ENST00000543898_cds_12
+		// for annotation: gene|transcript_name|cds_id|type:
+		// ABCB1|ENST00000543898|cds_12|gene
 		//
 		savePtr = annotation;
 		char *token;
+		char *transcript_name = calloc(50, sizeof(char));
 		j=0;
 
 		while ((token = strtok_r(savePtr, "|", &savePtr))) {
@@ -441,11 +421,25 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 				strcpy(gene, token);	// store gene symbol for later usage
 			}
 
-			if (j==1)
-				strcpy(tmp_cds_info, token);
+			if (j==1) {
+				// get transcript name and add it to the end of gene symbol (would be unique)                 
+				//           
+				strcat(gene, "-");                                                                            
+				strcat(gene, token);
+				strcpy(transcript_name, token);
+			}
 
+			if (j==2) {
+				strcat(transcript_name, "|");
+				strcat(transcript_name, token);
+			}
 
-			if (j > 1) {
+			if (j==3) {
+				strcat(transcript_name, "|");
+				strcat(transcript_name, token);
+			}
+
+			if (j > 3) {
 				fprintf(stderr, "Something wrong with the user-defined database. Please check the format %s\n", token);
 				exit(EXIT_FAILURE);
 			}
@@ -454,69 +448,41 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 
 		// allocate memory: here we need to allocate extra space as space-holder for other sources
 		// here is an example from the MySQL database annotation
-		// NM_000090_exon_21;NR_037401_exon_0	CCDS2297_exon_21	ENST00000304636.7_exon_21   hsa-mir-3606_exon_0
+		// NM_000090|exon_21;NR_037401|exon_0	CCDS2297|exon_21	ENST00000304636.7|exon_21   hsa-mir-3606|exon_0
 		// Note: for UCSC annotation, I will put it along with the CCDS column
 		//
-		exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(strlen(tmp_cds_info)+50, sizeof(char));
+		exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds] = calloc(strlen(transcript_name)+50, sizeof(char));
 
 		// Here I need to find out the source of the annotation
 		//
-		if ( (stristr(tmp_cds_info, "NM") != NULL) || (stristr(tmp_cds_info, "NR") != NULL) || (stristr(tmp_cds_info, "XM") != NULL)) {
+		if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) || (stristr(transcript_name, "XM") != NULL)) {
 			// refseq
 			//
-			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], transcript_name);
 			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.\t.\t.");
-		} else if ( (stristr(tmp_cds_info, "CCDS") != NULL) || (stristr(tmp_cds_info, "uc") != NULL) ) {
+		} else if ( (stristr(transcript_name, "CCDS") != NULL) || (stristr(transcript_name, "uc") != NULL) ) {
 			// CCDS
 			//
 			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t");
-			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], transcript_name);
 			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.\t.");
-		} else if ( (stristr(tmp_cds_info, "OTT") != NULL) || (stristr(tmp_cds_info, "ENST") != NULL) ) {
+		} else if ( (stristr(transcript_name, "OTT") != NULL) || (stristr(transcript_name, "ENST") != NULL) ) {
 			// for VEGA or Gencode
 			//
 			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t");
-			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], transcript_name);
 			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.\t.");
-		} else if ( (stristr(tmp_cds_info, "hsa") != NULL) || (stristr(tmp_cds_info, "mir") != NULL) ) {
+		} else if ( (stristr(transcript_name, "hsa") != NULL) || (stristr(transcript_name, "mir") != NULL) ) {
 			// for miRNA
 			//
 			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t.\t");
-			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], transcript_name);
 			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], "\t.");
 		} else {
 			// everything else goes here
 			//
 			strcpy(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], ".\t.\t.\t.\t");
-			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], tmp_cds_info);
-		}
-
-		// The following is for the cds/gene percentage coverage culculation
-		//
-		char *cds_token;
-		savePtr = tmp_cds_info;
-		char *transcript_name = calloc(50, sizeof(char));
-		j=0;
-
-		while ((cds_token = strtok_r(savePtr, "_", &savePtr))) {
-			if (j==0) {
-				// get transcript name and add it to the end of gene symbol (would be unique)
-				//
-				strcat(gene, "-");
-				strcat(gene, cds_token);
-				strcpy(transcript_name, cds_token);
-			}
-
-			if (j==1) {
-				// However, some transcript name like the following:
-				// NM_005957_cds_6_3_1333
-				//
-				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) || (stristr(transcript_name, "XM") != NULL)) {
-					strcat(gene, "_");
-					strcat(gene, cds_token);
-				}
-			}
-			j++;
+			strcat(exon_regions->exon_info[chrom_idx][udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds], transcript_name);
 		}
 
 		if (transcript_name) free(transcript_name);
@@ -541,9 +507,9 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 
 		// need to store the cds length and count information to the annotation
 		//
-		strcat(orig_line, "_");
+		strcat(orig_line, "|");
 		strcat(orig_line, buf_cds_count);
-		strcat(orig_line, "_");
+		strcat(orig_line, "|");
 		strcat(orig_line, buf_cds_length);
 
 		// store raw user-defined-database here
@@ -568,7 +534,6 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 	if (annotation != NULL) free(annotation);
 	if (buf_cds_length != NULL) free(buf_cds_length);
 	if (buf_cds_count  != NULL) free(buf_cds_count);
-	if (tmp_cds_info != NULL) free(tmp_cds_info);
 }
 
 // the following is used for the setup of coverage percentage calculation
@@ -606,7 +571,7 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 		strcpy(line, raw_user_defined_database->annotations[chrom_idx][i]);
 
 		// Example of a line:
-		// 15      75047131        75047429        CYP1A2|NM_000761_cds_6_1_12_1342
+		// 15      75047131        75047429        CYP1A2|NM_000761|cds_6|gene|9|1342
 		//
 		char *gene_annotation = calloc(strlen(raw_user_defined_database->annotations[chrom_idx][i])+2, sizeof(char));
 		savePtr = line;
@@ -644,9 +609,11 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 		}
 
 		// here is the cds annotation part
-		// ANKK1|ENST00000303941_cds_1_8_2290
+		// ANKK1|ENST00000303941|cds_1|gene|8|2290
 		//
-		char *gene_token=NULL, *cds_annotation=NULL, *gene_symbol=NULL;
+		char *gene_token=NULL, *cds_annotation=NULL, *gene_symbol=NULL, *transcript_name;
+		uint16_t exon_id=0, exon_count=0;
+		uint32_t cds_length=0;
 		savePtr = gene_annotation;
 		j=0;
 
@@ -657,69 +624,45 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
 			}
 
 			if (j==1) {
-				// get the second part (cds) of the annotation
-				// ENST00000303941_cds_1_8_2290
-				//
-				cds_annotation = calloc(strlen(gene_token)+2, sizeof(char));
+				transcript_name = calloc(strlen(gene_token)+30, sizeof(char));
+				strcpy(transcript_name, gene_token);
+			}
+
+			if (j==2) {
+				cds_annotation = calloc(strlen(gene_token)+1, sizeof(char));
 				strcpy(cds_annotation, gene_token);
 			}
+
+			if (j==3)
+				continue;
+
+			if (j==4)
+				exon_count = (int16_t) strtol(gene_token, NULL, 10);
+
+			if (j==5)
+				cds_length = (int32_t) strtol(gene_token, NULL, 10);
+
 			j++;
 		}
 
-		// Now processing the following part
-		// ENST00000303941_cds_1_8_2290
+		// handle cds_id or exon_id info as it might contains 'cds_'
 		//
-		char *cds_token=NULL, *transcript_name=NULL;
-		savePtr = cds_annotation;
-		bool flag_2nd_field=false;	// if the 2nd field is part of transcript name
-		j=0;
-		uint16_t exon_id=0, exon_count=0;
-		uint32_t cds_length=0;
+		if (strstr(cds_annotation, "_") == NULL) {
+			exon_id = (int16_t) strtol(cds_annotation, NULL, 10);
+		} else {
+			char *cds_token=NULL;
+			savePtr = cds_annotation;
+			j=0;
 
-		while ((cds_token = strtok_r(savePtr, "_", &savePtr))) {
-			if (j==0) {
-				transcript_name = calloc(strlen(cds_token)+30, sizeof(char));
-				strcpy(transcript_name, cds_token);
-
-				// some transcript name like the following:
-				// NM_005957_cds_6_3_1333
-				//
-				if ( (stristr(transcript_name, "NM") != NULL) || (stristr(transcript_name, "NR") != NULL) || (stristr(transcript_name, "XM") != NULL))
-					flag_2nd_field=true;
-			}
-
-			if (j==1) {
-				if (flag_2nd_field) {
-					strcat(transcript_name, "_");
-					strcat(transcript_name, cds_token);
-				}
-			}
-
-			if (flag_2nd_field) {
-				// j==2 is just 'cds', so skip it
-				//
-				if (j==3)
+			while ((cds_token = strtok_r(savePtr, "_", &savePtr))) {
+				if (j==1)
 					exon_id = (int16_t) strtol(cds_token, NULL, 10);
 
-				if (j==4)
-					exon_count = (int16_t) strtol(cds_token, NULL, 10);
-
-				if (j==5)
-					cds_length = (int32_t) strtol(cds_token, NULL, 10);
-			} else {
-				if (j == 2)
-					exon_id = (int16_t) strtol(cds_token, NULL, 10);
-
-				if (j == 3)
-					exon_count = (int16_t) strtol(cds_token, NULL, 10);
-	
-				if (j == 4) 
-					cds_length = (int32_t) strtol(cds_token, NULL, 10);
+				j++;
 			}
-			j++;
 		}
 
-		// Once we have gene symbol and transcript name, we need to add them into the gene_transcripts
+		// Once we have gene symbol and transcript name, we need to add them into the gene_transcripts hash
 		//
 		addToGeneTranscriptKhashTable(gene_symbol, transcript_name, gene_transcripts, seen_transcript);
 

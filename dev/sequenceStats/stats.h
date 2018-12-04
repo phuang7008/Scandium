@@ -80,8 +80,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
  * This function should be critical as no more than one thread should write to the same array at the same time
  * @param chrom_tracking: the variable that is used to tracking the status of all chromosomes
  * @param coverage_hash: the coverage hash table whose contents will write into the chrom_coverage
- * @param header: bam/cram file header information that has chromosome id and length info 
  */
-void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash, bam_hdr_t *header);
+void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash);
 
 #endif // STATS_H

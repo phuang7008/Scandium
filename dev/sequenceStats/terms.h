@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.0"
+#define VERSION_ "##Scandium v1.1"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -53,6 +53,7 @@ extern int khStrInt;
 extern int khStrFloat;
 extern int khStrStrArray;
 extern int khStrLCG;
+extern int khStrGTP;
 
 /**
  * define a structure that holds the file strings from user inputs
@@ -75,7 +76,7 @@ typedef struct {
 	char * wgs_cov_report;			// output the whole genome coverage summary report	
 	char * wgs_low_cov_file;		// for the regions within the whole genome that have lower coverage with detailed annotation
 	char * wgs_high_cov_file;		// for the regions within the whole genome that have high coverage without detailed annotation
-	char * wgs_range_file;			// for whole genome range file
+	char * wgs_uniformity_file;		// for whole genome uniformity data file
 
 	// For Capture related outputs
 	//char * missed_targets_file;		// for target regions that have no coverage at all
@@ -83,7 +84,6 @@ typedef struct {
 	char * capture_cov_report;		// output the capture target regions coverage summary report
 	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
 	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
-	//char * capture_range_file;		// for target range file
 	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
 	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
 	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
@@ -94,13 +94,14 @@ typedef struct {
 	int8_t min_base_quality;
 	uint16_t low_coverage_to_report;	// default 20, users are allowed to change it as an input option
 	uint32_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
-	int16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the range output
-	int16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the range output
+	int16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the uniformity output
+	int16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the uniformity output
 	uint16_t gVCF_percentage;			// default 5 for 500%. For gVCF formula: BLOCKAVE_Xp, where X=gVCF_percentage
 	uint16_t target_buffer_size;		// default 100. For regions immediate adjacent to any target regions
 	short num_of_threads;
 	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
 	uint8_t size_of_peak_area;			// the points around peak area to pick for uniformity calculation
+	bool user_set_peak_size_on;
 	bool remove_duplicate;
 	bool remove_supplementary_alignments;
 	bool annotation_on;
@@ -168,7 +169,7 @@ typedef struct {
 
     char **chromosome_ids;
     uint32_t *chromosome_lengths;
-    uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish coverage calculation, 3. done summary-report/annotation processing, 4.done writing!
+    uint8_t  *chromosome_status;	// 0 pending, 1 working, 2 finish coverage calculation, 3. done summary-report/annotation processing!
 	bool more_to_read;
 } Chromosome_Tracking;
 
@@ -302,6 +303,19 @@ typedef struct {
 	uint32_t total_size;
 } Low_Coverage_Genes;
 
+typedef struct {
+	char* transcript_name;
+	float percentage;
+	bool  HGMD;
+} Transcript_Percentage;
+
+typedef struct {
+	Transcript_Percentage *transcript_percentage;
+	uint16_t capacity;
+	uint16_t size;
+	bool has_HGMD;
+} Gene_Transcript_Percentage;
+
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
@@ -326,6 +340,8 @@ KHASH_MAP_INIT_STR(khStrInt, uint32_t)
 KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
 
 KHASH_MAP_INIT_STR(khStrLCG, Low_Coverage_Genes*)
+
+KHASH_MAP_INIT_STR(khStrGTP, Gene_Transcript_Percentage*)
 
 /**
  * define a coverage statistics structure

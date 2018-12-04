@@ -426,7 +426,7 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 //
 void usage() {
 	printf("Version %s\n\n", VERSION_ );
-	printf("Usage:  scandium -i bam/cram -o output_dir [options ...]\n");
+	printf("Usage:  coverage -i bam/cram -o output_dir [options ...]\n");
 	printf("Note: this is a multi-threading program. Each thread need 3gb of memory. So please allocate them accordingly!\n");
 	printf("Note: for example: 3 threads would use 8-9gb of memory, while 4 threads would need 12 gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
@@ -448,9 +448,7 @@ void usage() {
 	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default:hg19>\n");
 	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
 	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
-	printf("\t-P <the MySQL DB login user's Password>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
-	printf("\t-U <the MySQL DB login User name>\n");
 
 	printf("The Followings are for the block region output (used for Uniformity analysis)\n");
 	printf("\t-l <the lower bound for the block region output. Default: 1>\n");
@@ -503,7 +501,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
 	//When getopt returns -1, no more options available
 	//
-	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:r:st:P:T:u:U:VwWy:h")) != -1) {
+	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:P:r:st:T:u:U:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -555,6 +554,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 break;
 			case 'k':
 				user_inputs->size_of_peak_area = (uint8_t) strtol(optarg, NULL, 10); break;
+				user_inputs->user_set_peak_size_on = true; break;
 			case 'L':
 				if (!isNumber(optarg)) {
                     fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
@@ -592,7 +592,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->output_dir, optarg);
                 break;
             case 'p': user_inputs->percentage = atof(optarg); break;
-			case 'P': 
+			case 'P':
 				user_inputs->passwd = malloc(strlen(optarg)+1 * sizeof(char));
 				strcpy(user_inputs->passwd, optarg);
 				break;
@@ -622,7 +622,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->upper_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
-			case 'U': 
+			case 'U':
 				user_inputs->user_name = malloc(strlen(optarg)+1 * sizeof(char));
 				strcpy(user_inputs->user_name, optarg);
 				break;
@@ -632,7 +632,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case '?':
 				if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
 					|| optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
-					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' || optopt == 'r' 
+					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' || optopt == 'r'
 					|| optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
@@ -749,10 +749,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			writeHeaderLine(user_inputs->capture_high_cov_file, 1);
 		}
 
-		// output range block file for Uniformity Analysis
+		// output uniformity data file for Uniformity Analysis
 		//
 		//sprintf(string_to_add, ".Capture_between%dx_%dx_REPORT.txt", user_inputs->lower_bound, user_inputs->upper_bound);
-		//createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_range_file, string_to_add);
 
 		// for low coverage gene/exon/transcript reports
 		//
@@ -794,10 +793,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			writeHeaderLine(user_inputs->wgs_high_cov_file, 1);
 		}
 
-		// output the range block file for Uniformity Analysis
+		// output the uniformity data file for Uniformity Analysis
 		//
 		sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
-	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_range_file, string_to_add);
+	    createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add);
 
 		// for whole genome (wgs) file name
     	if (user_inputs->Write_WGS_cov_fasta) {
@@ -849,7 +848,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 		// for gene percentage coverage annotation reports
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
 		fprintf(out_fp, "##It contains the percentage of coverage for a Gene/RefSeq pair that above the user-specified low coverage threshold\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage", "if_-M_is_on:_HGMD?");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage", "If_-M_on,_HGMD?");
 	} else if (type == 4) {
 		// for exon percentage coverage annotation reports
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
@@ -891,8 +890,8 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d\n", user_inputs->gVCF_percentage);
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
-	fprintf(stderr, "\tThe range block file will be produced\n");
-	fprintf(stderr, "\t\tThe range is between %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
+	fprintf(stderr, "\tThe uniformity data file will be produced\n");
+	fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
 
 	if (user_inputs->annotation_on) {
 		fprintf(stderr, "\tThe detailed gene annotation is ON\n");
@@ -970,7 +969,8 @@ User_Input * userInputInit() {
 	user_inputs->gVCF_percentage = 10;
 	user_inputs->num_of_threads   = 3;
 	user_inputs->percentage = 1.0;
-	user_inputs->size_of_peak_area = 7;
+	user_inputs->size_of_peak_area = 0;
+	user_inputs->user_set_peak_size_on = false;
 	user_inputs->annotation_on = true;
 	user_inputs->above_10000_on = false;
 	user_inputs->wgs_coverage = false;
@@ -986,8 +986,6 @@ User_Input * userInputInit() {
 	user_inputs->target_file = NULL;
 	user_inputs->chromosome_bed_file = NULL;
 	user_inputs->user_defined_database_file = NULL;
-	user_inputs->user_name = NULL;
-	user_inputs->passwd = NULL;
 
 	user_inputs->database_version = calloc(10, sizeof(char));
 	strcpy(user_inputs->database_version, "hg37");
@@ -999,12 +997,6 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->database_version)
 		free(user_inputs->database_version);
-
-	if (user_inputs->user_name)
-		free(user_inputs->user_name);
-
-	if (user_inputs->passwd)
-		free(user_inputs->passwd);
 
 	if (user_inputs->bam_file)
 		free(user_inputs->bam_file);
@@ -1032,8 +1024,8 @@ void userInputDestroy(User_Input *user_inputs) {
 	if (user_inputs->wgs_high_cov_file)
 		free(user_inputs->wgs_high_cov_file);
 
-	if (user_inputs->wgs_range_file)
-		free(user_inputs->wgs_range_file);
+	if (user_inputs->wgs_uniformity_file)
+		free(user_inputs->wgs_uniformity_file);
 
 	// Capture (target) output files clean-up
 	//
@@ -1054,9 +1046,6 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->capture_high_cov_file)
 		free(user_inputs->capture_high_cov_file);
-
-	//if (user_inputs->capture_range_file)
-	//	free(user_inputs->capture_range_file);
 
 	//if (user_inputs->missed_targets_file)
 	//	free(user_inputs->missed_targets_file);
@@ -1082,13 +1071,14 @@ void userInputDestroy(User_Input *user_inputs) {
 		free(user_inputs);
 }
 
-void fetchTotalGenomeBases(bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs) {
-	int i;
+void loadGenomeInfoFromBamHeader(khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs) {
+	int i, absent=0;
 	for ( i = 0; i < header->n_targets; i++) {
-		// for debug only, need to remove it later !!!!!
-		//if (strcmp(header->target_name[i], "MT") == 0 || strcmp(header->target_name[i], "chrM") == 0)
-		//	break;
-
+		khiter_t iter = kh_put(khStrInt, wanted_chromosome_hash, header->target_name[i], &absent);
+		if (absent) {
+			kh_key(wanted_chromosome_hash, iter) = strdup(header->target_name[i]);
+			kh_value(wanted_chromosome_hash, iter) = header->target_len[i];
+		}
 		stats_info->cov_stats->total_genome_bases += header->target_len[i];
 	}
 
@@ -1175,13 +1165,45 @@ void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean) {
 		}
 	}
 
-	 if (hash_to_clean) kh_destroy(khStrStrArray, hash_to_clean);
+	if (hash_to_clean) kh_destroy(khStrStrArray, hash_to_clean);
+}
+
+void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage_hash) {
+	khint_t k;
+	for (k = kh_begin(gene_transcript_percentage_hash); k != kh_end(gene_transcript_percentage_hash); ++k) {
+		if (kh_exist(gene_transcript_percentage_hash, k)) {
+			// clean transcript_percentage.transcript_name value first
+			//
+			int i;
+			for (i=0; i<kh_value(gene_transcript_percentage_hash, k)->size; i++) {
+				if (kh_value(gene_transcript_percentage_hash, k)->transcript_percentage[i].transcript_name)
+					free(kh_value(gene_transcript_percentage_hash, k)->transcript_percentage[i].transcript_name);
+			}
+
+			// clean transcript_percentage array variable
+			//
+			if (kh_value(gene_transcript_percentage_hash, k)->transcript_percentage)
+				free(kh_value(gene_transcript_percentage_hash, k)->transcript_percentage);
+
+			// clean Gene_Transcript_Percentage variable
+			//
+			if (kh_value(gene_transcript_percentage_hash, k))
+				free(kh_value(gene_transcript_percentage_hash, k));
+
+			// clean gene_symbol key
+			//
+			if (kh_key(gene_transcript_percentage_hash, k))
+				free((char*) kh_key(gene_transcript_percentage_hash, k));
+		}
+	}
+
+	if (gene_transcript_percentage_hash) kh_destroy(khStrGTP, gene_transcript_percentage_hash);
 }
 
 // Note: this function should never be used to update any information regarding the Chromosome_Tracking variable
 // It is only used for initialization and dynamically allocate memories!
 //
-void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking) {
+void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header) {
 	uint32_t i=0;
 
 	chrom_tracking->coverage = calloc(num_of_chroms, sizeof(uint32_t*));
@@ -1195,24 +1217,49 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 	for(i=0; i<num_of_chroms; i++)
 		chrom_tracking->coverage[i] = NULL;
 
+	// the order of the chromosome id need to be in the same order as the bam/cram
+	//
 	chrom_tracking->chromosome_ids = calloc(num_of_chroms, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
 	       exit(EXIT_FAILURE);
 	}
-	for(i=0; i<num_of_chroms; i++)
-		// need to increase the size if we need to analysis any other chromosomes (such as decoy)
-		// but at this moment, we will just set it to NULL
-		//
-        chrom_tracking->chromosome_ids[i] = NULL;
 
+	// Now the chromosome lengths
+	//
 	chrom_tracking->chromosome_lengths = calloc(num_of_chroms, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
 		exit(EXIT_FAILURE);
 	}
-	for(i=0; i<num_of_chroms; i++)
-        chrom_tracking->chromosome_lengths[i] = 0;
+
+	int j=0;
+	for(i=0; i<header->n_targets; i++) {                                                                      
+		// initialize the id here based on the chromosome ids need to be processed
+		//
+		khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, header->target_name[i]); 
+		if (iter != kh_end(wanted_chromosome_hash)) { 
+			// now set chromosome ids here
+			//
+			chrom_tracking->chromosome_ids[j] = calloc(strlen(header->target_name[i])+1, sizeof(char));
+			if (chrom_tracking->chromosome_ids[j] == NULL) {
+				printf("Allocation failed for chromosome %s\n", header->target_name[i]);
+				exit(EXIT_FAILURE);
+			}
+			strcpy(chrom_tracking->chromosome_ids[j], header->target_name[i]);
+
+			// now set chromosome length info
+			//
+			chrom_tracking->chromosome_lengths[j] = kh_value(wanted_chromosome_hash, iter);
+
+			j++;
+		}
+	}
+
+	if (j > num_of_chroms) {
+		fprintf(stderr, "Number of chromosomes need to be processed %d is larger than required %d!\n", j, num_of_chroms);
+		exit(EXIT_FAILURE);
+	}
 
 	chrom_tracking->chromosome_status = calloc(num_of_chroms, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
@@ -1226,7 +1273,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 	chrom_tracking->more_to_read = true;
 }
 
-uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking) {
+uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header) {
 	// find out how many chromosome we are dealing with
 	//
 	uint32_t num_of_chroms = 0;
@@ -1237,20 +1284,12 @@ uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chro
 			num_of_chroms++;
 	}
 
-	chromosomeTrackingInit1(num_of_chroms, chrom_tracking);
+	chromosomeTrackingInit1(num_of_chroms, chrom_tracking, wanted_chromosome_hash, header);
 
 	return num_of_chroms;
 }
 
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index) {
-	uint8_t id_len = strlen(chrom_id);
-	chrom_tracking->chromosome_ids[index] = calloc(id_len+1, sizeof(char));
-	strcpy(chrom_tracking->chromosome_ids[index], chrom_id);
-	if (chrom_tracking->chromosome_ids[index] == NULL) {
-		printf("Allocation failed for chrom %s\n", chrom_id);
-		exit(EXIT_FAILURE);
-	}
-
 	// As the 0 position will be empty as the position will be 1-based
 	// So I used it to store the index information for quick access
 	// Also, I need to add 1 to the size to align with the 1-based position
@@ -1461,7 +1500,8 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 			}
 		}
 	}
-	printf("Finished for zero all N zeros\n");
+	//printf("Finished for zero all N zeros\n");
+	printf("\n");
 }
 void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val) {
     int ret;
@@ -1761,6 +1801,9 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 						beg = cds_t_start;
 
 					k_iter = kh_put(m32, starts, beg, &ret);
+					if (ret)
+						kh_value(starts, k_iter) = 0;	// initialize it to 0
+
 					kh_value(starts, k_iter)++;
 				}
 
@@ -1770,6 +1813,9 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 						end = cds_t_end;
 
 					k_iter = kh_put(m32, ends, end, &ret);
+					if (ret)
+						kh_value(ends, k_iter) = 0;		// initialize it to 0
+
 					kh_value(ends, k_iter)++;
 				}
 
@@ -1850,32 +1896,35 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *me
 	free(allNum);
 }
 
-void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, bool autosome, bool primary_chromosomes_only) {
-	// need to set Ns number first
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, khash_t(m32) *cov_freq_dist, bool autosome, bool primary_chromosomes_only) {
+	// need to set peak_size based on average coverage
 	//
-	if (stats_info->cov_stats->total_Ns_bases == 0) {
-		if (strcmp(user_inputs->database_version, "hg38") == 0) {
-			stats_info->cov_stats->total_Ns_bases = 173893331;
-		} else {
-			// for hg19/hg37
-			//
-			stats_info->cov_stats->total_Ns_bases = 237019493;
+	set_peak_size_around_mode(stats_info, user_inputs);
+
+	// initialize the hash table, so that the key will be in order
+	//
+	int i, absent=0;
+	khiter_t iter;
+	for (i=0; i<=1000; i++) {
+		iter = kh_put(m32, cov_freq_dist, i, &absent);
+		if (absent) {
+			kh_key(cov_freq_dist, iter) = i;
+			kh_value(cov_freq_dist, iter) = 0;
 		}
 	}
 
 	uint64_t uniformity_total_bases = 0;
-	khash_t(m32) *cov_freq_dist = kh_init(m32);
 
-	// open range/between file for read
+	// open uniformity data file for read
 	//
-	FILE *range_fp = fopen(user_inputs->wgs_range_file, "r");
+	FILE *uniformity_fp = fopen(user_inputs->wgs_uniformity_file, "r");
 	char *line = NULL;                                                                                        
 	size_t len = 0;                                                                                           
 	ssize_t read;                                                                                             
 	char *tokPtr;
 	char *chrom_id = calloc(50, sizeof(char));
 
-	while ((read = getline(&line, &len, range_fp)) != -1) {
+	while ((read = getline(&line, &len, uniformity_fp)) != -1) {
 		// skip if it is comment line
 		//
 		if (strstr(line, "#") != NULL)
@@ -1911,35 +1960,34 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 		//
 		if (primary_chromosomes_only && wanted_chromosome_hash) {
 			khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, chrom_id);
-			if (iter_p == kh_end(wanted_chromosome_hash)) {
+			if (iter_p == kh_end(wanted_chromosome_hash))
 				// chrom_id is not one of the primary chromosomes, so skip it!
 				//
 				continue;
-			}
 		}
 
-		int absent = 0;                                                                                       
-		khiter_t iter = kh_put(m32, cov_freq_dist, tmp_cov, &absent);
-		if (absent) {
-			kh_key(cov_freq_dist, iter) = tmp_cov;
-			kh_value(cov_freq_dist, iter) = 0;		// need to initialize it first
-		}
+		if (tmp_cov > 1000) tmp_cov = 1000;
+		iter = kh_put(m32, cov_freq_dist, tmp_cov, &absent);
+		if (absent)
+			fprintf(stderr, "Hash table initialization failed for current coverage: %d\n", tmp_cov);
+
 		kh_value(cov_freq_dist, iter) += tmp_len;
 
 		uniformity_total_bases += tmp_len;
 	}
 
+	if (line != NULL) free(line);
+	fclose(uniformity_fp);
 	free(chrom_id);
 
 	// need to remove Ns_bases, (the number of Ns bases need to be calculated based on the user input)
 	//
 	uniformity_total_bases -= stats_info->cov_stats->total_Ns_bases; 
 
-	// now find the mode
+	// now walk through the hash table, find the mode 
 	//
 	uint32_t count_at_mode=0;
 	uint64_t total_area_under_histogram=0;
-	khiter_t iter;
 	for (iter = kh_begin(cov_freq_dist); iter != kh_end(cov_freq_dist); ++iter) {
 		if (kh_exist(cov_freq_dist, iter)) {
 
@@ -1948,7 +1996,12 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 			if (kh_key(cov_freq_dist, iter) == 0) {
 				// remove Ns bases and continue
 				//
-				kh_value(cov_freq_dist, iter) -= stats_info->cov_stats->total_Ns_bases;
+				if (kh_value(cov_freq_dist, iter) > stats_info->cov_stats->total_Ns_bases) {
+					kh_value(cov_freq_dist, iter) -= stats_info->cov_stats->total_Ns_bases;
+				} else {
+					fprintf(stderr, "The Ns region %"PRIu32" is larger than calculated one %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases, kh_value(cov_freq_dist, iter));
+				}
+
 				continue;
 			}
 
@@ -1998,7 +2051,7 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 	
 	// clean-up
 	//
-	cleanKhashInt(cov_freq_dist);
+	//cleanKhashInt(cov_freq_dist);
 }
 
 uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs) {
@@ -2019,20 +2072,26 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 	uint32_t right = peak + 1;
 
 	while(1) {
+		// the left side could go down to 0. if left side coverage is 0, we should skip it
+		//
 		uint32_t left_val = 0;
-		iter = kh_get(m32, cov_freq_dist, left);
-		if (iter != kh_end(cov_freq_dist)) {
-			left_val = kh_value(cov_freq_dist, iter);
-		} else {
-			fprintf(stderr, "Peak left side hash value doesn't exist\n");
-		}
+		//if (left > 0) {
+			iter = kh_get(m32, cov_freq_dist, left);
+			if (iter != kh_end(cov_freq_dist)) {
+				left_val = kh_value(cov_freq_dist, iter);
+			} else {
+				//fprintf(stderr, "Peak left side has no more values\n");
+				left_val = 0;
+			}
+		//}
 
 		uint32_t right_val=0;
 		iter = kh_get(m32, cov_freq_dist, right);
 		if (iter != kh_end(cov_freq_dist)) {
 			right_val = kh_value(cov_freq_dist, iter);
 		} else {
-			fprintf(stderr, "Peak right side hash value doesn't exist\n");
+			//fprintf(stderr, "Peak right side has no more values\n");
+			right_val = 0;
 		}
 
 		if (left_val > right_val) {
@@ -2065,6 +2124,42 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 	return peak_area_under_histogram;
 }
 
+void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs) {
+	uint64_t total_genome_non_Ns_bases = stats_info->cov_stats->total_genome_bases - stats_info->cov_stats->total_Ns_bases;
+	double average_coverage = (double) stats_info->cov_stats->total_genome_coverage/ (double) total_genome_non_Ns_bases;
+
+	if (!user_inputs->user_set_peak_size_on) {
+		if (average_coverage <= 20) {
+			user_inputs->size_of_peak_area = 3;
+		} else if (average_coverage > 20 && average_coverage <= 25) {
+			user_inputs->size_of_peak_area = 4;
+		} else if (average_coverage > 25 && average_coverage <= 30) {
+			user_inputs->size_of_peak_area = 5;
+		} else if (average_coverage > 30 && average_coverage <= 35) {
+			user_inputs->size_of_peak_area = 6;
+		} else if (average_coverage > 35 && average_coverage <= 55) {
+			user_inputs->size_of_peak_area = 7;
+		} else {
+			user_inputs->size_of_peak_area = 8;
+		}
+	}
+}
+
+void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist) {
+	// open WGS coverage summary report file handle
+	//
+	FILE *out_fp = fopen(user_inputs->wgs_cov_report, "a");
+	fprintf(out_fp, "\n#Smoothed_Coverage_Frequency_Distribution_for_Whole_Genome\n");
+	fprintf(out_fp, "==");
+	khiter_t iter;
+	for (iter=kh_begin(cov_freq_dist); iter!=kh_end(cov_freq_dist); iter++) {
+		if (kh_exist(cov_freq_dist, iter))
+			fprintf(out_fp, "%"PRIu32",", kh_value(cov_freq_dist, iter));
+	}
+	fprintf(out_fp, "\n");
+	fclose(out_fp);
+}
+
 void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input *user_inputs, Stats_Info *stats_info) {
 	// open file for reading
 	//
@@ -2090,7 +2185,10 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 			if (j == 0) {
 				// check to see if the hashkey exists for current chromosome id
 				//
-				iter = kh_put(khStrInt, wanted_chromosome_hash, strdup(tokPtr), &absent);
+				iter = kh_put(khStrInt, wanted_chromosome_hash, tokPtr, &absent);
+				if (absent) {
+					kh_key(wanted_chromosome_hash, iter) = strdup(tokPtr);
+				}
 				kh_value(wanted_chromosome_hash, iter) = 1;
 
 				if (chrom_id == NULL) {
@@ -2109,12 +2207,14 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 				// update the total genome size info
 				//
 				stats_info->cov_stats->total_genome_bases += end - start;
-				printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->cov_stats->total_genome_bases);
+				//printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->cov_stats->total_genome_bases);
 			}
 
 			j++;
 		}
 	}
+
+	if (line != NULL) free(line);
 
 	// check version using chrom_id (for human genome only)
 	// Since the MySQL database won't be used for many cases, we can't rely on users to use -D option
