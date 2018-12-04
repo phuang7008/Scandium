@@ -79,9 +79,9 @@ do
 	infile=$file"_OMIM_only_simplified"
 
 	# draw graph for CHROM_ID
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_graph.R $merged_outfile $infile '1' $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=5gb -V -d $BASEDIR -N graph -o out_cap$id -e err_cap$id -A proj-dm0001
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_graph.R $merged_outfile $infile '1' $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=5gb -V -d $BASEDIR -N graph -o out_cap$id -e err_cap$id -A proj-dm0001
 
-	#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/low_high_coverage_interval_HPC_by_name.R $outfile '1' $LOW $HIGH $LENGTH $TYPE" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph -o out_cap$id -e err_cap$id -A proj-dm0001
+	#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/low_high_coverage_interval_HPC_by_name.R $outfile '1' $LOW $HIGH $LENGTH $TYPE" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph -o out_cap$id -e err_cap$id -A proj-dm0001
 
 	id=$((id+1))
 done

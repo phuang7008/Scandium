@@ -16,7 +16,7 @@ use File::Basename;
 use POSIX;
 use Statistics::Basic qw(:all);
 
-my $file_in = shift || die "please specify the input range file name\n";
+my $file_in = shift || die "please specify the input uniformity file name\n";
 my $version = shift;
 my $a_size  = shift;	# the mode area size
 
@@ -32,6 +32,7 @@ if ($version eq "hg38") {
 } else {
 	$num_of_Ns = 237019493;
 }
+$num_of_Ns = 0;
 
 my %hist;
 my $total_bases = 0;
@@ -112,19 +113,24 @@ $baseFile=~s/\.realigned\.recal\.cram\.WGS\_between1x\_150x\_REPORT\.txt//;
 #my $pct = $mode_auc / $total_auc;		# include Ns
 #$total_auc -= $num_of_Ns;
 
-my $p_pct = int (1000 * ($mode_auc / $total_auc) + 5);
+my $p_pct = int (1000 * ($mode_auc / $total_auc) + 0.5);
 $p_pct = $p_pct / 1000;
 
-my $m_pct = int (1000 * ($median_auc / $total_auc) + 5);
+my $m_pct = int (1000 * ($median_auc / $total_auc) + 0.5);
 $m_pct = $m_pct / 1000;
 
-my $mean_pct = int (1000 * ($mean_auc / $total_auc) + 5);
+my $mean_pct = int (1000 * ($mean_auc / $total_auc) + 0.5);
 $mean_pct = $mean_pct / 1000;
 
 # output input parameters for reading to review
 #
 print("filename\tref_version\tsize_picked\tMean\tUniformity_Mean\tMode(Peak)\tUniformity_Mode\tMedian\tUniformity_Median\n");
 print("$baseFile\t$version\t$a_size\t$mean\t$mean_pct\t$mode_cov_idx\t$p_pct\t$median\t$m_pct\n");
+
+# for debugging purpose
+#
+#print("Mode area under histogram is $mode_auc\n");
+#print("Total area under histogram is  $total_auc\n");
 
 #foreach my $cov (sort {$a <=> $b} keys %hist) {
 #	print("$cov\t$hist{$cov}\n");

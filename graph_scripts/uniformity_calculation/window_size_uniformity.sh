@@ -20,33 +20,43 @@ if [[ $bFile = *"_wo_centromeres"* ]]; then
 	bambasename=$(basename "$bFile" _wo_centromeres) 
 fi
 
-if [[ $bFile = *"hgv.cram"* ]]; then
-	bambasename=$(basename "$bFile" .hgv.cram.WGS_between1x_150x_REPORT.txt) 
+if [[ $bFile = *".hgv.cram.WGS_uniformity_REPORT.txt" ]]; then
+	bambasename=$(basename "$bFile" .hgv.cram.WGS_uniformity_REPORT.txt) 
 fi
 
-if [[ $bFile = *"hgv.bam"* ]]; then 
-	bambasename=$(basename "$bFile" .hgv.bam.WGS_between1x_150x_REPORT.txt) 
+if [[ $bFile = *".hgv.bam.WGS_uniformity_REPORT.txt" ]]; then 
+	bambasename=$(basename "$bFile" .hgv.bam.WGS_uniformity_REPORT.txt) 
 fi
 
-if [[ $bFile = *"realigned.recal.bam"* ]]; then
-	bambasename=$(basename "$bFile" .realigned.recal.bam.WGS_between1x_150x_REPORT.txt) 
+if [[ $bFile = *".realigned.recal.bam.WGS_uniformity_REPORT.txt" ]]; then
+	bambasename=$(basename "$bFile" .realigned.recal.bam.WGS_uniformity_REPORT.txt) 
 fi
 
-if [[ $bFile = *"realigned.recal.cram"* ]]; then
-	bambasename=$(basename "$bFile" .realigned.recal.cram.WGS_between1x_150x_REPORT.txt) 
+if [[ $bFile = *".realigned.recal.cram.WGS_uniformity_REPORT.txt" ]]; then
+	bambasename=$(basename "$bFile" .realigned.recal.cram.WGS_uniformity_REPORT.txt) 
+fi
+
+if [[ $bFile = *".WGS_uniformity_REPORT.txt" ]]; then                                                         
+	bambasename=$(basename "$bFile" .WGS_uniformity_REPORT.txt)                                               
 fi
 
 echo "$bambasename"
 
 #for i in "${w_size[@]}"
-#for i in {1..50}
-for i in {7..7}
+for i in {1..50}
+#for i in {7..7}
 do
 	#echo
 	#echo $i
-	#echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $i >> ${bambasename}_uniformity_windows"
+	#echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $i >> ${bambasename}_uniformity_windows.txt"
 
 	#/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $i >> ${bambasename}_uniformity_windows.txt
 
-	/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison_w_kurtosis.pl $bFile $version $i >> ${bambasename}_uniformity_windows.txt
+	#/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison_autosome_X_Y.pl $bFile $version $i 1 >> ${bambasename}_uniformity_windows_all.txt
+
+	/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison_autosome_X_Y.pl $bFile $version $i 2 >> ${bambasename}_uniformity_windows_autosome_only.txt
+
+	#/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $i >> ${bambasename}_uniformity_windows.txt
+
+	#/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison_w_kurtosis.pl $bFile $version $i >> ${bambasename}_uniformity_windows.txt
 done

@@ -101,22 +101,22 @@ do
 
 	# draw graph for CHROM_ID, scaled to the union size of all (low or high) coverage positions
 	#
-	#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph$id -o out_cap$id -e err_cap$id -A proj-dm0001
-	#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph_aligned_all.R $final_input_file $CHROM_ID $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph$id -o out_cap$id -e err_cap$id -A proj-dm0001
+	#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph$id -o out_cap$id -e err_cap$id -A proj-dm0001
+	#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph_aligned_all.R $final_input_file $CHROM_ID $LOW $HIGH $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph$id -o out_cap$id -e err_cap$id -A proj-dm0001
 
 	# now draw draw for CHROM_ID, onto the entire chromosome
 	#
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $final_input_file $CHROM_ID $LOW $HIGH $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N pics_W_$id -o out_W_$id -e err_W_$id -A proj-dm0001
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $final_input_file $CHROM_ID $LOW $HIGH $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N pics_W_$id -o out_W_$id -e err_W_$id -A proj-dm0001
 
 	if [ $HIGH -ne 100 ]; then
-		#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $infile $CHROM_ID $LOW 100 $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph_100_$id -o out_100_$id -e err_100_$id -A proj-dm0001
-		#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW 100 $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph_100_$id -o out_100_$id -e err_100_$id -A proj-dm0001
+		#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $infile $CHROM_ID $LOW 100 $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph_100_$id -o out_100_$id -e err_100_$id -A proj-dm0001
+		#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW 100 $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph_100_$id -o out_100_$id -e err_100_$id -A proj-dm0001
 		echo "100x"
 	fi
 
 	if [ $HIGH -ne 25 ]; then
-		#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $infile $CHROM_ID $LOW 25 $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N pics_25_$id -o out_25_$id -e err_25_$id -A proj-dm0001
-		#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW 25 $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph_25_$id -o out_25_$id -e err_25_$id -A proj-dm0001
+		#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $infile $CHROM_ID $LOW 25 $DB_Version " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N pics_25_$id -o out_25_$id -e err_25_$id -A proj-dm0001
+		#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/OMIM_gene_coverage_union_graph.R $merged_combined_file $infile $CHROM_ID $LOW 25 $max_length 1" | msub -q normal -l nodes=1:ppn=1,mem=15gb -V -d $BASEDIR -N graph_25_$id -o out_25_$id -e err_25_$id -A proj-dm0001
 		echo "25x"
 	fi
 

@@ -11,12 +11,20 @@ fi
 path=`pwd`
 version=$1
 
-for bFile in `ls $path/*WGS_between1x_150x_REPORT.txt`
+#for bFile in `ls $path/*cram*WGS_uniformity_REPORT.txt`
+for bFile in `ls $path/*WGS_uniformity_REPORT.txt`
 #for bFile in `ls $path/*bam*WGS_between1x_150x_REPORT.txt`
 #for bFile in `ls $path/*cram*WGS_between1x_150x_REPORT.txt`
 #for bFile in `ls $path/*hgv.WGS_between1x_150x_REPORT.txt`
 #for bFile in `ls $path/*wo_centromeres`
 do
 	echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/window_size_uniformity.sh $bFile $version" | msub -V -d $path -q high -A proj-dm0001 -j oe -N uniformity_windows -l nodes=1:ppn=1,mem=5gb
+	#echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/window_size_uniformity.sh $bFile hg38" | msub -V -d $path -q high -A proj-dm0001 -j oe -N uniformity_windows -l nodes=1:ppn=1,mem=5gb
 
 done
+
+#for bFile in `ls $path/*bam*bam.WGS_uniformity_REPORT.txt`
+#do
+#	echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/window_size_uniformity.sh $bFile hg37" | msub -V -d $path -q high -A proj-dm0001 -j oe -N uniformity_windows -l nodes=1:ppn=1,mem=5gb
+
+#done

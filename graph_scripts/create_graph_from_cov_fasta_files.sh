@@ -35,7 +35,7 @@ for file in `ls $INPUTDIR/*WGS_cov.fasta`
 do
 	id=$((id+1))
 
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/coverage_plot_from_cov_fasta_files.R $file $CHROM_ID $LOW $HIGH $VERSION 'wgs'" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/coverage_plot_from_cov_fasta_files.R $file $CHROM_ID $LOW $HIGH $VERSION 'wgs'" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
 done
 
 # for Capture
@@ -44,5 +44,5 @@ for file in `ls $INPUTDIR/*Capture_cov.fasta`
 do
 	id=$((id+1))
 
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/coverage_plot_from_cov_fasta_files.R $file $CHROM_ID $LOW $HIGH $VERSION 'capture'" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/coverage_plot_from_cov_fasta_files.R $file $CHROM_ID $LOW $HIGH $VERSION 'capture'" | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
 done

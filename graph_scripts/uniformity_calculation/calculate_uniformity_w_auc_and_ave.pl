@@ -7,7 +7,7 @@ use strict;
 use Data::Dumper;
 use POSIX;
 
-my $file = shift || die "please specify the input file name\n";
+my $file = shift || die "please specify the input uniformity file name\n";
 my $average = shift || die "please specify the average coverage for the run\n";
 my $version = shift || die "Please specify the version of reference used (hg19 or hg38)\n";
 my $num_of_Ns;

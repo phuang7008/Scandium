@@ -16,7 +16,7 @@ use File::Basename;
 use POSIX;
 use Statistics::Basic qw(:all);
 
-my $file_in = shift || die "please specify the input range file name\n";
+my $file_in = shift || die "please specify the input uniformity file name\n";
 my $version = shift;
 my $a_size  = shift;	# the mode area size
 

@@ -10,7 +10,7 @@ use Data::Dumper;
 use File::Basename;
 use POSIX;
 
-my $file = shift || die "please specify the input file name\n";
+my $file = shift || die "please specify the input uniformity file name\n";
 my $peak_size = shift || die "please specify the number of points around the Peak that would be used for the Peak AUC calculation\n";
 my $version   = shift || die "Please specify the version of reference used (hg19 or hg38)\n";
 my $num_of_Ns;

@@ -39,7 +39,7 @@ for file in `ls $INPUTDIR/*$SUFFIX`
 do
 	id=$((id+1))
 
-	#echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/dev/make_graphs/R/low_high_coverage_log.R $file '1' 0 20 'hg19' " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $path -N graph -o out_cap -e err_cap -A proj-dm0001
+	#echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/dev/make_graphs/R/low_high_coverage_log.R $file '1' 0 20 'hg19' " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $path -N graph -o out_cap -e err_cap -A proj-dm0001
 
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $file $CHROM_ID $LOW $HIGH $TYPE " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/regular_whole_chrom_coverage_graph.R $file $CHROM_ID $LOW $HIGH $TYPE " | msub -q normal -l nodes=1:ppn=1,mem=32gb -V -d $BASEDIR -N graph$id -o out$id -e err$id -A proj-dm0001
 done

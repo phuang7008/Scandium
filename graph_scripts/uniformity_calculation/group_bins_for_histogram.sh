@@ -47,7 +47,7 @@ do
 	echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/group_bins_together.pl $bFile > $resultPath/$outfile" | msub -V -d $resultPath -q high -A proj-dm0001 -j oe -N group_bins-$id -l nodes=1:ppn=1,mem=2gb
 
 	# now we need to draw the histogram here
-	echo "/hgsc_software/R/R-3.2.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/distribution_coverage_binning_smoothed.R $resultPath/$outfile $lower_bound $upper_bound" | msub -V -d $resultPath -q high -A proj-dm0001 -j oe -N histogram-$id -l depend=afterok:group_bins-$id -l nodes=1:ppn=1,mem=8gb
+	echo "/hgsc_software/R/R-3.4.3/bin/Rscript /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/R_scripts/distribution_coverage_binning_smoothed.R $resultPath/$outfile $lower_bound $upper_bound" | msub -V -d $resultPath -q high -A proj-dm0001 -j oe -N histogram-$id -l depend=afterok:group_bins-$id -l nodes=1:ppn=1,mem=8gb
 
 	id=$((id+1))
 
