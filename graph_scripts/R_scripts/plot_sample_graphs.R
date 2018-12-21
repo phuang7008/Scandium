@@ -24,6 +24,7 @@ max_x_capture <- 200
 histogram_vals_capture_df <- c()
 PCT_of_Bases_Coverage_capture_df <- c()
 binned_hist_df <- c()
+categories <- c("<90", "90-97", "97-99", "100")
 
 process_histogram_data <- function(pattern_in, type_in) {
   tmp_file <- list.files(pattern=pattern_in, ignore.case = TRUE)
@@ -120,9 +121,9 @@ process_histogram_data <- function(pattern_in, type_in) {
 
 # now for Capture Annotations
 #
-exon_coverage <- c()
-gene_coverage <- c()
-transcript_coverage <- c()
+exon_coverage <- c(0,0,0,0)
+gene_coverage <- c(0,0,0,0)
+transcript_coverage <- c(0,0,0,0)
 
 process_capture_data <- function(pattern_in, type_in) {
   tmp_file <- list.files(pattern=pattern_in, ignore.case = TRUE)
@@ -142,16 +143,39 @@ process_capture_data <- function(pattern_in, type_in) {
     # need to get the data for gene coverage
     #
     vals <- unlist(strsplit(line, '\t'))
-    if (type_in == "exon") exon_coverage[i] <<- as.numeric(gsub("\\%", '', vals[7]))
-    if (type_in == "gene") gene_coverage[i] <<- as.numeric(vals[3])
-    if (type_in == "transcript") transcript_coverage[i] <<- as.numeric(gsub("\\%", '',vals[6]))
-    
-    i <- i+1
+    if (type_in == "exon") 
+      grouping_data(type_in, as.numeric(gsub("\\%", '', vals[7])))
+
+    if (type_in == "gene") 
+      grouping_data(type_in, as.numeric(vals[3]))
+
+    if (type_in == "transcript")
+      grouping_data(type_in, as.numeric(gsub("\\%", '',vals[6])))
+
   }
   
   close(con)
 }
 
+grouping_data <- function(type_in, val_in) {
+  if (val_in == 100) {
+    if (type_in == "exon") exon_coverage[4] <<- exon_coverage[4] + 1
+    if (type_in == "gene") gene_coverage[4] <<- gene_coverage[4] + 1
+    if (type_in == "transcript") transcript_coverage[4] <<- transcript_coverage[4] + 1
+  } else if (val_in >= 97) {
+    if (type_in == "exon") exon_coverage[3] <<- exon_coverage[3] + 1
+    if (type_in == "gene") gene_coverage[3] <<- gene_coverage[3] + 1
+    if (type_in == "transcript") transcript_coverage[3] <<- transcript_coverage[3] + 1
+  } else if (val_in >= 90) {
+    if (type_in == "exon") exon_coverage[2] <<- exon_coverage[2] + 1
+    if (type_in == "gene") gene_coverage[2] <<- gene_coverage[2] + 1
+    if (type_in == "transcript") transcript_coverage[2] <<- transcript_coverage[2] + 1
+  } else {
+    if (type_in == "exon") exon_coverage[1] <<- exon_coverage[1] + 1
+    if (type_in == "gene") gene_coverage[1] <<- gene_coverage[1] + 1
+    if (type_in == "transcript") transcript_coverage[1] <<- transcript_coverage[1] + 1
+  }
+}
 
 #########################################################################################
 # Invoke the calls
@@ -232,21 +256,26 @@ binned_graph <- ggplot(binned_hist_df, aes(x=Coverage, y=Frequency)) +
 
 # Next for Capture Annotation Graphing
 #
-process_capture_data(paste(file_pattern, ".*Capture_Exon_pct.txt", sep=""), "exon")
-process_capture_data(paste(file_pattern, ".*Capture_Gene_pct", sep=""), "gene")
-process_capture_data(paste(file_pattern, ".*Capture_Transcript_pct",sep=""), "transcript")
+process_capture_data(paste(file_pattern, ".*Capture.*Exon_pct.txt", sep=""), "exon")
+process_capture_data(paste(file_pattern, ".*Capture.*Gene_pct", sep=""), "gene")
+process_capture_data(paste(file_pattern, ".*Capture.*Transcript_pct",sep=""), "transcript")
 
 # For Exon
 #
-#tmp_exon_hist <- hist(exon_coverage, plot=FALSE)
-#highestExonCount <- max(tmp_exon_hist$counts)
+num_of_exons <- sum(exon_coverage)
+exon_coverage <- round(exon_coverage * 100 / sum(exon_coverage), 2)
 exon_coverage_df <- data.frame(exon_coverage)
-e_title = paste("Exon Coverage Histogram (total # of exons: ", length(exon_coverage_df$exon_coverage))
+exon_coverage_df <- cbind(categories, exon_coverage_df)
+
+# lock in factor level order
+exon_coverage_df$categories <- factor(exon_coverage_df$categories, levels = exon_coverage_df$categories)
+
+e_title = paste("Exon Coverage Histogram (total # of exons: ", num_of_exons)
 e_title = paste(e_title, ")")
 
-exon_hist <- ggplot(exon_coverage_df, aes(x=exon_coverage)) + 
-  geom_histogram(color="cyan4", fill="cyan4", aes(y=..count../sum(..count..)), breaks=seq(0,100, by=10)) +
-  scale_y_continuous(labels = percent_format()) + labs(title=e_title, x="Exon Coverage", y="Frequency") +
+exon_hist <- ggplot(exon_coverage_df, aes(y=exon_coverage, x=categories)) + 
+  geom_col(color="cyan4", fill="cyan4", width=0.5) + geom_text(aes(label=exon_coverage), size=2, vjust=-0.5) +
+  labs(title=e_title, x="Exon Coverage", y="Frequency (%)") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),
@@ -257,15 +286,20 @@ exon_hist <- ggplot(exon_coverage_df, aes(x=exon_coverage)) +
 
 # For Transcript
 #
-#tmp_trabscruot_hist <- hist(transcript_coverage, plot=FALSE)
-#highestTranscriptCount <- max(tmp_transcript_hist$counts)
+num_of_transcripts <- sum(transcript_coverage)
+transcript_coverage <- round(transcript_coverage * 100 / sum(transcript_coverage), 2)
 transcript_coverage_df <- data.frame(transcript_coverage)
-t_title = paste("Transcript Coverage Histogram (total # of transcript: ", length(transcript_coverage_df$transcript_coverage))
+transcript_coverage_df <- cbind(categories, transcript_coverage_df)
+
+# lock in factor level order
+transcript_coverage_df$categories <- factor(transcript_coverage_df$categories, levels = transcript_coverage_df$categories)
+
+t_title = paste("Transcript Coverage Histogram (total # of transcript: ", num_of_transcripts)
 t_title = paste(t_title, ")")
 
-transcript_hist <- ggplot(transcript_coverage_df, aes(x=transcript_coverage)) + 
-  geom_histogram(color="cornsilk4", fill="cornsilk4", aes(y=..count../sum(..count..)), breaks=seq(0, 100, by=10)) + 
-  scale_y_continuous(labels = percent_format()) + labs(title=t_title, x="Transcript Coverage", y="Frequency") +
+transcript_hist <- ggplot(transcript_coverage_df, aes(y=transcript_coverage, x=categories)) + 
+  geom_col(color="cornsilk4", fill="cornsilk4", width=0.5) + geom_text(aes(label=transcript_coverage), size=2, vjust=-0.5) +
+  labs(title=t_title, x="Transcript Coverage", y="Frequency (%)") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),
@@ -276,13 +310,20 @@ transcript_hist <- ggplot(transcript_coverage_df, aes(x=transcript_coverage)) +
 
 # For Gene
 #
+num_of_genes <- sum(gene_coverage)
+gene_coverage <- round(gene_coverage * 100 / sum(gene_coverage), 2)
 gene_coverage_df <- data.frame(gene_coverage)
-g_title = paste("Gene Coverage Histogram (total # of genes: ", length(gene_coverage_df$gene_coverage))
+gene_coverage_df <- cbind(categories, gene_coverage_df)
+
+# lock in factor level order
+gene_coverage_df$categories <- factor(gene_coverage_df$categories, levels = gene_coverage_df$categories)
+
+g_title = paste("Gene Coverage Histogram (total # of genes: ", num_of_genes)
 g_title = paste(g_title, ")")
 
-gene_hist <- ggplot(gene_coverage_df, aes(x=gene_coverage)) + 
-  geom_histogram(color="goldenrod2", fill="goldenrod2", aes(y=..count../sum(..count..)), breaks=seq(0, 100, by=10)) + 
-  scale_y_continuous(labels = percent_format()) + labs(title=g_title, x="Gene Coverage", y="Frequency") +
+gene_hist <- ggplot(gene_coverage_df, aes(y=gene_coverage, x=categories)) + 
+  geom_col(color="goldenrod2", fill="goldenrod2", width=0.5) + geom_text(aes(label=gene_coverage),size=2, vjust=-0.5) +
+  labs(title=g_title, x="Gene Coverage", y="Frequency (%)") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),
