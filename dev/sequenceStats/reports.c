@@ -37,7 +37,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 
 		if (user_inputs->Write_WGS_cov_fasta) {
 			FILE *wgs_cov_fasta_fp = fopen(user_inputs->wgs_cov_file, "a");
-			printf("Whole Genome cov.fasta output for chrom id %s is on\n", chrom_id);
+			printf("Whole Genome cov.fasta output for chromosome id %s is on\n", chrom_id);
 
 			// no need to add newline as the next line will take care of it!
 			//
@@ -1277,7 +1277,7 @@ void storeGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Inp
 								// the bucket with the current key_str doesn't exists!
 								// This shouldn't happen. So let's exit()
 								//
-								fprintf(stderr, "there is no CDS exist, which shouldn't happend, so exit()!\n");
+								fprintf(stderr, "there is no CDS exist, which shouldn't happen, so exit()!\n");
 								exit(EXIT_FAILURE);
 							}
 

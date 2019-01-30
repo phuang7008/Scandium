@@ -599,7 +599,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 				total_gene_symbol_size += strlen(kh_key(gene_symbols, iter)) + 5;
 			}
 		}
-		//printf("number of genes is %"PRIu16"\n", num_of_genes);
+		//printf("The number of genes are %"PRIu16"\n", num_of_genes);
 
 		// save everything into an array for later comparison with Synonymous
 		//

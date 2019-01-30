@@ -35,6 +35,7 @@ uint32_t getLineCount(char *bed_file);
  * open the input bed-formated file and then load the coordinate regions into memory and leave them there
  * Note: the input file should be in .bed format
  * @param bed_file: file whose format is bed (such as target file or Ns regions of the reference sequences)
+ * @param coords: the Bed_Coords structure to store coordinates of each bed section
  */
 void loadBedFiles(char * bed_file, Bed_Coords * coords);
 

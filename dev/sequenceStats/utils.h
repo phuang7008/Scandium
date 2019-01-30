@@ -64,6 +64,7 @@ void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd
 
  * @param stringPtr, a string pointer. It's content will be splitted into words
  * @param arrayPtr, a stringArray pointer. It is used to store string array information
+ * @param index the array index of khashArrayPtr
 */ 
 void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint8_t index);
 
@@ -71,8 +72,10 @@ void stringArrayDestroy(stringArray *arrayIn);
 
 /*
  * find if a string contains a substr (case insensative)
+ * it follows the behaviors per standard strstr()
  * @param string1, the string to be checked
  * @param substr2, the substring to search for
+ * @return a string starts from the substr substr2 in the original string1 to the end of original string1
  */
 char* stristr( const char* string1, const char* substr2 );
 
@@ -103,18 +106,11 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
 void usage();
 
 /**
- * removes the "chr" prefix from cName (chromosome name) passed in
- * @param cName
- * @return char * without 'chr' prefix
- */
-char * removeChr(char * cName);
-
-/**
  * check if the input string is a number
  * @param inStr: a variable need to be checked
  * @return true or false
  */
-bool isNum(const char *inStr);
+bool isNumber(const char *inStr);
 
 /**
  * process user input options and ensure they are correct!
@@ -392,9 +388,14 @@ void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs);
 void loadWantedChromosomes(khash_t(khStrInt) *primary_chromosome_hash, User_Input *user_inputs, Stats_Info *stats_info);
 
 /*
- * the following comparison is used to compare the int array
+ * the following comparison is used to compare the int elements in an array used by qsort()
  * @param val1: int array 1 used for comparison
  * @param val2: int array 2 used for comparison
+ * @return: return value means
+ * <0 The element pointed by val1 goes before the element pointed by val2
+ * 0  The element pointed by val1 is equivalent to the element pointed by val2
+ * >0 The element pointed by val1 goes after the element pointed by val2
+ *
  */
 int compare(const void * val1, const void * val2);
 

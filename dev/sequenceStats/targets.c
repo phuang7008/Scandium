@@ -57,7 +57,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
         exit(EXIT_FAILURE);
     }
 
-	uint32_t count = 0;		// index for each target line (item)
+	uint32_t count=0;		// index for each target line (item)
 	ssize_t read;
 	size_t len = 0;
 	char *p_token=NULL, *line=NULL;	// here p_ means a point. so p_token is a point to a token
@@ -90,6 +90,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 
 			i++;
 		}
+
 		count++;
 	}
 
@@ -175,7 +176,9 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 		uint8_t c_type = type == 1 ? 1 : 3;
 
 		// for positions on targets or Ns
-		for (j=bed_info->coords[i].start; j<=bed_info->coords[i].end; j++) {
+		// since the chromosome position array is 0 based, we will just use the 0-based bed file as is
+		//
+		for (j=bed_info->coords[i].start; j<bed_info->coords[i].end; j++) {
 			if (j >= chrom_len) continue;
 
 			if (type == 1) {
@@ -186,12 +189,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 				}
 			}
 
-			// The old Java version include the end position in the bed file. 
-			// So I will include it here as well. 
-			// In the future, need to make sure if the bed file format include end position or not!
-			//
 			if (type == 2 && j < bed_info->coords[i].end) {
-			//if (type == 2 && j <= bed_info->coords[i].end) {
 				if (j >= chrom_len) continue;
 
 				stats_info->cov_stats->total_Ns_bases += 1;
@@ -210,8 +208,10 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			}
 		}
 
+		// If it is for target bed file, we need to handle the buffer positions on both sides of a target
+		//
 		if (type == 1) {
-			// for the buffer positions at the left side
+			// for the buffer positions at the left-hand side
 			//
 			for (j=bed_info->coords[i].start-user_inputs->target_buffer_size; j < bed_info->coords[i].start; j++) {
 				if (j < 0) continue;
@@ -227,7 +227,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 				}
 			}
 
-			// for the buffer positions at the right side
+			// for the buffer positions at the right hand side
 			//
 			for (j=bed_info->coords[i].end+1; j <= bed_info->coords[i].end+user_inputs->target_buffer_size; j++ ) {
 				if (j >= chrom_len) continue;

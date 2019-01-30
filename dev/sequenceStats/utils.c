@@ -38,7 +38,8 @@ bool USER_DEFINED_DATABASE = false;
 bool checkFile(char * fName) {
     if(access(fName, F_OK|R_OK) == -1) {
         fprintf(stderr, "No such file as %s;  File not found.\n", fName);
-		exit(EXIT_FAILURE);
+		return false;
+		//exit(EXIT_FAILURE);
     }
 	return true;
 }
@@ -48,7 +49,7 @@ uint64_t check_file_size(const char *filename) {
 	if (stat(filename, &st) == 0)
 		return st.st_size;
 
-	fprintf(stderr, "Something is wrong when check the filesize for file: %s\n", filename);
+	fprintf(stderr, "Something is wrong when check the file size for file: %s\n", filename);
 	exit(EXIT_FAILURE);
 }
 
@@ -426,40 +427,42 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 //
 void usage() {
 	printf("Version %s\n\n", VERSION_ );
-	printf("Usage:  coverage -i bam/cram -o output_dir [options ...]\n");
-	printf("Note: this is a multi-threading program. Each thread need 3gb of memory. So please allocate them accordingly!\n");
-	printf("Note: for example: 3 threads would use 8-9gb of memory, while 4 threads would need 12 gb of memory, etc.\n\n");
+	printf("Usage:  coverage -i bam/cram -o output_directory [options ...]\n");
+	printf("Note: this is a multi-threading program. Each thread needs 3-4gb of memory. So please allocate them accordingly!\n");
+	printf("Note: for example: 3 threads would use 9-12gb of memory, while 4 threads would need 12-16 gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
 	printf("\t-i <BAM/CRAM alignment file (multiple files are not allowed!). It Is Mandatory >\n");
 	printf("\t-o <output directory. It Is Mandatory>\n\n");
 
 	printf("The Followings Are Optional:\n");
-	printf("\t-b <minimal base quality: to filter out any bases with baseQ less than b. Default 0>\n");
+	printf("\t-b <minimal base quality: to filter out any bases with base quality  less than b. Default 0>\n");
 	printf("\t-f <file name that contains user defined database (for annotation only)>\n");
 	printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
 	printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Default 7>\n");
-	printf("\t-m <minimal mapping quality score: to filter out any reads with mapQ less than m. Default 0>\n");
+	printf("\t-m <minimal mapping quality score: to filter out any reads with mapping quality less than m. Default 0>\n");
 	printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
-	printf("\t-r <file name that contains regions users are interested for this analysis. Default: not provided to process all chromosomes >\n");
-	printf("\t-t <target file. If this is specified, all of the output file names related to this will contain .Capture_>\n");
+	printf("\t-r <file name that contains chromosomes and their regions need to be processed (for hg38 only). Default: Not Provided>\n");
+	printf("\t-t <target file. If this is specified, all of the output file names related to this will contain '.Capture_'>\n");
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
-	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default:hg19>\n");
+	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default: hg19/hg37>\n");
 	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
 	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
+	printf("\t-P <the MySQL DB login user's Password>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
+	printf("\t-U <the MySQL DB login User name>\n");
 
-	printf("The Followings are for the block region output (used for Uniformity analysis)\n");
+	printf("The Followings generate block regions used for data smoothing in Coverage Uniformity Analysis\n");
 	printf("\t-l <the lower bound for the block region output. Default: 1>\n");
 	printf("\t-u <the upper bound for the block region output. Default: 150>\n\n");
 
 	printf("The Followings Are Flags\n");
-	printf("\t[-a] Turn off the annotation information for genes, exons and transcript. Default: ON\n");
-	printf("\t[-C] To produce Capture cov.fasta that contain the detailed coverage count info for each base. Defulat: OFF\n");
-	printf("\t[-d] Remove Duplicates is OFF! Specify this flag only when you want to keep Duplicates reads. Default: ON\n");
+	printf("\t[-a] Specify this flag only when you want to Turn Off the annotation for genes, exons and transcript. Default: Annotation is ON\n");
+	printf("\t[-C] To produce Capture cov.fasta file that contains the detailed coverage count info for each targeted base. Default: OFF\n");
+	printf("\t[-d] Specify this flag only when you want to keep Duplicates reads. Default: Remove Duplicate is ON\n");
 	printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
-	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have .WGS_ in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
+	printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have '.WGS_' in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
 
 	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
 	printf("\t[-M] Use HGMD annotation. Default: off\n");
@@ -469,22 +472,10 @@ void usage() {
 	printf("\t[-h] Print this help/usage message\n");
 }
 
-// some version of sequence file contain chromosome with id in 'chr1' format, as some software can't handle 'chr'.
-// we need to remove them before processing them
-char * removeChr(char * c) {
-	// first we need to see if the string contains 'chr'
-	char *find = strstr(c, "chr");
-
-	if (find != NULL) {
-		size_t lenC = strlen(c);
-		memmove(&c[0], &c[3],(lenC-3+1));
-	}
-
-    return c;
-}
-
 // This is used to check if a string (ie char *) is a number
 bool isNumber(const char * inStr) {
+	if (strlen(inStr) == 0) return false;
+
     while( *inStr != '\0') {
         if (!isdigit(inStr[0])) {
             return false;
@@ -557,12 +548,12 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				user_inputs->user_set_peak_size_on = true; break;
 			case 'L':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
-                }
-                user_inputs->low_coverage_to_report = (uint16_t) strtol(optarg, NULL, 10);
-                break;
+					fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
+					usage();
+					exit(EXIT_FAILURE);
+				}
+				user_inputs->low_coverage_to_report = (uint16_t) strtol(optarg, NULL, 10);
+				break;
 			case 'l':
 				if (!isNumber(optarg)) {
 					fprintf (stderr, "Entered lower_bound value %s is not a number\n", optarg);
@@ -648,8 +639,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	// don't proceed if the user doesn't specify either -t or -w or both
 	//
 	if (!user_inputs->wgs_coverage && !TARGET_FILE_PROVIDED) {
-		printf("\nYou specify neigher -t (for Capture Project) nor -w (for WGS analysis)\n");
-		printf("Please specify either -t or -w or both before proceed. Thanks!\n\n");
+		printf("\nYou specify neither -t (for Capture Project) nor -w (for WGS analysis)\n");
+		printf("Please specify either -t or -w or both before proceeding. Thanks!\n\n");
 		usage();
 		exit(EXIT_FAILURE);
 	}
@@ -698,9 +689,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	}
 
 	// Need to check out that all files user provided exist before proceeding
-    if (user_inputs->bam_file) checkFile(user_inputs->bam_file);
-    if (N_FILE_PROVIDED) checkFile(user_inputs->n_file);
-    if (TARGET_FILE_PROVIDED) checkFile(user_inputs->target_file);
+	if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) exit(EXIT_FAILURE);
+	if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) exit(EXIT_FAILURE);
+	if (TARGET_FILE_PROVIDED && !checkFile(user_inputs->target_file)) exit(EXIT_FAILURE);
 
 	// need to get the basename from BAM/CRAM filename
 	//char *tmp_basename = basename(strdup(user_inputs->bam_file));
@@ -838,7 +829,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
 		fprintf(out_fp, "##This file will be produced when the user specifies a low coverage threshold and need detailed annotations for these low coverage regions\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonymon", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonyms", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
 	} else if (type == 2) {
 		// for capture missed target file
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
@@ -865,7 +856,7 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 }
 
 void outputUserInputOptions(User_Input *user_inputs) {
-	fprintf(stderr, "The following are the options you have choosen:\n");
+	fprintf(stderr, "The following are the options you have chosen:\n");
 	fprintf(stderr, "\tInput bam/cram file: %s\n", user_inputs->bam_file);
 	fprintf(stderr, "\tOutput directory is: %s\n", user_inputs->output_dir);
 	fprintf(stderr, "\tThe version of official gene annotation is: %s\n", user_inputs->database_version);
@@ -936,9 +927,9 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	}
 
 	if (user_inputs->remove_supplementary_alignments) {
-		fprintf(stderr, "\tRemove supplementaty alignments is ON\n");
+		fprintf(stderr, "\tRemove supplementary alignments is ON\n");
 	} else {
-		fprintf(stderr, "\tRemove supplementaty alignments is OFF\n");
+		fprintf(stderr, "\tRemove supplementary alignments is OFF\n");
 	}
 
 	/*if (user_inputs->primary_chromosomes_only) {
@@ -1257,7 +1248,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 	}
 
 	if (j > num_of_chroms) {
-		fprintf(stderr, "Number of chromosomes need to be processed %d is larger than required %d!\n", j, num_of_chroms);
+		fprintf(stderr, "Number of chromosomes needs to be processed %d is larger than required %d!\n", j, num_of_chroms);
 		exit(EXIT_FAILURE);
 	}
 

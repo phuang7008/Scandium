@@ -18,6 +18,80 @@
 
 #include "user_defined_annotation.h"
 
+void checkAnnotationFormat(User_Input *user_inputs) {
+	// open user-defined-database for read
+	//
+	FILE *fp = fopen(user_inputs->user_defined_database_file, "r");
+
+	if (fp == NULL) {
+		printf("user defined database file %s open failed!", user_inputs->user_defined_database_file);
+		exit(EXIT_FAILURE);
+	}
+
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	char *tokPtr;
+
+	while ((read = getline(&line, &len, fp)) != -1) {
+		if (*line == '\n')
+			continue;
+
+		char *savePtr = line;
+
+		// hg19/hg37:
+		// 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+		//
+		// hg38:
+		// chr7    87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+		//
+		uint32_t j=0;
+		char *gene_info = calloc(100, sizeof(char));
+		char *chrom_id  = calloc(100, sizeof(char));
+		uint32_t start=0, end=0;
+
+		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+			if (j==0) strcpy(chrom_id, tokPtr);
+			if (j==1) start = (uint32_t) strtol(tokPtr, NULL, 10);
+			if (j==2) end   = (uint32_t) strtol(tokPtr, NULL, 10);
+			if (j==3) strcpy(gene_info, tokPtr);
+			j++;
+		}
+
+		if (strcmp(user_inputs->database_version, "hg37") == 0 || strcmp(user_inputs->database_version, "hg19") == 0) {
+			if (strstr(chrom_id, "chr") != NULL) {
+				fprintf(stderr, "The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");                                           
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		if (strcmp(user_inputs->database_version, "hg38") == 0 && strstr(chrom_id, "chr") == NULL) {
+			fprintf(stderr, "The chromosome ID for Human Genome hg38 should contain 'chr'!");
+			exit(EXIT_FAILURE);
+		}
+		
+		if (start >= end) {
+			fprintf(stderr, "The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!", start, end);
+			fprintf(stderr, "Please use 0-based bed file format!");
+			exit(EXIT_FAILURE);
+		}
+
+		j=0;
+		char *tmpPtr = gene_info;
+		while ((tokPtr = strtok_r(tmpPtr, "|", &tmpPtr))) {
+			j++;
+		}
+
+		if (j < 3) {
+			fprintf(stderr, "The gene annotation format is wrong: it should be ABCB1|ENST00000265724|cds_18|gene\n");
+			exit(EXIT_FAILURE);
+		}
+
+		free(gene_info);
+		free(chrom_id);
+	}
+}
+
 void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets) {
 	// open user-defined-database for read
 	//

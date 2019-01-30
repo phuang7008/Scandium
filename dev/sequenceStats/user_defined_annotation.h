@@ -24,6 +24,12 @@
 #include "reports.h"
 
 /*
+ * This function is used to validate the user input annotation file format and provide useful information if needed
+ * @param user_inputs: the inputs that user provides
+ */
+void checkAnnotationFormat(User_Input *user_inputs);
+
+/*
  * this function is used to pre-process the user-defined database before store anything to the exon_regions
  * @param user_inputs: it provides the necessary file name for the user defined database
  * @param udd_wrapper: a wrapper that contains general information such as the number of lines, number of chromosomes etc.

@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	//
     samFile *sfd = sam_open(user_inputs->bam_file, "r");
     if (sfd == 0) {
-        fprintf(stderr, "Can not open file %s\n", argv[1]);
+        fprintf(stderr, "Cannot open file %s\n", argv[1]);
         return -1;
     }
 
@@ -174,6 +174,11 @@ int main(int argc, char *argv[]) {
 		exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
 
 		if (USER_DEFINED_DATABASE) {
+			// need to check if the annotation format is correct!
+			// Stop is the format is wrong!
+			//
+			checkAnnotationFormat(user_inputs);
+
 			udd_wrapper = calloc(1, sizeof(User_Defined_Database_Wrapper));
 			raw_user_defined_database = calloc(1, sizeof(Raw_User_Defined_Database));
 

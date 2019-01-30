@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.1"
+#define VERSION_ "##Scandium v1.2"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -286,11 +286,11 @@ typedef struct {
 	char *gene_symbol;
 	char *transcript_name;
 	bool targeted;
-	uint32_t cds_start;		// for the RefSeq coding regions only
-	uint32_t cds_end;		// for the RefSeq coding regions only
-	uint32_t cds_target_start;		
-	uint32_t cds_target_end;
-	int16_t  exon_id;		// for SNP, it is -1. So it should be signed int
+	uint32_t cds_start;			// for the RefSeq transcript coding region (whole) only
+	uint32_t cds_end;			// for the RefSeq transcript coding region (whole) only
+	uint32_t cds_target_start;	// for a single CDS exon only	
+	uint32_t cds_target_end;	// for a single CDS exon only
+	int16_t  exon_id;			// for SNP, it is -1. So it should be signed int
 	uint16_t exon_count;
 	uint32_t cds_length;
 	uint16_t num_of_low_cov_bases;
