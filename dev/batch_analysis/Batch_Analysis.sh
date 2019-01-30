@@ -3,7 +3,7 @@
 # this script is used to setup the Batch run for Batch analysis of sequencing data from the output of ExCID
 
 ## check the inputs
-if [[ "$#" -lt 12  ||  "$#" -gt 14 ]]; then
+function help() {
 	echo "USAGE: Batch_Analysis.sh [options]"
 	echo -e "\t-a: The integer value from 1-5 to specify which annotation source you are interested in (Default 1)";
 	echo -e "\t\t: 1: RefSeq annotation only (Default)";
@@ -11,14 +11,15 @@ if [[ "$#" -lt 12  ||  "$#" -gt 14 ]]; then
 	echo -e "\t\t: 3: Vega annotation only";
 	echo -e "\t\t: 4: Gencode annotation only";
 	echo -e "\t\t: 5: combined (all of the above)";
-	echo -e "\t-b: the file name that contains gene exons to be examined in bed format (either VCRome+PKv2 or user defined) [Mandatory]";
-   	echo -e "\t-d: the DB Version (such as hg19 or hg38) [Mandatory]";
-	echo -e "\t-f: the input file that contains a list of low coverage reporting file names (absolute path) [Mandatory]";
+	echo -e "\t-b: the target bed file that contains exons to be examined (either VCRome+PKv2 or user defined) [Mandatory]";
+   	echo -e "\t-d: the DB Version (such as hg19 or hg38) (Default hg38)";
+	echo -e "\t-i: the input file that contains a list of low coverage reporting file names (absolute path) [Mandatory]";
+	echo -e "\t-f: the file that contains user defined database";
 	echo -e "\t-g: the file name (absolute path) that contains a list of genes user interested in";
    	echo -e "\t-o: the absolute path of your output directory [Mandatory]"
-   	echo -e "\t-p: the Percentage of samples have low coverage (such as 30 or 50) to be reported [Mandatory]";
+   	echo -e "\t-p: the Percentage of samples have low coverage (such as 10 or 35) [Mandatory]";
 	exit;
-fi;
+}
 
 # Use -gt 1 to consume two arguments per pass in the loop (eg: each argument has a corresponding value to go with it).
 # Use -gt 0 to consume one or more arguments per pass in the loop (eg: some arguments don't have corresponding values to go with it)
@@ -27,7 +28,7 @@ while [[ $# -gt 1 ]]; do
 	key="$1"
 
 	case $key in 
-		-f|--file)
+		-i|--inFile)
 		# this file contains a list of low coverage report files in absolute path
 		IN_FILE="$2"
 		shift # pass argument
@@ -48,6 +49,10 @@ while [[ $# -gt 1 ]]; do
 		Database_Version="$2"
 		shift # pass argument
 		;;
+		-f|--udFile)
+		User_Defined_DB="$2"
+		shift
+		;;
 		-g|--gene)
 		GENE_LIST_FILE="$2"
 		shift
@@ -60,29 +65,39 @@ while [[ $# -gt 1 ]]; do
 		DEFAULT=YES
 		;;
 		*)
+		echo $1
+		echo $2
 		echo "you have entered an unknown option"       # for any unknown option
 		;;
 	esac
 	shift # past argument or value
 done
 
-# check if Annotation_Source is set, if not, set it to '1'
-# "-z" tests for a zero-length string.
-# the inverse of -z is -n if [ -n "$VAR" ]; 
+# check user input first
 #
-if [[ -z "$Annotation_Source" ]]; then
-	echo "Annotation_Source is not set. Hence use default: 1 for RefSeq"
-	Annotation_Source='1'
+if [[ (-z "$OUTPUTDIR" ) || (-z "$IN_FILE") || (-z "$Percentage") || (-z "$BED_FILE") ]]; then
+	help
+fi
+
+if [ -z "$Database_Version" ]; then
+	Database_Version="hg38"
+fi
+
+# handle gene list
+if [ -z "$GENE_LIST_FILE" ]; then
+	GENE_LIST_FILE=""
 else
-	echo "Annotation_Source set!"
+	GENE_LIST_FILE="-g $GENE_LIST_FILE"
 fi
 
 # calculate the threshold
 FILE_TOTAl=`less $IN_FILE | wc -l`
 THRESHOLD_f=$(($Percentage * $FILE_TOTAl))
-THRESHOLD_f=$(($THRESHOLD_f/100))
-THRESHOLD_i=`echo ${THRESHOLD_f%%.*}`
+THRESHOLD_f=$(awk "BEGIN {printf \"%0.2f\", ${THRESHOLD_f}/100}")
 echo "threshold float is $THRESHOLD_f"
+
+# usually we add 5 for ceiling, but this time, we will add 4 for ceiling
+THRESHOLD_i=`perl -e "print int ($THRESHOLD_f + 0.4)"`
 echo "threshold int is $THRESHOLD_i"
 
 ## open the input file list to see if they exist
@@ -94,50 +109,72 @@ for FILE in `cat $IN_FILE`; do
 done;
 
 ## need to convert input files into files without comments and concatenate all tmp file names together
+## we also need to sort it as well
+##
 SAMPLE_LIST=""
-for FILE in `cat $IN_FILE`; do egrep -v "^#|^SeqStats" $FILE | sort -k1,1 -V -s -k2,2n -k3,3n > $OUTPUTDIR/$(basename $FILE).tmp; SAMPLE_LIST=$(printf "%s %s" "$SAMPLE_LIST" "$OUTPUTDIR/$(basename ${FILE}).tmp"); done
+for FILE in `cat $IN_FILE`; do grep -v "^#" $FILE | cut -f1,2,3 | /hgsc_software/BEDTools/latest/bin/bedtools sort -i - > $OUTPUTDIR/$(basename $FILE).tmp; SAMPLE_LIST=$(printf "%s %s" "$SAMPLE_LIST" "$OUTPUTDIR/$(basename ${FILE}).tmp"); done
 #echo "File list:"
 #echo $SAMPLE_LIST
+echo
 
 ## intersect all of them (low coverage files) together using bedtools multiinter
-#
-echo "Now Intersect all the low coverage files"
+echo "Intersect all sample files using bedtools multiinter"
 LOW_COVERAGE_FILE="Batch_Low_COVERAGE_Multiinter.bed"
-/hgsc_software/BEDTools/latest/bin/bedtools multiinter -i $SAMPLE_LIST | awk -F "\t" -v threshold="$THRESHOLD_i" ' $4>=threshold {print $1 "\t" $2 "\t" $3 "\t" $3-$2;} ' > $OUTPUTDIR/$LOW_COVERAGE_FILE 
+/hgsc_software/BEDTools/latest/bin/bedtools multiinter -i $SAMPLE_LIST | awk -F "\t" -v threshold="$THRESHOLD_i" ' $4>=threshold {print $1 "\t" $2 "\t" $3 "\t" $3-$2;} ' > $OUTPUTDIR/$LOW_COVERAGE_FILE
 
 ## merge low coverage regions if they overlap
-#
-echo "Merge the low coverage regions"
+echo "Merged low coverage regions if they overlap"
 LOW_COVERAGE_Merged_File="Batch_Low_COVERAGE_Merged.bed"
-/hgsc_software/BEDTools/latest/bin/bedtools merge -i $OUTPUTDIR/$LOW_COVERAGE_FILE > $OUTPUTDIR/$LOW_COVERAGE_Merged_File
+/hgsc_software/BEDTools/latest/bin/bedtools sort -i $OUTPUTDIR/$LOW_COVERAGE_FILE | /hgsc_software/BEDTools/latest/bin/bedtools merge -i - > $OUTPUTDIR/$LOW_COVERAGE_Merged_File
 
-## now dump the official merged exon annotation (from MySQL database) into a bed file
-#
-echo "Fetch the official exon information"
-/stornext/snfs5/next-gen/scratch/phuang/git_repo/dev/batch_analysis/src/batch_analysis -f $OUTPUTDIR/$LOW_COVERAGE_Merged_File -d $Database_Version -o $OUTPUTDIR -m 1 -a $Annotation_Source
+# After talking to Qiaoyan, we decided not to use MySQL database anymore ...
+# But I think it might be helpful in the future to use it! So I added it in
+## now dump the official exon annotation (from MySQL database: default RefSeq) into a bed file
+if [ -z "$Annotation_Source" ]; then
+	Annotation_Source=1
+fi
 
-## sort the official annotation bed file
-#
-echo "Now sort merged exons files"
-sort_flag="-k1,1 -V -s -k2,2n"
-Merged_Exons="Official_Merged_Exons.bed"
-Merged_Exons_Sorted="Official_Merged_Exons_Sorted.bed"
-sort $sort_flag $OUTPUTDIR/$Merged_Exons > $OUTPUTDIR/$Merged_Exons_Sorted
-
-## intersect merged_exon annotations with $LOW_COVERAGE_Merged_File
-#
-echo "Intersect the official exon annotation with the low coverage regions"
+## intersect exon annotations with $LOW_COVERAGE_Merged_File
 Low_Coverage_Merged_Annotation=$LOW_COVERAGE_Merged_File"_Annotations"
-/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$Merged_Exons_Sorted -b $OUTPUTDIR/$LOW_COVERAGE_Merged_File -wb > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 
-## now intersect the merged_exon annotations with the input bed file to check which exons are NOT covered!
-#
-echo "Find out which official exon annotations are not covered by the Capture design using intersect -v option"
-NOT_Covered_Exons="NOT_Covered_Exons.bed"
-/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$Merged_Exons_Sorted -b $BED_FILE -v > $OUTPUTDIR/$NOT_Covered_Exons
+if [ -z "$User_Defined_DB" ]; then
+	# no user-defined database (annotations), so let's get the Official exon annotation from MySQL database
+	#
+	echo "Dump the official exon annotation from MySQL database) into a bed file"
+	/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$LOW_COVERAGE_Merged_File -d $Database_Version -o $OUTPUTDIR -m 1 -a $Annotation_Source -t $BED_FILE
 
-## now need to calculate the detailed information regarding gene annotation within low coverage regions
-## read in our design not covered exons (pass in as an argument)
-##
-echo "Obtain the annotation"
-/stornext/snfs5/next-gen/scratch/phuang/git_repo/dev/batch_analysis/src/batch_analysis -f $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR -g $GENE_LIST_FILE -m 2 -u $OUTPUTDIR/$NOT_Covered_Exons -a $Annotation_Source
+	## sort the official annotation bed file
+	#echo "Sort the official annotation bed file"
+	Official_Exons="Official_Exons.bed"
+	#sort -k1,1 -V -s $Official_Exons > $Merged_Exons_Sorted
+
+	# MySQL Official database is too big, we need to remove those un-covered exons
+	echo "Intersect official exon annotation with target bed file to remove un-covered exons."
+	Targeted_Exon_Annotation="Targeted_Exon_Annotation"
+	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $BED_FILE -b $Official_Exons -wao | awk -F"\t" '($7!="") {print}' | cut -f1,2,3,7 > $Targeted_Exon_Annotation
+
+	# Intersect the shortened Official database (ie, Targeted_Exon_Annotation)  with $LOW_COVERAGE_Merged_File
+	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $OUTPUTDIR/$Targeted_Exon_Annotation -wao > $Low_Coverage_Merged_Annotation
+
+	echo "Now run the batch analysis"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $Targeted_Exon_Annotation -t $BED_FILE"
+
+	/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $Targeted_Exon_Annotation -t $BED_FILE
+
+else
+
+	# Intersect the user-defined database/annotation with $LOW_COVERAGE_Merged_File
+	echo "Intersect user-defined annotations with $LOW_COVERAGE_Merged_File"
+	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $Low_Coverage_Merged_Annotation
+
+	echo "Now run the batch analysis"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $User_Defined_DB -t $BED_FILE"
+
+	/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $User_Defined_DB -t $BED_FILE
+fi 
+
+# now remove all the tmp files we just created
+echo "Remove all tmp files just created!"
+for FILE in `cat $IN_FILE`; do rm -f $OUTPUTDIR/$(basename $FILE).tmp; done
+
+exit

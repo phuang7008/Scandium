@@ -158,7 +158,8 @@ void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in
 	uint32_t exon_start, exon_end;
 
 	// here is an example:
-	// 1       1043537 1043732 AGRN|NM_001305275_cds_8
+	// chr6	32610994	32610995	PD_HLA-DRB5_rs112485576|PD_HLA-DRB5_rs112485576|snp_1|snp
+	// chr1	7969344	7969404	PARK7|NM_007262|cds_3|gene
 	//
 	while (infile >> chrom_id >> exon_start >> exon_end >> exon_annotation) {
 		if (chrom_id.compare(chrom_in) == 0 && exon_annotation.length() > 0) {
@@ -169,13 +170,13 @@ void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in
 			vector<string> exon_info = utils->split(exon_annotation, '|');
 			string gene_symbol(exon_info[0]);
 
-			vector<string> transcript_info = utils->split(exon_info[1], '_');
-			uint16_t exon_id = atoi(transcript_info.back().c_str());
+			vector<string> exon_id_info = utils->split(exon_info[2], '_');
+			uint16_t exon_id = atoi(exon_id_info.back().c_str());
 			exon.set_exon_id(exon_id);
 
-			transcript_info.pop_back();		// remove exon_id 
-			transcript_info.pop_back();     // remove the 'cds' field from the exon_info vector
-			string transcript_name( utils->join(transcript_info, "_") );
+			exon_id_info.pop_back();	 // remove exon_id 
+			exon_id_info.pop_back();     // remove the 'cds' field from the exon_info vector
+			string transcript_name( exon_info[1] );
 
 			//hts_data->get_exon_count_per_transcript_map()->at(transcript_name) += 1;
 			//(*hts_data->get_exon_count_per_transcript_map())[transcript_name]++;

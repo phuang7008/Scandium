@@ -30,7 +30,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 	uint32_t exon_target_start, exon_target_end, low_cov_start, low_cov_end, size_low_cov;
 
 	// Here is the example
-	// chr1    930154  930178  chr1    930154  930336  SAMD11|NM_152486_exon_2	24
+	// chr11   2170753 2170770 chr11   2170689 2170770 TH|NM_199293|cds_1|gene 17
 	//
 	while (infile >> chrom_id >> low_cov_start >> low_cov_end >> chrom_id 
 				  >> exon_target_start >> exon_target_end >> exon_annotation >> size_low_cov) {
@@ -59,7 +59,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 		}
 
 		// Now process the exon annotation first. Here is an example:
-		// SAMD11|NM_152486_exon_5
+		// TH|NM_199293|cds_1|gene 17
 		// 
 		vector<string> annotations = split(exon_annotation, '|');
 
@@ -70,14 +70,14 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 			//cout << "Processing gene symbol " << annotations[0] << endl;
 		}
 
-		//cerr << annotations[0] << "\t" << annotations[1] << endl;
-		vector<string> transcript_info = split(annotations[1], '_');
+		//cerr << annotations[0] << "\t" << annotations[2] << endl;
+		vector<string> exon_id_info = split(annotations[2], '_');
 
-		uint16_t exon_id = atoi(transcript_info.back().c_str());
-		transcript_info.pop_back();		// pop the 'exon_id' out
-		transcript_info.pop_back();		// pop the 'exon' out
+		uint16_t exon_id = atoi(exon_id_info.back().c_str());
+		exon_id_info.pop_back();		// pop the 'exon_id' out
+		exon_id_info.pop_back();		// pop the 'exon' out
 
-		string transcript_name = join(transcript_info, "_");
+		string transcript_name(annotations[1]);
 
 		// check to see if transcript_name key exists. If not, create an empty container
 		//
