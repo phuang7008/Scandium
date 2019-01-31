@@ -186,13 +186,6 @@ grouping_data <- function(type_in, val_in) {
 process_histogram_data(paste(file_pattern, ".*wgs.*summary", sep=""), "wgs")
 process_histogram_data(paste(file_pattern, ".*capture.*summary", sep=""), "capture")
 
-# I got the following error message if I don't do as the web suggested
-# https://stackoverflow.com/questions/29278153/plotting-with-ggplot2-error-discrete-value-supplied-to-continuous-scale-on-c
-# Error: Discrete value supplied to continuous scale
-#
-#PCT_of_Bases_Coverage_wgs_df$Coverage=as.numeric(levels(PCT_of_Bases_Coverage_wgs_df$Coverage))[PCT_of_Bases_Coverage_wgs_df$Coverage]
-#PCT_of_Bases_Coverage_capture_df$Coverage=as.numeric(levels(PCT_of_Bases_Coverage_capture_df$Coverage))[PCT_of_Bases_Coverage_capture_df$Coverage]
-
 png(filename = paste(file_pattern, "_coverage_graphs.png", sep=""), width=6, height=5, units="in", res=200)
 #pdf(paste(file_pattern, "_coverage_graphs.pdf", sep=""), width=7, height=5)
 
@@ -263,19 +256,27 @@ process_capture_data(paste(file_pattern, ".*Capture.*Transcript_pct",sep=""), "t
 # For Exon
 #
 num_of_exons <- sum(exon_coverage)
+ec <- exon_coverage
 exon_coverage <- round(exon_coverage * 100 / sum(exon_coverage), 2)
 exon_coverage_df <- data.frame(exon_coverage)
 exon_coverage_df <- cbind(categories, exon_coverage_df)
+ec_text <- c()
+for (id in 1:4) {
+	ec_text[id] = paste(exon_coverage[id], "%\n", sep="")
+	ec_text[id] = paste(ec_text[id], "(", sep="")
+	ec_text[id] = paste(ec_text[id], ec[id], sep="")
+	ec_text[id] = paste(ec_text[id], ")", sep="")
+}
 
 # lock in factor level order
 exon_coverage_df$categories <- factor(exon_coverage_df$categories, levels = exon_coverage_df$categories)
 
-e_title = paste("Exon Coverage Histogram (total # of exons: ", num_of_exons)
+e_title = paste("Exon Coverage Stats (total # of exons: ", num_of_exons)
 e_title = paste(e_title, ")")
 
 exon_hist <- ggplot(exon_coverage_df, aes(y=exon_coverage, x=categories)) + 
-  geom_col(color="cyan4", fill="cyan4", width=0.5) + geom_text(aes(label=exon_coverage), size=2, vjust=-0.5) +
-  labs(title=e_title, x="Exon Coverage", y="Frequency (%)") +  ylim(0, 120) +
+  geom_col(color="cyan4", fill="cyan4", width=0.5) + geom_text(aes(label=ec_text), size=1.6, vjust=-0.5) +
+  labs(title=e_title, x="Range of Exon Coverage", y="Coverage Stats") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),
@@ -287,19 +288,27 @@ exon_hist <- ggplot(exon_coverage_df, aes(y=exon_coverage, x=categories)) +
 # For Transcript
 #
 num_of_transcripts <- sum(transcript_coverage)
+tc <- transcript_coverage
 transcript_coverage <- round(transcript_coverage * 100 / sum(transcript_coverage), 2)
 transcript_coverage_df <- data.frame(transcript_coverage)
 transcript_coverage_df <- cbind(categories, transcript_coverage_df)
+tc_text <- c()
+for (id in 1:4) {
+	tc_text[id] = paste(transcript_coverage[id], "%\n", sep="")                                                      
+    tc_text[id] = paste(tc_text[id], "(", sep="")                                                             
+    tc_text[id] = paste(tc_text[id], tc[id], sep="")                                                          
+    tc_text[id] = paste(tc_text[id], ")", sep="")
+}
 
 # lock in factor level order
 transcript_coverage_df$categories <- factor(transcript_coverage_df$categories, levels = transcript_coverage_df$categories)
 
-t_title = paste("Transcript Coverage Histogram (total # of transcript: ", num_of_transcripts)
+t_title = paste("Transcript Coverage Stats (total # of transcript: ", num_of_transcripts)
 t_title = paste(t_title, ")")
 
 transcript_hist <- ggplot(transcript_coverage_df, aes(y=transcript_coverage, x=categories)) + 
-  geom_col(color="cornsilk4", fill="cornsilk4", width=0.5) + geom_text(aes(label=transcript_coverage), size=2, vjust=-0.5) +
-  labs(title=t_title, x="Transcript Coverage", y="Frequency (%)") +  ylim(0, 120) +
+  geom_col(color="cornsilk4", fill="cornsilk4", width=0.5) + geom_text(aes(label=tc_text), size=1.6, vjust=-0.5) +
+  labs(title=t_title, x="Range of Transcript Coverage", y="Coverage Stats") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),
@@ -311,19 +320,27 @@ transcript_hist <- ggplot(transcript_coverage_df, aes(y=transcript_coverage, x=c
 # For Gene
 #
 num_of_genes <- sum(gene_coverage)
+gc <- gene_coverage
 gene_coverage <- round(gene_coverage * 100 / sum(gene_coverage), 2)
 gene_coverage_df <- data.frame(gene_coverage)
 gene_coverage_df <- cbind(categories, gene_coverage_df)
+gc_text <- c()
+for (id in 1:4) {                                                                                          
+    gc_text[id] = paste(gene_coverage[id], "%\n", sep="")                                                
+    gc_text[id] = paste(gc_text[id], "(", sep="")                                                             
+    gc_text[id] = paste(gc_text[id], gc[id], sep="")                                                          
+    gc_text[id] = paste(gc_text[id], ")", sep="")                                                             
+}
 
 # lock in factor level order
 gene_coverage_df$categories <- factor(gene_coverage_df$categories, levels = gene_coverage_df$categories)
 
-g_title = paste("Gene Coverage Histogram (total # of genes: ", num_of_genes)
+g_title = paste("Gene Coverage Stats (total # of genes: ", num_of_genes)
 g_title = paste(g_title, ")")
 
 gene_hist <- ggplot(gene_coverage_df, aes(y=gene_coverage, x=categories)) + 
-  geom_col(color="goldenrod2", fill="goldenrod2", width=0.5) + geom_text(aes(label=gene_coverage),size=2, vjust=-0.5) +
-  labs(title=g_title, x="Gene Coverage", y="Frequency (%)") +  ylim(0, 120) +
+  geom_col(color="goldenrod2", fill="goldenrod2", width=0.5) + geom_text(aes(label=gc_text), size=1.6, vjust=-0.5) +
+  labs(title=g_title, x="Range of Gene Coverage", y="Coverage Stats") +  ylim(0, 120) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),

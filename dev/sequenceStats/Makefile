@@ -19,11 +19,11 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl
 
 # define dependent header files
-_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h
+_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h
 DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
 
 # define the C ssource files
-SRCS = main.c stats.c targets.c  utils.c annotation.c reports.c
+SRCS = main.c stats.c targets.c utils.c annotation.c reports.c user_defined_annotation.c
 
 # define the C object files 
 #
@@ -36,7 +36,7 @@ SRCS = main.c stats.c targets.c  utils.c annotation.c reports.c
 OBJS = $(SRCS:.c=.o)
 
 # define the executable file
-MAIN = scandium 
+MAIN = scandium
 
 #
 # The following part of the makefile is generic; it can be used to 
