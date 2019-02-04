@@ -50,7 +50,7 @@ uint32_t getLineCount(char *bed_file) {
 // It will open the bed-formatted file and then record all the start and stop positions along with chromosome ids
 // for chromosome X and Y are characters, I will use array of chars (ie array of string) to store chromosome ids
 //
-void loadBedFiles(char * bed_file, Bed_Coords * coords) {
+uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
 	FILE *fp = fopen(bed_file, "r");
     if (fp == NULL) {       // ensure the target file open correctly!
         printf("target file %s open failed!", bed_file);
@@ -58,6 +58,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
     }
 
 	uint32_t count=0;		// index for each target line (item)
+	uint32_t total_size=0;	// used for target bed input file merge and uniq checking
 	ssize_t read;
 	size_t len = 0;
 	char *p_token=NULL, *line=NULL;	// here p_ means a point. so p_token is a point to a token
@@ -90,6 +91,7 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 
 			i++;
 		}
+		total_size += coords[count].end - coords[count].start;
 
 		count++;
 	}
@@ -97,6 +99,8 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 	if (line != NULL) free(line);
 
 	fclose(fp);
+
+	return total_size;
 }
 
 void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
@@ -115,16 +119,32 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
 	
 	// load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
 	//
+	uint32_t total_size=0;
 	if (type == 1) {
-		loadBedFiles(user_inputs->target_file, bed_info->coords);
+		total_size = loadBedFiles(user_inputs->target_file, bed_info->coords);
 	} else {
-		loadBedFiles(user_inputs->n_file, bed_info->coords);
+		total_size = loadBedFiles(user_inputs->n_file, bed_info->coords);
 	}
 
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
 	//
 	generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, user_inputs, wanted_chromosome_hash, type);
+
+	// Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
+	//
+	if (type == 1) {
+		if (total_size != stats_info->cov_stats->total_targeted_bases) {
+			printf("\n***Note: the target bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		if (total_size != stats_info->cov_stats->total_Ns_bases) {
+			printf("\n***Note: the Ns-region bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			exit(EXIT_FAILURE);
+
+		}
+	}
 }
 
 void outputForDebugging(Bed_Info *bed_info) {
