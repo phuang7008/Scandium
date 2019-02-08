@@ -92,12 +92,6 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			if (iter_p == kh_end(primary_chromosome_hash)) {
 				// chrom_id is not one of the primary chromosomes, so skip it!
 				//
-				//if (strcmp(cur_chr, "MT") == 0 || strcmp(cur_chr, "chrM") == 0) {
-				//	strcpy(cur_chr, "MT");
-					//chrom_tracking->more_to_read = false;
-					//break;
-					//printf("%d\t%s\t%d\n", i, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->size); 
-				//}
 				continue;
 			}
 		}

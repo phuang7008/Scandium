@@ -447,8 +447,8 @@ void usage() {
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
 	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default: hg19/hg37>\n");
-	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
-	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
+	printf("\t-H <the high coverage cutoff value. Any coverages larger than or equal to it will be outputted. Default=10000>\n");
+	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default: 20>\n");
 	printf("\t-P <the MySQL DB login user's Password>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
 	printf("\t-U <the MySQL DB login User name>\n");
@@ -752,8 +752,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 3);
 
-			//sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
-			sprintf(string_to_add, ".Capture_Exon_pct.txt");
+			sprintf(string_to_add, ".Capture_CDS_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_exon_pct_file, 4);
 
@@ -829,27 +828,30 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
 		fprintf(out_fp, "##This file will be produced when the user specifies a low coverage threshold and need detailed annotations for these low coverage regions\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonyms", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonyms", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
 	} else if (type == 2) {
 		// for capture missed target file
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
 		fprintf(out_fp, "##It contains the target regions that do not get covered\n");
-		fprintf(out_fp, "##%s\t%s\t%s\n", "Chrom", "Start", "End");
+		fprintf(out_fp, "##%s\t%s\t%s\n", "Chr", "Start", "End");
 	} else if (type == 3) {
 		// for gene percentage coverage annotation reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for a Gene/RefSeq pair that above the user-specified low coverage threshold\n");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: (Average_)Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
 		fprintf(out_fp, "##%s\t%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage", "If_-M_on,_HGMD?");
 	} else if (type == 4) {
 		// for exon percentage coverage annotation reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for Exons that above the user-specified low coverage threshold\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Exon_ID", "Start", "End", "Percentage_Of_Coverage", "Regions_With_Low_Coverage");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: Regions_With_Low_Coverage means regions with base coverage below the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: CDS_ID refers to the corresponding coding Exon_ID that users are interested in\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Gene_Symbol", "RefSeq", "CDS_ID", "Start", "End", "Percentage_Of_Coverage", "Regions_With_Low_Coverage");
 	} else if (type == 5) {
 		// for transcript percentage coverage reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for RefSeq transcripts that above the user-specified low coverage threshold\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Length", "Exon_Count", "Percentage_Of_Coverage");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: CDS_Count refers to the corresponding coding exon count that users are interested in\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Gene_Symbol", "RefSeq", "Length", "CDS_Count", "Percentage_Of_Coverage");
 	}
 
 	fclose(out_fp);
@@ -1492,7 +1494,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 		}
 	}
 	//printf("Finished for zero all N zeros\n");
-	printf("\n");
+	//printf("\n");
 }
 void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val) {
     int ret;

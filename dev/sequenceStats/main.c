@@ -336,12 +336,12 @@ int main(int argc, char *argv[]) {
 
 		i = 0;
 		while (i<num_of_chroms) {
-          //if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-          //  printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-          //}
 
 #pragma omp sections
           {
+            if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2)
+              printf("\n");
+
 #pragma omp section
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
@@ -430,14 +430,15 @@ int main(int argc, char *argv[]) {
 			}
           }
 
-		  //printf("Waiting for other thread to completely here for thread %d\n", thread_id);
 #pragma omp barrier 
 
 #pragma omp single
           {
             if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
 		      printf("\n");
+
               // clean up the array allocated
+			  //
               if (chrom_tracking->coverage[i]) {
                 free(chrom_tracking->coverage[i]);
                 chrom_tracking->coverage[i] = NULL;
@@ -449,9 +450,9 @@ int main(int argc, char *argv[]) {
 		}
 
 #pragma omp barrier 
-        //printf("End of while loop before flush for thread %d\n", thread_id);
-      }
-	  printf("\n");
+	  }		// End of while loop before flush for thread
+
+	  //printf("\n");
       fflush(stdout);
     }
 
@@ -513,7 +514,6 @@ int main(int argc, char *argv[]) {
 
 	if (stats_info)
 		statsInfoDestroy(stats_info);
-	//printf("after stats_info destroy\n");
 
 	if (chrom_tracking)
 		free(chrom_tracking);

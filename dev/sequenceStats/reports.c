@@ -375,7 +375,6 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 						free(annotation);
 						annotation = NULL;
 					} else {
-						//fprintf(fh_high, "%s", "Annotation not available\n");
 						fprintf(fh_high, ".\t.\t.\t.\t.\t.\t.\t.\n");
 					}
 				}
@@ -394,10 +393,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 	char *annotation = calloc(50, sizeof(char));
 	strcpy(annotation, ".");
 
-	//if (start >= 0 && end <=1219917) {
-	//	printf("Stop\n");
-	//}
-	
 	// just return ".\t.\t.\t.\t.\t.\t." if exon_regions is NULL
 	//
 	if (exon_regions == NULL) {
@@ -431,13 +426,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 				}
 			}
 		}
-
-		// now speed search for intronic regions
-		//
-		//if (USER_DEFINED_DATABASE) {
-		//	strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
-		//	return annotation;
-		//}
 
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, intronic_regions);
 		if (chrom_idr == intronic_regions->prev_search_chrom_index && intronic_regions->prev_search_loc_index > 0) {
@@ -482,11 +470,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 	//Next, check if the region locates at the intronic area
 	//
-	//if (USER_DEFINED_DATABASE) {
-	//	strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
-	//	return annotation;
-	//}
-
 	if (index_exon_location == -1) {
 		if (intronic_regions == NULL) {
 			strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
@@ -773,7 +756,6 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
         exit(EXIT_FAILURE);
     }
 
-	//printf("Before Median calculation\n");
    	uint64_t sum=0;
 	int32_t i=0;
 	double average_coverage=0.0;
@@ -930,9 +912,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
             fprintf(trt_fp, "%d,%"PRIu32"\n", i, stats_info->target_coverage[i]);
         }*/
 
-		//printf("Before free the file name second time\n");
 		fclose(trt_fp);
-		//printf("END\n");
 	}
 }
 
@@ -1020,7 +1000,7 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 		fprintf(fp, "Median_Coverage\t%d\n", stats_info->cov_stats->median_genome_coverage);
 		fprintf(fp, "Mode_Coverage_For_Uniformity\t%d\n", stats_info->cov_stats->mode);
 		fprintf(fp, "Uniformity_Primary_Autosome_Only\t%.3f\n", stats_info->cov_stats->uniformity_metric_primary_autosome_only);
-		fprintf(fp, "Uniformity_Primary_Autosome_plus_X_and_Y\t%.3f\n", stats_info->cov_stats->uniformity_metric_all_primary);
+		//fprintf(fp, "Uniformity_Primary_Autosome_plus_X_and_Y\t%.3f\n", stats_info->cov_stats->uniformity_metric_all_primary);
 		//fprintf(fp, "Uniformity_Primary_Autosome_plus_Alt_Decoys_HLA\t%.3f\n", stats_info->cov_stats->uniformity_metric_autosome_only);
 		//fprintf(fp, "Uniformity_Primary_Autosome_plus_X_Y_Alt_Decoys_HLA_(Everything)\t%.3f\n", stats_info->cov_stats->uniformity_metric_all);
 	}
@@ -1228,9 +1208,6 @@ void storeGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Inp
 					char transcript_name[35];
 					strcpy(transcript_name, kh_value(gene_transcripts, iter_gt)->theArray[i]);
 					khiter_t iter_tsh = kh_get(khStrLCG, transcript_hash, transcript_name);
-
-					//if (strcmp(transcript_name, "NM_000047") == 0)
-					//	printf("Duckling\n");
 
 					if (iter_tsh == kh_end(transcript_hash)) {
 						// transcript name doesn't exist

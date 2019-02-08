@@ -81,8 +81,8 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 
 	}
 
-	fprintf(stderr, "The dynamic database for gene/transcript/exon percentage calculation is: %s\n", dbs->db_coords);
-	fprintf(stderr, "The dynamic database for gene annotation (partitioned) is %s\n", dbs->db_annotation);
+	fprintf(stderr, "The database for gene/transcript/exon percentage calculation is: %s\n", dbs->db_coords);
+	fprintf(stderr, "The database for gene annotation (partitioned) is %s\n", dbs->db_annotation);
 	fprintf(stderr, "The Intronic database is: %s\n", dbs->db_introns);
 	if (HGMD_PROVIDED)
 		fprintf(stderr, "The HGMD database is: %s\n", dbs->db_hgmd);
