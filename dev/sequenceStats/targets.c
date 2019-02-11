@@ -57,6 +57,16 @@ uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
         exit(EXIT_FAILURE);
     }
 
+	// setup a variable to store chromosomes that have been seen
+	// this is used to check if the bed file is sorted!
+	// if the file is not sorted, exit and give an error message!
+	//
+	khash_t(khStrInt) *seen_chromosome_hash = kh_init(khStrInt);
+	char *prev_chr_id = calloc(150, sizeof(char));
+	strcpy(prev_chr_id, "nothing99999");
+	uint32_t prev_start=0;
+	bool sorted=true;
+
 	uint32_t count=0;		// index for each target line (item)
 	uint32_t total_size=0;	// used for target bed input file merge and uniq checking
 	ssize_t read;
@@ -91,12 +101,48 @@ uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
 
 			i++;
 		}
+
+		// checking if the bed file is sorted
+		//
+		if (strcmp(coords[count].chrom_id, prev_chr_id) == 0) {
+			if (prev_start >= coords[count].start)
+				sorted = false;
+		} else {
+			// its a new chromosome
+			// need to check if we have seen the chromosome id before
+			//
+			int absent;
+			khiter_t iter = kh_put(khStrInt, seen_chromosome_hash, coords[count].chrom_id, &absent);
+			if (absent) {
+				// haven't seen it, just add to the seen_chromosome_hash
+				//
+				kh_key(seen_chromosome_hash, iter) = strdup(coords[count].chrom_id);
+				kh_value(seen_chromosome_hash, iter) = 1;
+
+				strcpy(prev_chr_id, coords[count].chrom_id);
+			} else {
+				sorted = false;
+			}
+		}
+
+		if (!sorted) {
+			printf("The input bed file %s is not sorted between %"PRIu32" and %"PRIu32"!\n", bed_file, prev_start, coords[count].start);
+			printf("Please make sure your input bed file is sorted, merged and unique!");
+			exit(EXIT_FAILURE);
+		}
+
+		// reset the prev_start position and sum the total bed file size
+		//
+		prev_start = coords[count].start;
 		total_size += coords[count].end - coords[count].start;
 
 		count++;
 	}
 
 	if (line != NULL) free(line);
+	if (prev_chr_id != NULL) free(prev_chr_id);
+	if (seen_chromosome_hash != NULL) 
+		cleanKhashStrInt(seen_chromosome_hash);
 
 	fclose(fp);
 

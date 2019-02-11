@@ -5,7 +5,7 @@ MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 CC=gcc
 #CFLAGS= -g -Wall -O2 -fopenmp
-CFLAGS= -g -Wall -O0 -fopenmp
+CFLAGS= -g -Wall -O0 -fopenmp -pg
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
 
 # define any directories containing header files other than /usr/bin
