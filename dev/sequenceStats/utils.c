@@ -880,7 +880,7 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe percentage of reads used for analysis is: %.1f%%\n", user_inputs->percentage*100);
 	fprintf(stderr, "\tThe coverage number used for low coverage report is:  < %d\n", user_inputs->low_coverage_to_report);
 	fprintf(stderr, "\tThe coverage number used for high coverage report is: > %d\n", user_inputs->high_coverage_to_report);
-	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d\n", user_inputs->gVCF_percentage);
+	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d%%\n", user_inputs->gVCF_percentage * 100);
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
 	fprintf(stderr, "\tThe uniformity data file will be produced\n");
@@ -1560,6 +1560,12 @@ uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {
 }
 
 float calculatePercentage32(uint32_t num, uint32_t dom) {
+	double val = (double)num/(double)dom;
+	int i_val = val * 10000.0 + 0.5;
+	return (float)i_val/100.0;
+}
+
+float calculatePercentage32_64(uint32_t num, uint64_t dom) {
 	double val = (double)num/(double)dom;
 	int i_val = val * 10000.0 + 0.5;
 	return (float)i_val/100.0;

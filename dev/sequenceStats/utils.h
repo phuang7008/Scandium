@@ -289,6 +289,7 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
  */
 float calculatePercentage64(uint64_t num, uint64_t dom);
 float calculatePercentage32(uint32_t num, uint32_t dom);
+float calculatePercentage32_64(uint32_t num, uint64_t dom);
 
 /** 
  * combine all the coverage stats from each individual thread and store them in the stats_info

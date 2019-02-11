@@ -348,7 +348,7 @@ KHASH_MAP_INIT_STR(khStrGTP, Gene_Transcript_Percentage*)
  */
 typedef struct {
 	//base stats
-	uint32_t total_genome_bases;			//total number of bases in Genome
+	uint64_t total_genome_bases;			//total number of bases in Genome
 	uint32_t total_Ns_bases;				//total number of bases that are N (unknown)
 	uint32_t total_Ns_bases_on_chrX;		//total number of bases that are N (unknown) on X chromosome
 	uint32_t total_Ns_bases_on_chrY;		//total number of bases that are N (unknown) on Y chromosome
@@ -359,14 +359,14 @@ typedef struct {
 	uint64_t base_quality_30;				//total number of aligned bases with quality >=30
 
 	//read stats
-	uint32_t total_reads_paired;			//total number of reads with mate pairs (if any)
-	uint32_t total_reads_proper_paired;		//total number of reads with mate pairs (if any)
-	uint32_t total_reads_aligned;			//total reads aligned to a target region
-	uint32_t total_reads_produced;			//total reads contains in the bam
+	uint64_t total_reads_paired;			//total number of reads with mate pairs (if any)
+	uint64_t total_reads_proper_paired;		//total number of reads with mate pairs (if any)
+	uint64_t total_reads_aligned;			//total reads aligned to a target region
+	uint64_t total_reads_produced;			//total reads contains in the bam
 	uint32_t total_duplicate_reads;			//total number of duplicate reads
 	uint32_t total_chimeric_reads;			//total number of duplicate reads
 	uint32_t total_supplementary_reads;		//total number of reads with supplementary flag set
-	uint32_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
+	uint64_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
 
 	//read stats on target/buffer
 	uint64_t total_target_coverage;			//total number of read bases aligned to the target (used to calculate average coverage)

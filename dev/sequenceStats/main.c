@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 		TargetBufferStatusInit(target_buffer_status, header);
 	}
 
-	fprintf(stderr, "The total genome bases is %"PRIu32"\n", stats_info->cov_stats->total_genome_bases);
+	fprintf(stderr, "The total genome bases is %"PRIu64"\n", stats_info->cov_stats->total_genome_bases);
 
 	// For target bed file and Ns region bed file
 	//
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 	if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
         processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, header, wanted_chromosome_hash, 2);
-		fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
+		fprintf(stderr, "The Ns base is %"PRIu64"\n", stats_info->cov_stats->total_Ns_bases);
     }
 
 	if (TARGET_FILE_PROVIDED) {
