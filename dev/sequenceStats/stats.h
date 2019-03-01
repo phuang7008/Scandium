@@ -71,9 +71,10 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
  * @param chrom_id: current chromosome id to be handled
  * @param rec: the individual alignment record to be processed
  * @param target_buffer_status: it contains the target and buffer info for capture sequencing
+ * @param same_chr: a boolean value to indicate if chr id has been changed or not
+ * @param iter_in_out: an khiter_t variable to store the point value for current chromosome id key
  */
-void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status);
-//void processRecord(Coverage_Hash *coverage_hash, int hash_index, bam1_t *rec);
+void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status, bool same_chr, khiter_t *iter_in_out);
 
 /**
  * This function is used to combine each thread coverage results and put them onto a big array with length of each chromosome

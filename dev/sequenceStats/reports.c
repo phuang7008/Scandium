@@ -644,8 +644,8 @@ void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint
 	// for histogram only
 	uint32_t tmp_val = cov_val;
 	if (tmp_val > 1000) tmp_val = 1000;
-	if (target == 1) addValueToKhashBucket32(stats_info->target_cov_histogram, tmp_val, 1);
-	if (wgs == 1)    addValueToKhashBucket32(stats_info->genome_cov_histogram, tmp_val, 1);
+	if (target == 1) stats_info->target_cov_histogram[tmp_val]++;
+	if (wgs == 1)    stats_info->genome_cov_histogram[tmp_val]++;
 
     if (target == 1) stats_info->cov_stats->total_target_coverage += (uint64_t) cov_val;
     if (wgs == 1)    stats_info->cov_stats->total_genome_coverage += (uint64_t) cov_val;
@@ -759,7 +759,6 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
    	uint64_t sum=0;
 	int32_t i=0;
 	double average_coverage=0.0;
-	int ret;
 	uint16_t bins[16] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 500, 1000 };
 	khiter_t k_iter;
 
@@ -810,23 +809,16 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "\n");
 		fprintf(out_fp, "#Coverage_Frequency_Distribution_for_Whole_Genome\n");
 
-		for (i=1; i<=1000; i++) {
-            k_iter = kh_put(m32, stats_info->genome_cov_histogram, i, &ret);
-            if (ret)
-                kh_value(stats_info->genome_cov_histogram, k_iter) = 0;
+		for (i=0; i<=1000; i++)
+			fprintf(out_fp, "%d,", i);
 
-			fprintf(out_fp, "%"PRIu32",", kh_key(stats_info->genome_cov_histogram, k_iter)-1);
-        }
-		fprintf(out_fp, "1000,\n");
-
+		fprintf(out_fp, "\n");
 		fprintf(out_fp, ">>");
-		for (k_iter=kh_begin(stats_info->genome_cov_histogram); k_iter!=kh_end(stats_info->genome_cov_histogram); k_iter++) {
-			if (kh_exist(stats_info->genome_cov_histogram, k_iter)) {
-				fprintf(out_fp, "%"PRIu32",", kh_value(stats_info->genome_cov_histogram, k_iter));
-			}
-		}
-	    fprintf(out_fp, "\n");
 
+		for (i=0; i<=1000; i++)
+			fprintf(out_fp, "%"PRIu32",", stats_info->genome_cov_histogram[i]);
+
+	    fprintf(out_fp, "\n");
 		fclose(out_fp);
 	}
 
@@ -883,21 +875,15 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 		fprintf(trt_fp, "\n");
 		fprintf(trt_fp, "#Coverage_Frequency_Distribution_For_Capture_Enrichment\n");
 
-		for (i=1; i<=1000; i++) {
-			k_iter = kh_put(m32, stats_info->target_cov_histogram, i, &ret);
-			if (ret)
-				kh_value(stats_info->target_cov_histogram, k_iter) = 0;
+		for (i=0; i<=1000; i++)
+			fprintf(trt_fp, "%d,", i);
 
-			fprintf(trt_fp, "%"PRIu32",", kh_key(stats_info->target_cov_histogram, k_iter)-1);
-		}
-    	fprintf(trt_fp, "1000,\n");
-
+    	fprintf(trt_fp, "\n");
 		fprintf(trt_fp, ">>");
-		for (k_iter=kh_begin(stats_info->target_cov_histogram); k_iter!=kh_end(stats_info->target_cov_histogram); k_iter++) {
-			if (kh_exist(stats_info->target_cov_histogram, k_iter)) {
-				fprintf(trt_fp, "%"PRIu32",", kh_value(stats_info->target_cov_histogram, k_iter));
-			}
-		}
+
+		for (i=0; i<=1000; i++)
+			fprintf(trt_fp, "%"PRIu32",", stats_info->target_cov_histogram[i]);
+
 		fprintf(trt_fp, "\n");
 
 		/*fprintf(trt_fp, "Target and region coverage plot\n");

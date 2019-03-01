@@ -117,7 +117,7 @@ typedef struct {
  * define a structure that holds the target coordinates
  */
 typedef struct {
-    char chrom_id[50];    // some chromosome ID would be quite long
+    char chrom_id[150];    // some chromosome ID would be quite long
     uint32_t start;
     uint32_t end;
 } Bed_Coords;
@@ -134,7 +134,7 @@ typedef struct {
  * define a strcuture for quick lookup of target information
  */
 typedef struct {
-	char chrom_id[50];				// which chromosome it is tracking
+	char chrom_id[150];				// which chromosome it is tracking
 	uint32_t size;					// size of current chromosome
 	int32_t index;					// -1 means this chromosome is not important/processed, and we should skip it!
 	uint8_t *status_array;			// the status for each chrom position, 1 for target, 2 for buffer and 3 for Ns
@@ -399,8 +399,8 @@ typedef struct {
  * define a structure to store various information, such as coverage histogram etc
  */
 typedef struct {
-    khash_t(m32) *target_cov_histogram;             //target coverage histogram
-    khash_t(m32) *genome_cov_histogram;             //coverage histogram for the whole Genome
+    uint32_t target_cov_histogram[1001];             //target coverage histogram array
+    uint32_t genome_cov_histogram[1001];             //coverage histogram array for the whole Genome
 
     khash_t(m32) *targeted_base_with_N_coverage;    // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
     khash_t(m32) *genome_base_with_N_coverage;      // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100

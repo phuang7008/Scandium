@@ -1376,8 +1376,11 @@ void statsInfoInit(Stats_Info *stats_info) {
 		exit(EXIT_FAILURE);
 	}
 
-	stats_info->target_cov_histogram = kh_init(m32);
-    stats_info->genome_cov_histogram = kh_init(m32);
+	int i;
+	for (i=0; i<=1000; i++) {
+		stats_info->target_cov_histogram[i]=0;
+		stats_info->genome_cov_histogram[i]=0;
+	}
 
     stats_info->targeted_base_with_N_coverage = kh_init(m32);
     stats_info->genome_base_with_N_coverage   = kh_init(m32);
@@ -1389,7 +1392,6 @@ void statsInfoInit(Stats_Info *stats_info) {
 	coverageStatsInit(stats_info->cov_stats);
 
 	// initializing all numbers to 0
-	int i = 0;
 	for (i=0; i<PRIMER_SIZE; i++) {
 		stats_info->five_prime[i] = 0;
 		stats_info->three_prime[i] = 0;
@@ -1451,8 +1453,8 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 }
 
 void statsInfoDestroy(Stats_Info *stats_info) {
-	kh_destroy(m32, stats_info->target_cov_histogram);
-	kh_destroy(m32, stats_info->genome_cov_histogram);
+	//kh_destroy(m32, stats_info->target_cov_histogram);
+	//kh_destroy(m32, stats_info->genome_cov_histogram);
 	kh_destroy(m32, stats_info->targeted_base_with_N_coverage);
 	kh_destroy(m32, stats_info->genome_base_with_N_coverage);
 	kh_destroy(m32, stats_info->target_coverage_for_median);
