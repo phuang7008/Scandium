@@ -974,7 +974,7 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 		percent = calculatePercentage32_64(stats_info->cov_stats->on_target_read_hit_count, stats_info->cov_stats->total_reads_aligned);
 		if (user_inputs->remove_duplicate) {
 			fprintf(fp, "Aligned_Reads_On-Target_(Total_Usable_Reads)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
-			fprintf(fp, "PC_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);
+			fprintf(fp, "PCT_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);
 		} else {
 			fprintf(fp, "Aligned_Reads_On-Target_(Include_Duplicates)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
 			fprintf(fp, "PCT_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);

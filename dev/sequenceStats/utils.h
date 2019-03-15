@@ -113,6 +113,14 @@ void usage();
 bool isNumber(const char *inStr);
 
 /**
+ * check if the input string is a float number
+ * @param str, the string to be coverted
+ * @param dest, the value to be copied to
+ * @return true or false
+ */
+bool isFloat(const char *str, float *dest);
+
+/**
  * process user input options and ensure they are correct!
  * @param argv[]: an array of strings that are used to decide user input options
  */
