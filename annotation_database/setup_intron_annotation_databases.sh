@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # This script is used to setup the gene intronic annotation database for sequencing analysis
-# First, we need to run the exon_annotation_databases.sh to create sorted_merged_partitioned_exon_file
+# First, we need to run the setup_exon_annotation_databases.sh to create sorted_merged_partitioned_exon_file
 #
 if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE output_directory db_version(hg38 or hg37)"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE(output file from setup_exon_annotation_databases.sh run) output_directory db_version(hg38 or hg37)"
 	exit
 fi
 
