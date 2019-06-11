@@ -474,8 +474,11 @@ int main(int argc, char *argv[]) {
 		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 0, 0);
 
 		// All Primaries (including X and Y chromosomes), BUT without alt, decoy
-		//
-		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist, 0, 1);
+		// need to mock the cov_freq_dist so that they won't affect cov_freq_dist calculation
+        //
+        khash_t(m32) *cov_freq_dist_XY = kh_init(m32);
+		calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist_XY, 0, 1);
+        cleanKhashInt(cov_freq_dist_XY);
 	}
 
 	// Now need to write the report
