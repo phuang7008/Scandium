@@ -27,7 +27,7 @@ binned_hist_df <- c()
 categories <- c("<90", "90-97", "97-99", "100")
 
 process_histogram_data <- function(pattern_in, type_in) {
-  tmp_file <- list.files(pattern=pattern_in, ignore.case = TRUE)
+  tmp_file <- list.files(pattern=glob2rx(pattern_in), ignore.case = TRUE)
   
   # open file for reading
   #
@@ -126,7 +126,9 @@ gene_coverage <- c(0,0,0,0)
 transcript_coverage <- c(0,0,0,0)
 
 process_capture_data <- function(pattern_in, type_in) {
-  tmp_file <- list.files(pattern=pattern_in, ignore.case = TRUE)
+  #print(pattern_in)
+  tmp_file <- list.files(pattern=glob2rx(pattern_in), ignore.case = TRUE)
+  #print(tmp_file)
   
   # open file for reading
   #
@@ -183,8 +185,8 @@ grouping_data <- function(type_in, val_in) {
 
 # First for raw coverage count distribution
 #
-process_histogram_data(paste(file_pattern, ".*wgs.*summary", sep=""), "wgs")
-process_histogram_data(paste(file_pattern, ".*capture.*summary", sep=""), "capture")
+process_histogram_data(paste(file_pattern, "*wgs*summary*", sep=""), "wgs")
+process_histogram_data(paste(file_pattern, "*capture*summary*", sep=""), "capture")
 
 png(filename = paste(file_pattern, "_coverage_graphs.png", sep=""), width=6, height=5, units="in", res=200)
 #pdf(paste(file_pattern, "_coverage_graphs.pdf", sep=""), width=7, height=5)
@@ -249,9 +251,9 @@ binned_graph <- ggplot(binned_hist_df, aes(x=Coverage, y=Frequency)) +
 
 # Next for Capture Annotation Graphing
 #
-process_capture_data(paste(file_pattern, ".*Capture.*Exon_pct.txt", sep=""), "exon")
-process_capture_data(paste(file_pattern, ".*Capture.*Gene_pct", sep=""), "gene")
-process_capture_data(paste(file_pattern, ".*Capture.*Transcript_pct",sep=""), "transcript")
+process_capture_data(paste(file_pattern, "*Capture*Exon_pct*", sep=""), "exon")
+process_capture_data(paste(file_pattern, "*Capture*Gene_pct*", sep=""), "gene")
+process_capture_data(paste(file_pattern, "*Capture*Transcript_pct*",sep=""), "transcript")
 
 # For Exon
 #
