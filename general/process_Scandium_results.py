@@ -37,7 +37,7 @@ def main(args_in):
 						if not os.path.isfile(args_in.output+"-"+tmp_type+"."+"csv"):
 							output_header(tmp_input_file, tmp_type, args_in)
 							
-						process_summary_report_file(tmp_input_file, args_in, tmp_file, tmp_type)
+						process_summary_report_file(tmp_input_file, args_in, tmp_input_file, tmp_type)
 
 # process the summary file passed in and append everything to the keys
 #
