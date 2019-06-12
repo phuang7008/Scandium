@@ -113,6 +113,14 @@ void usage();
 bool isNumber(const char *inStr);
 
 /**
+ * check if the input string is a float number
+ * @param str, the string to be coverted
+ * @param dest, the value to be copied to
+ * @return true or false
+ */
+bool isFloat(const char *str, float *dest);
+
+/**
  * process user input options and ensure they are correct!
  * @param argv[]: an array of strings that are used to decide user input options
  */
@@ -289,6 +297,7 @@ uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
  */
 float calculatePercentage64(uint64_t num, uint64_t dom);
 float calculatePercentage32(uint32_t num, uint32_t dom);
+float calculatePercentage32_64(uint32_t num, uint64_t dom);
 
 /** 
  * combine all the coverage stats from each individual thread and store them in the stats_info

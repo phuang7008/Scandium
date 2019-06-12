@@ -50,14 +50,25 @@ uint32_t getLineCount(char *bed_file) {
 // It will open the bed-formatted file and then record all the start and stop positions along with chromosome ids
 // for chromosome X and Y are characters, I will use array of chars (ie array of string) to store chromosome ids
 //
-void loadBedFiles(char * bed_file, Bed_Coords * coords) {
+uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
 	FILE *fp = fopen(bed_file, "r");
     if (fp == NULL) {       // ensure the target file open correctly!
         printf("target file %s open failed!", bed_file);
         exit(EXIT_FAILURE);
     }
 
+	// setup a variable to store chromosomes that have been seen
+	// this is used to check if the bed file is sorted!
+	// if the file is not sorted, exit and give an error message!
+	//
+	khash_t(khStrInt) *seen_chromosome_hash = kh_init(khStrInt);
+	char *prev_chr_id = calloc(150, sizeof(char));
+	strcpy(prev_chr_id, "nothing99999");
+	uint32_t prev_start=0;
+	bool sorted=true;
+
 	uint32_t count=0;		// index for each target line (item)
+	uint32_t total_size=0;	// used for target bed input file merge and uniq checking
 	ssize_t read;
 	size_t len = 0;
 	char *p_token=NULL, *line=NULL;	// here p_ means a point. so p_token is a point to a token
@@ -91,12 +102,51 @@ void loadBedFiles(char * bed_file, Bed_Coords * coords) {
 			i++;
 		}
 
+		// checking if the bed file is sorted
+		//
+		if (strcmp(coords[count].chrom_id, prev_chr_id) == 0) {
+			if (prev_start >= coords[count].start)
+				sorted = false;
+		} else {
+			// its a new chromosome
+			// need to check if we have seen the chromosome id before
+			//
+			int absent;
+			khiter_t iter = kh_put(khStrInt, seen_chromosome_hash, coords[count].chrom_id, &absent);
+			if (absent) {
+				// haven't seen it, just add to the seen_chromosome_hash
+				//
+				kh_key(seen_chromosome_hash, iter) = strdup(coords[count].chrom_id);
+				kh_value(seen_chromosome_hash, iter) = 1;
+
+				strcpy(prev_chr_id, coords[count].chrom_id);
+			} else {
+				sorted = false;
+			}
+		}
+
+		if (!sorted) {
+			printf("The input bed file %s is not sorted between %"PRIu32" and %"PRIu32"!\n", bed_file, prev_start, coords[count].start);
+			printf("Please make sure your input bed file is sorted, merged and unique!");
+			exit(EXIT_FAILURE);
+		}
+
+		// reset the prev_start position and sum the total bed file size
+		//
+		prev_start = coords[count].start;
+		total_size += coords[count].end - coords[count].start;
+
 		count++;
 	}
 
 	if (line != NULL) free(line);
+	if (prev_chr_id != NULL) free(prev_chr_id);
+	if (seen_chromosome_hash != NULL) 
+		cleanKhashStrInt(seen_chromosome_hash);
 
 	fclose(fp);
+
+	return total_size;
 }
 
 void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
@@ -115,16 +165,32 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
 	
 	// load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
 	//
+	uint32_t total_size=0;
 	if (type == 1) {
-		loadBedFiles(user_inputs->target_file, bed_info->coords);
+		total_size = loadBedFiles(user_inputs->target_file, bed_info->coords);
 	} else {
-		loadBedFiles(user_inputs->n_file, bed_info->coords);
+		total_size = loadBedFiles(user_inputs->n_file, bed_info->coords);
 	}
 
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
 	//
 	generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, user_inputs, wanted_chromosome_hash, type);
+
+	// Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
+	//
+	if (type == 1) {
+		if (total_size != stats_info->cov_stats->total_targeted_bases) {
+			printf("\n***Note: the target bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		if (total_size != stats_info->cov_stats->total_Ns_bases) {
+			printf("\n***Note: the Ns-region bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			exit(EXIT_FAILURE);
+
+		}
+	}
 }
 
 void outputForDebugging(Bed_Info *bed_info) {

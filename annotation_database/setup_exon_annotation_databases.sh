@@ -3,39 +3,34 @@
 # This script is used to setup the gene/exon annotation database for sequencing analysis
 # First, we need to make sure that user has entered all the required parameters (or arguments)
 #
-if [[ $# -ne 3 ]]; then
+if [[ $# -ne 2 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_exon_annotation_databases.sh miRNA_file output_directory db_version(hg38 or hg37)"
+	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_exon_annotation_databases.sh output_directory db_version(hg38 or hg37)"
 	exit
 fi
 
 # get the working directory and cd to the directory
-BASEDIR=$2
+BASEDIR=$1
 cd $BASEDIR
 pwd
-#echo `$BASEDIR`
 printf "$BASEDIR\n"
 
 # get the gene annotation version
-gene_db_version=$3
-
-# since miRNA file can't be downloaded using rsync or ftp, we have to download it first and tell the script where to find it
-# things might change in the future and we might be able to use rsync or ftp in the future! 
-# But for now, we need to do it manually!
-miRNA_FILE=$1
+gene_db_version=$2
 
 # now process miRNA file
-new_miRNA_file=""
+new_miRNA_file=hsa_miRNA_simplified.bed
 
 if [ "$gene_db_version" == "hg38" ]; then
-	new_miRNA_file=`basename ${miRNA_FILE}`_simplified.bed
-	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"\|exon_1\|miRNA_1="$5; print}' > $new_miRNA_file
-	#awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' $miRNA_FILE | grep 'chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/chr//gi | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"_exon_0_1="$5; print}' > $new_miRNA_file
-	printf "Producing simplified miRNA file $new_miRNA_file \n"
+	wget ftp://mirbase.org/pub/mirbase/CURRENT/genomes/hsa.gff3
+	awk -F "\t|" '{print $1"\t"$4"\t"$5"\t"$9}' hsa.gff3 | grep '^chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"|exon_1|miRNA_1="$5; print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > $new_miRNA_file
+	#printf "Producing simplified miRNA file $new_miRNA_file \n"
 else 
-	new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed
-	/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
-	printf "Producing rearranged miRNA file $new_miRNA_file \n"
+	wget ftp://mirbase.org/pub/mirbase/20/genomes/hsa.gff3
+	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' hsa.gff3 | grep '^chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/^chr//gi | awk '{t=$5"\t"; $5=$4"\t"; $4=t"\t"; print}' | awk '{ $4=$4"|exon_1|miRNA_1="$5; print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > $new_miRNA_file
+	#new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed
+	#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
+	#printf "Producing rearranged miRNA file $new_miRNA_file \n"
 fi
 
 # for HGNC official gene_symbol and dump them into the MySQL database
@@ -85,11 +80,19 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
 	echo "For Darwin"
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+	if [ "$gene_db_version" == "hg38" ]; then
+		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+	else
+		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi >> "$FILE.bed"; done;
+	fi
 elif [ "$(uname)" == "Linux" ]; then
 	echo "For Linux"
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+	if [ "$gene_db_version" == "hg38" ]; then
+		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+	else
+		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi > "$FILE.bed"; done;
+	fi
 fi
 
 # remove all the tmp files files

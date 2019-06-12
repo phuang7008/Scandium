@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 		TargetBufferStatusInit(target_buffer_status, header);
 	}
 
-	fprintf(stderr, "The total genome bases is %"PRIu32"\n", stats_info->cov_stats->total_genome_bases);
+	fprintf(stderr, "The total genome bases is %"PRIu64"\n", stats_info->cov_stats->total_genome_bases);
 
 	// For target bed file and Ns region bed file
 	//
@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
             combineThreadResults(chrom_tracking, coverage_hash);
             combineCoverageStats(stats_info, cov_stats);
 
-            // since all reads have been processed for current chromosome, we need to set the status to 2
+			// if all reads have been processed for the entire file, we need to set the status to 2 for all
 			// 
             if (!chrom_tracking->more_to_read) {
               for(i=0; i<num_of_chroms; i++) {
@@ -336,12 +336,12 @@ int main(int argc, char *argv[]) {
 
 		i = 0;
 		while (i<num_of_chroms) {
-          //if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-          //  printf("Chromosome id %s in thread id %d has finished processing, now dumping\n", chrom_tracking->chromosome_ids[i], thread_id);
-          //}
 
 #pragma omp sections
           {
+            if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2)
+              printf("\n");
+
 #pragma omp section
             {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
@@ -430,14 +430,15 @@ int main(int argc, char *argv[]) {
 			}
           }
 
-		  //printf("Waiting for other thread to completely here for thread %d\n", thread_id);
 #pragma omp barrier 
 
 #pragma omp single
           {
             if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
 		      printf("\n");
+
               // clean up the array allocated
+			  //
               if (chrom_tracking->coverage[i]) {
                 free(chrom_tracking->coverage[i]);
                 chrom_tracking->coverage[i] = NULL;
@@ -449,9 +450,9 @@ int main(int argc, char *argv[]) {
 		}
 
 #pragma omp barrier 
-        //printf("End of while loop before flush for thread %d\n", thread_id);
-      }
-	  printf("\n");
+	  }		// End of while loop before flush for thread
+
+	  //printf("\n");
       fflush(stdout);
     }
 
@@ -473,8 +474,11 @@ int main(int argc, char *argv[]) {
 		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 0, 0);
 
 		// All Primaries (including X and Y chromosomes), BUT without alt, decoy
-		//
-		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist, 0, 1);
+		// need to mock the cov_freq_dist so that they won't affect cov_freq_dist calculation
+        //
+        khash_t(m32) *cov_freq_dist_XY = kh_init(m32);
+		calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist_XY, 0, 1);
+        cleanKhashInt(cov_freq_dist_XY);
 	}
 
 	// Now need to write the report
@@ -513,7 +517,6 @@ int main(int argc, char *argv[]) {
 
 	if (stats_info)
 		statsInfoDestroy(stats_info);
-	//printf("after stats_info destroy\n");
 
 	if (chrom_tracking)
 		free(chrom_tracking);

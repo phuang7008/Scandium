@@ -61,7 +61,9 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
 	uint32_t i = 0;
-	char cur_chr[50];
+	char cur_chr[150];
+	bool same_chr=true;
+	khiter_t *iter_in_out = calloc(1, sizeof(khiter_t));
 	strcpy(cur_chr, "NOTTHEREALONE");
 
 	for (i=0; i<read_buff_in->size; i++) {
@@ -92,12 +94,6 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			if (iter_p == kh_end(primary_chromosome_hash)) {
 				// chrom_id is not one of the primary chromosomes, so skip it!
 				//
-				//if (strcmp(cur_chr, "MT") == 0 || strcmp(cur_chr, "chrM") == 0) {
-				//	strcpy(cur_chr, "MT");
-					//chrom_tracking->more_to_read = false;
-					//break;
-					//printf("%d\t%s\t%d\n", i, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->size); 
-				//}
 				continue;
 			}
 		}
@@ -157,6 +153,9 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			printf("Processing chromosome id %s for thread %d\n", cur_chr, thread_id);
 
 			not_added = true;
+			same_chr = false;
+		} else {
+			if (!same_chr) same_chr=true;
 		}
 
 		// Add the instance of khash_t(m32) to the khash_t(str) object (ie coverage_hash) based on the chrom_id
@@ -179,13 +178,15 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         	///////////////////////////////////////////////////////////////////
 		}
 
-        processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status);
+        processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status, same_chr, iter_in_out);
     }
+
+	if (iter_in_out != NULL) free(iter_in_out);
 
     //printf("Done read bam for thread %d\n", thread_id);
 }
 
-void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status) {
+void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out) {
 	uint32_t i=0, j=0, chrom_len=0;
 	bool on_target=false, in_buffer=false;
 
@@ -202,14 +203,14 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 		}
 	}
 
-	khiter_t outer_iter;
-    int	ret=0;
-
 	// get key iterator for chrom_id (outer hash table: khash_t(str))
 	//
-	outer_iter = kh_put(str, coverage_hash, chrom_id, &ret);	
-	if (ret)
-		fprintf(stderr, "Something went wrong, hash key for %s is not added\n", chrom_id);
+	if (!same_chr) {
+		int	ret=0;
+		*iter_in_out = kh_put(str, coverage_hash, chrom_id, &ret);
+		if (ret)
+			fprintf(stderr, "Something went wrong, hash key for %s is not added\n", chrom_id);
+	}
 
 	// get the quality information
 	uint8_t *qual = bam_get_qual(rec);
@@ -229,7 +230,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			PacBio BAM files use the more explicit ops “X” (BAM_CDIFF) and “=” (BAM_CEQUAL). 
 			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
 		*/
-        if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
+		if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
 			cov_stats->total_aligned_bases += cln;
 
 			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
@@ -262,16 +263,18 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					continue;
 				}
 
-				kh_value(coverage_hash, outer_iter)->cov_array[pos_r]++;
+				kh_value(coverage_hash, *iter_in_out)->cov_array[pos_r]++;
 				pos_r++;
 				pos_q++;
 			}
+
 		} else if (cop == BAM_CSOFT_CLIP) {
 			// according to the website: https://github.com/lh3/samtools/blob/master/bam_md.c
 			// at the BAM_CSOFT_CLIP, we shouldn't increment the pos_r
 			// yes, the soft-clip position is not the beginning of the matched reference position
 			//
 			pos_q += cln;
+
 		} else if (cop == BAM_CINS) {
 			// as they are not part of the reference, we will not advance the pos_r
 			// this is confirmed by the web:  https://github.com/lh3/samtools/blob/master/bam_md.c
@@ -287,15 +290,18 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 				if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
 				pos_q++;
 			}
+
 		} else if (cop == BAM_CREF_SKIP || cop == BAM_CDEL) {
 			// here we only advance the reference position, but not the query position
 			//
 			pos_r += cln;
+
 		} else if (cop == BAM_CPAD) {
 			// according to the https://www.biostars.org/p/4211/
 			// BAM_CPAD shouldn't advance pos_r
 			//
 			pos_q += cln;
+
 		}
 	}
 
@@ -323,7 +329,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 	*/
 
 	for (i = 0; i < chrom_tracking->number_tracked; i++) {
-		if (chrom_tracking->chromosome_status[i] > 2) continue;
+		if (chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] > 2) continue;
 
 		// Now go through the coverage_hash map to see if it is currently tracking it
 		// if it tracks new chromosome, we need to allocate memory for the coverage array of the new chromosome

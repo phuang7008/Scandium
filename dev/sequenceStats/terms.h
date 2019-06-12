@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.2"
+#define VERSION_ "##Scandium v1.3"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -117,7 +117,7 @@ typedef struct {
  * define a structure that holds the target coordinates
  */
 typedef struct {
-    char chrom_id[50];    // some chromosome ID would be quite long
+    char chrom_id[150];    // some chromosome ID would be quite long
     uint32_t start;
     uint32_t end;
 } Bed_Coords;
@@ -134,7 +134,7 @@ typedef struct {
  * define a strcuture for quick lookup of target information
  */
 typedef struct {
-	char chrom_id[50];				// which chromosome it is tracking
+	char chrom_id[150];				// which chromosome it is tracking
 	uint32_t size;					// size of current chromosome
 	int32_t index;					// -1 means this chromosome is not important/processed, and we should skip it!
 	uint8_t *status_array;			// the status for each chrom position, 1 for target, 2 for buffer and 3 for Ns
@@ -348,7 +348,7 @@ KHASH_MAP_INIT_STR(khStrGTP, Gene_Transcript_Percentage*)
  */
 typedef struct {
 	//base stats
-	uint32_t total_genome_bases;			//total number of bases in Genome
+	uint64_t total_genome_bases;			//total number of bases in Genome
 	uint32_t total_Ns_bases;				//total number of bases that are N (unknown)
 	uint32_t total_Ns_bases_on_chrX;		//total number of bases that are N (unknown) on X chromosome
 	uint32_t total_Ns_bases_on_chrY;		//total number of bases that are N (unknown) on Y chromosome
@@ -359,14 +359,14 @@ typedef struct {
 	uint64_t base_quality_30;				//total number of aligned bases with quality >=30
 
 	//read stats
-	uint32_t total_reads_paired;			//total number of reads with mate pairs (if any)
-	uint32_t total_reads_proper_paired;		//total number of reads with mate pairs (if any)
-	uint32_t total_reads_aligned;			//total reads aligned to a target region
-	uint32_t total_reads_produced;			//total reads contains in the bam
+	uint64_t total_reads_paired;			//total number of reads with mate pairs (if any)
+	uint64_t total_reads_proper_paired;		//total number of reads with mate pairs (if any)
+	uint64_t total_reads_aligned;			//total reads aligned to a target region
+	uint64_t total_reads_produced;			//total reads contains in the bam
 	uint32_t total_duplicate_reads;			//total number of duplicate reads
 	uint32_t total_chimeric_reads;			//total number of duplicate reads
 	uint32_t total_supplementary_reads;		//total number of reads with supplementary flag set
-	uint32_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
+	uint64_t total_paired_reads_with_mapped_mates; //total number of aligned reads which have mapped mates
 
 	//read stats on target/buffer
 	uint64_t total_target_coverage;			//total number of read bases aligned to the target (used to calculate average coverage)
@@ -399,8 +399,8 @@ typedef struct {
  * define a structure to store various information, such as coverage histogram etc
  */
 typedef struct {
-    khash_t(m32) *target_cov_histogram;             //target coverage histogram
-    khash_t(m32) *genome_cov_histogram;             //coverage histogram for the whole Genome
+    uint32_t target_cov_histogram[1001];             //target coverage histogram array
+    uint32_t genome_cov_histogram[1001];             //coverage histogram array for the whole Genome
 
     khash_t(m32) *targeted_base_with_N_coverage;    // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
     khash_t(m32) *genome_base_with_N_coverage;      // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100

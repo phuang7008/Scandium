@@ -37,7 +37,7 @@ bool USER_DEFINED_DATABASE = false;
 //
 bool checkFile(char * fName) {
     if(access(fName, F_OK|R_OK) == -1) {
-        fprintf(stderr, "No such file as %s;  File not found.\n", fName);
+        fprintf(stderr, "===>No such file as %s;  File not found.\n", fName);
 		return false;
 		//exit(EXIT_FAILURE);
     }
@@ -428,8 +428,8 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 void usage() {
 	printf("Version %s\n\n", VERSION_ );
 	printf("Usage:  coverage -i bam/cram -o output_directory [options ...]\n");
-	printf("Note: this is a multi-threading program. Each thread needs 3-4gb of memory. So please allocate them accordingly!\n");
-	printf("Note: for example: 3 threads would use 9-12gb of memory, while 4 threads would need 12-16 gb of memory, etc.\n\n");
+	printf("Note:   this is a multi-threading program. Each thread needs 4Gb of memory. So please allocate them accordingly!\n");
+	printf("\tfor example: 3 threads would use 12Gb of memory, while 4 threads would need 16Gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
 	printf("\t-i <BAM/CRAM alignment file (multiple files are not allowed!). It Is Mandatory >\n");
 	printf("\t-o <output directory. It Is Mandatory>\n\n");
@@ -447,8 +447,8 @@ void usage() {
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
 	printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default: hg19/hg37>\n");
-	printf("\t-H <the high coverage cutoff value. Any coverages larger than it will be outputted. Default=10000>\n");
-	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default=20>\n");
+	printf("\t-H <the high coverage cutoff value. Any coverages larger than or equal to it will be outputted. Default=10000>\n");
+	printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default: 20>\n");
 	printf("\t-P <the MySQL DB login user's Password>\n");
 	printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
 	printf("\t-U <the MySQL DB login User name>\n");
@@ -472,7 +472,7 @@ void usage() {
 	printf("\t[-h] Print this help/usage message\n");
 }
 
-// This is used to check if a string (ie char *) is a number
+// This is used to check if a string (ie char *) is an int number
 bool isNumber(const char * inStr) {
 	if (strlen(inStr) == 0) return false;
 
@@ -485,10 +485,29 @@ bool isNumber(const char * inStr) {
     return true;
 }
 
+// This is used to check if a string is a float number
+//
+bool isFloat(const char *str, float *dest) {
+	if (str == NULL) return false;
+
+	char *endptr;
+	*dest = (float) strtod(str, &endptr);
+	if (str == endptr) return false;	// no conversion
+
+	// look at training text
+	//
+	while (isspace((unsigned char) *endptr))
+		endptr++;
+
+	return *endptr == '\0';
+}
+
 // Get command line arguments in and check the sanity of user inputs 
 //
 void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	int arg;
+	bool input_error_flag=false;
+	bool flag_float=true;
 
 	//When getopt returns -1, no more options available
 	//
@@ -500,9 +519,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				user_inputs->annotation_on = false; break;
 			case 'b':
 				if (!isNumber(optarg)) {
-					fprintf (stderr, "Entered base quality filter score %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
+					fprintf (stderr, "===>Entered base quality filter score %s is not a number\n", optarg);
+                    //usage();
+                    //exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
                 }
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
@@ -518,8 +539,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 					user_inputs->database_version[i] = tolower(user_inputs->database_version[i]);
 				}
 
-				if (strcmp(user_inputs->database_version, "hg37") == 0)
-					strcpy(user_inputs->database_version, "hg19");
+				if (strcmp(user_inputs->database_version, "hg19") == 0)
+					strcpy(user_inputs->database_version, "hg37");
 
 				break;
 			case 'f':
@@ -532,9 +553,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'h': usage(); exit(EXIT_FAILURE);
 			case 'H':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered High coverage cutoff value %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
+                    fprintf (stderr, "===>Entered High coverage cutoff value %s is not a number\n", optarg);
+                    //usage();
+                    //exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
                 }
                 user_inputs->high_coverage_to_report = (uint32_t) strtol(optarg, NULL, 10);
                 break;
@@ -548,25 +571,31 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				user_inputs->user_set_peak_size_on = true; break;
 			case 'L':
 				if (!isNumber(optarg)) {
-					fprintf (stderr, "Entered Lower coverage cutoff value %s is not a number\n", optarg);
-					usage();
-					exit(EXIT_FAILURE);
+					fprintf (stderr, "===>Entered Lower coverage cutoff value %s is not a number\n", optarg);
+					//usage();
+					//exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
 				}
 				user_inputs->low_coverage_to_report = (uint16_t) strtol(optarg, NULL, 10);
 				break;
 			case 'l':
 				if (!isNumber(optarg)) {
-					fprintf (stderr, "Entered lower_bound value %s is not a number\n", optarg);
-					usage();
-					exit(EXIT_FAILURE);
+					fprintf (stderr, "===>Entered lower_bound value %s is not a number\n", optarg);
+					//usage();
+					//exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
 				}
 				user_inputs->lower_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
             case 'm':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered map quality filter score %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
+                    fprintf (stderr, "===>Entered map quality filter score %s is not a number\n", optarg);
+                    //usage();
+                    //exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
                 }
 				user_inputs->min_map_quality = atoi(optarg);
                 break;
@@ -582,7 +611,13 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->output_dir = (char *) malloc((strlen(optarg)+1) * sizeof(char));
                 strcpy(user_inputs->output_dir, optarg);
                 break;
-            case 'p': user_inputs->percentage = atof(optarg); break;
+            case 'p': 
+			   	flag_float = isFloat(optarg, &(user_inputs->percentage)); 
+				if (!flag_float) {
+					fprintf(stderr, "===>Entered percentage value %s is not a float decimal number\n", optarg);
+					input_error_flag=true;
+				}
+				break;
 			case 'P':
 				user_inputs->passwd = malloc(strlen(optarg)+1 * sizeof(char));
 				strcpy(user_inputs->passwd, optarg);
@@ -599,17 +634,21 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 break;
 			case 'T':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered number of threads %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
+                    fprintf (stderr, "===>Entered number of threads %s is not a number\n", optarg);
+                    //usage();
+                    //exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
                 }
                 user_inputs->num_of_threads = atoi(optarg);
 				break;
 			case 'u':
 				if (!isNumber(optarg)) {
-                    fprintf (stderr, "Entered upper_bound value %s is not a number\n", optarg);
-                    usage();
-                    exit(EXIT_FAILURE);
+                    fprintf (stderr, "===>Entered upper_bound value %s is not a number\n", optarg);
+                    //usage();
+                    //exit(EXIT_FAILURE);
+					input_error_flag=true;
+					break;
                 }
                 user_inputs->upper_bound = (uint16_t) strtol(optarg, NULL, 10);
 				break;
@@ -625,45 +664,51 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 					|| optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
 					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' || optopt == 'r'
 					|| optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
-                    fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+                    fprintf(stderr, "===>Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
-                    fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+                    fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
                 else
-					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
-                usage();
-                exit(EXIT_FAILURE);
-            default: fprintf(stderr, "Non-option argument %c\n", optopt); usage(); exit(EXIT_FAILURE);
+					fprintf (stderr, "===>Unknown option character `\\x%x'.\n", optopt);
+                //usage();
+                //exit(EXIT_FAILURE);
+				input_error_flag=true;
+				break;
+            default: fprintf(stderr, "===>Non-option argument %c\n", optopt); input_error_flag=true; break; //usage(); exit(EXIT_FAILURE);
         }
     }
 
 	// don't proceed if the user doesn't specify either -t or -w or both
 	//
 	if (!user_inputs->wgs_coverage && !TARGET_FILE_PROVIDED) {
-		printf("\nYou specify neither -t (for Capture Project) nor -w (for WGS analysis)\n");
-		printf("Please specify either -t or -w or both before proceeding. Thanks!\n\n");
-		usage();
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "===>You specify neither -t (for Capture Project) nor -w (for WGS analysis)\n");
+		fprintf(stderr, "===>\tPlease specify either -t or -w or both before proceeding. Thanks!\n");
+		//usage();
+		//exit(EXIT_FAILURE);
+		input_error_flag=true;
 	}
 
 	// check the mandatory arguments (will turn this on for the final test/run)
     if (user_inputs->bam_file == NULL) {
-        printf("\n-i\toption is mandatory!\n\n");
-		usage();
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "===>-i\toption is mandatory!\n");
+		//usage();
+        //exit(EXIT_FAILURE);
+		input_error_flag=true;
     }
 
 	// check database version
 	if ( (strcmp(user_inputs->database_version, "hg19") != 0) && (strcmp(user_inputs->database_version, "hg37") != 0)
 			&& strcmp(user_inputs->database_version, "hg38") != 0) {
-		printf("\n-D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n\n");
-		usage();
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "===>-D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n");
+		//usage();
+		//exit(EXIT_FAILURE);
+		input_error_flag=true;
 	}
 	
 	if (user_inputs->output_dir == NULL) {
-		printf("\n-o\toption is mandatory!\n\n");
-		usage();
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "===>-o\toption is mandatory!\n");
+		//usage();
+		//exit(EXIT_FAILURE);
+		input_error_flag=true;
 	} else {
 		// check to see if the directory exist!
 		DIR* dir = opendir(user_inputs->output_dir);
@@ -671,33 +716,43 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			/* Directory exists */
 			closedir(dir);
 		} else if (ENOENT == errno) {
-			printf("\nThe output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n\n");
-			usage();
-			exit(EXIT_FAILURE);
+			fprintf(stderr, "===>The output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n");
+			//usage();
+			//exit(EXIT_FAILURE);
+			input_error_flag=true;
 		} else {
 			/* opendir() failed for some other reason, such as permission */
-			printf("\nCan't open the output directory! Please check to see if the permission is set correctly. Thanks!\n\n");
-			usage();
-			exit(EXIT_FAILURE);
+			fprintf(stderr, "===>Can't open the output directory! Please check to see if the permission is set correctly. Thanks!\n");
+			//usage();
+			//exit(EXIT_FAILURE);
+			input_error_flag=true;
 		}
 	}
 
 	if (user_inputs->upper_bound < user_inputs->lower_bound) {
-		printf("\nThe value for -u should be larger than the value for -l option \n\n");
-		usage();
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "===>The value for -u(%d) should be larger than the value for -l(%d) option \n", user_inputs->upper_bound, user_inputs->lower_bound);
+		//usage();
+		//exit(EXIT_FAILURE);
+		input_error_flag=true;
 	}
 
 	// Need to check out that all files user provided exist before proceeding
-	if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) exit(EXIT_FAILURE);
-	if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) exit(EXIT_FAILURE);
-	if (TARGET_FILE_PROVIDED && !checkFile(user_inputs->target_file)) exit(EXIT_FAILURE);
+	if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) input_error_flag=true; //exit(EXIT_FAILURE);
+	if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) input_error_flag=true; //exit(EXIT_FAILURE);
+	if (TARGET_FILE_PROVIDED && !checkFile(user_inputs->target_file)) input_error_flag=true; //exit(EXIT_FAILURE);
 
 	// need to get the basename from BAM/CRAM filename
 	//char *tmp_basename = basename(strdup(user_inputs->bam_file));
 	char *tmp_basename = basename(user_inputs->bam_file);
 	if (!tmp_basename || strlen(tmp_basename) == 0) {
-		printf("\nSomething went wrong for extracting the basename from the input BAM/CRAM file\n");
+		fprintf(stderr, "===>Something went wrong for extracting the basename from the input BAM/CRAM file\n");
+		//exit(EXIT_FAILURE);
+		input_error_flag=true;
+	}
+
+	if (input_error_flag) {
+		//usage();
+		fprintf(stderr, "Please use -h for all Scandium options\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -752,8 +807,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_gene_pct_file, 3);
 
-			//sprintf(string_to_add, ".Capture_below%dx_Exon_pct.txt", user_inputs->low_coverage_to_report);
-			sprintf(string_to_add, ".Capture_Exon_pct.txt");
+			sprintf(string_to_add, ".Capture_CDS_pct.txt");
 			createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_file, string_to_add);
 			writeHeaderLine(user_inputs->low_cov_exon_pct_file, 4);
 
@@ -829,27 +883,30 @@ void writeHeaderLine(char *file_in, uint8_t type) {
 	if (type == 1) {
 		// for the coverage annotation report (for example: below20x, above10000x coverage reports)
 		fprintf(out_fp, "##This file will be produced when the user specifies a low coverage threshold and need detailed annotations for these low coverage regions\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonyms", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Start", "End", "Length", "Coverage", "Gene_Symbol", "Synonyms", "Prev_Gene_Symbol", "RefSeq", "CCDS", "VEGA", "miRNA", "Others (SNP, Pseudo-Gene etc.)");
 	} else if (type == 2) {
 		// for capture missed target file
 		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
 		fprintf(out_fp, "##It contains the target regions that do not get covered\n");
-		fprintf(out_fp, "##%s\t%s\t%s\n", "Chrom", "Start", "End");
+		fprintf(out_fp, "##%s\t%s\t%s\n", "Chr", "Start", "End");
 	} else if (type == 3) {
 		// for gene percentage coverage annotation reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for a Gene/RefSeq pair that above the user-specified low coverage threshold\n");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: (Average_)Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
 		fprintf(out_fp, "##%s\t%s\t%s\t%s\n", "Gene_Symbol", "RefSeq_List(Percentage_Of_Coverage)", "Average_Percentage_Of_Coverage", "If_-M_on,_HGMD?");
 	} else if (type == 4) {
 		// for exon percentage coverage annotation reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for Exons that above the user-specified low coverage threshold\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Exon_ID", "Start", "End", "Percentage_Of_Coverage", "Regions_With_Low_Coverage");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: Regions_With_Low_Coverage means regions with base coverage below the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: CDS_ID refers to the corresponding coding Exon_ID that users are interested in\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Gene_Symbol", "RefSeq", "CDS_ID", "Start", "End", "Percentage_Of_Coverage", "Regions_With_Low_Coverage");
 	} else if (type == 5) {
 		// for transcript percentage coverage reports
-		fprintf(out_fp, "##This file will be produced when the user specifies the target file (For Capture only)\n");
-		fprintf(out_fp, "##It contains the percentage of coverage for RefSeq transcripts that above the user-specified low coverage threshold\n");
-		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chrom", "Gene_Symbol", "RefSeq", "Length", "Exon_Count", "Percentage_Of_Coverage");
+		fprintf(out_fp, "##This file will be produced when the user provides a target bed file (For Capture only)\n");
+		fprintf(out_fp, "##NOTE: Percentage_Of_Coverage means percentage of bases with coverage >= the user-specified coverage threshold\n");
+		fprintf(out_fp, "##NOTE: CDS_Count refers to the corresponding coding exon count that users are interested in\n");
+		fprintf(out_fp, "##%s\t%s\t%s\t%s\t%s\t%s\n", "Chr", "Gene_Symbol", "RefSeq", "Length", "CDS_Count", "Percentage_Of_Coverage");
 	}
 
 	fclose(out_fp);
@@ -878,7 +935,7 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe percentage of reads used for analysis is: %.1f%%\n", user_inputs->percentage*100);
 	fprintf(stderr, "\tThe coverage number used for low coverage report is:  < %d\n", user_inputs->low_coverage_to_report);
 	fprintf(stderr, "\tThe coverage number used for high coverage report is: > %d\n", user_inputs->high_coverage_to_report);
-	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d\n", user_inputs->gVCF_percentage);
+	fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d%%\n", user_inputs->gVCF_percentage * 100);
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
 	fprintf(stderr, "\tThe uniformity data file will be produced\n");
@@ -1374,8 +1431,11 @@ void statsInfoInit(Stats_Info *stats_info) {
 		exit(EXIT_FAILURE);
 	}
 
-	stats_info->target_cov_histogram = kh_init(m32);
-    stats_info->genome_cov_histogram = kh_init(m32);
+	int i;
+	for (i=0; i<=1000; i++) {
+		stats_info->target_cov_histogram[i]=0;
+		stats_info->genome_cov_histogram[i]=0;
+	}
 
     stats_info->targeted_base_with_N_coverage = kh_init(m32);
     stats_info->genome_base_with_N_coverage   = kh_init(m32);
@@ -1387,7 +1447,6 @@ void statsInfoInit(Stats_Info *stats_info) {
 	coverageStatsInit(stats_info->cov_stats);
 
 	// initializing all numbers to 0
-	int i = 0;
 	for (i=0; i<PRIMER_SIZE; i++) {
 		stats_info->five_prime[i] = 0;
 		stats_info->three_prime[i] = 0;
@@ -1449,8 +1508,8 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 }
 
 void statsInfoDestroy(Stats_Info *stats_info) {
-	kh_destroy(m32, stats_info->target_cov_histogram);
-	kh_destroy(m32, stats_info->genome_cov_histogram);
+	//kh_destroy(m32, stats_info->target_cov_histogram);
+	//kh_destroy(m32, stats_info->genome_cov_histogram);
 	kh_destroy(m32, stats_info->targeted_base_with_N_coverage);
 	kh_destroy(m32, stats_info->genome_base_with_N_coverage);
 	kh_destroy(m32, stats_info->target_coverage_for_median);
@@ -1492,7 +1551,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 		}
 	}
 	//printf("Finished for zero all N zeros\n");
-	printf("\n");
+	//printf("\n");
 }
 void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val) {
     int ret;
@@ -1558,6 +1617,12 @@ uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {
 }
 
 float calculatePercentage32(uint32_t num, uint32_t dom) {
+	double val = (double)num/(double)dom;
+	int i_val = val * 10000.0 + 0.5;
+	return (float)i_val/100.0;
+}
+
+float calculatePercentage32_64(uint32_t num, uint64_t dom) {
 	double val = (double)num/(double)dom;
 	int i_val = val * 10000.0 + 0.5;
 	return (float)i_val/100.0;

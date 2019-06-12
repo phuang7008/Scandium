@@ -375,7 +375,6 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 						free(annotation);
 						annotation = NULL;
 					} else {
-						//fprintf(fh_high, "%s", "Annotation not available\n");
 						fprintf(fh_high, ".\t.\t.\t.\t.\t.\t.\t.\n");
 					}
 				}
@@ -394,10 +393,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 	char *annotation = calloc(50, sizeof(char));
 	strcpy(annotation, ".");
 
-	//if (start >= 0 && end <=1219917) {
-	//	printf("Stop\n");
-	//}
-	
 	// just return ".\t.\t.\t.\t.\t.\t." if exon_regions is NULL
 	//
 	if (exon_regions == NULL) {
@@ -431,13 +426,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 				}
 			}
 		}
-
-		// now speed search for intronic regions
-		//
-		//if (USER_DEFINED_DATABASE) {
-		//	strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
-		//	return annotation;
-		//}
 
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, intronic_regions);
 		if (chrom_idr == intronic_regions->prev_search_chrom_index && intronic_regions->prev_search_loc_index > 0) {
@@ -482,11 +470,6 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 	//Next, check if the region locates at the intronic area
 	//
-	//if (USER_DEFINED_DATABASE) {
-	//	strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
-	//	return annotation;
-	//}
-
 	if (index_exon_location == -1) {
 		if (intronic_regions == NULL) {
 			strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
@@ -661,8 +644,8 @@ void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint
 	// for histogram only
 	uint32_t tmp_val = cov_val;
 	if (tmp_val > 1000) tmp_val = 1000;
-	if (target == 1) addValueToKhashBucket32(stats_info->target_cov_histogram, tmp_val, 1);
-	if (wgs == 1)    addValueToKhashBucket32(stats_info->genome_cov_histogram, tmp_val, 1);
+	if (target == 1) stats_info->target_cov_histogram[tmp_val]++;
+	if (wgs == 1)    stats_info->genome_cov_histogram[tmp_val]++;
 
     if (target == 1) stats_info->cov_stats->total_target_coverage += (uint64_t) cov_val;
     if (wgs == 1)    stats_info->cov_stats->total_genome_coverage += (uint64_t) cov_val;
@@ -773,11 +756,9 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
         exit(EXIT_FAILURE);
     }
 
-	//printf("Before Median calculation\n");
    	uint64_t sum=0;
 	int32_t i=0;
 	double average_coverage=0.0;
-	int ret;
 	uint16_t bins[16] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 500, 1000 };
 	khiter_t k_iter;
 
@@ -820,7 +801,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 			uint32_t val = getValueFromKhash32(stats_info->genome_base_with_N_coverage, bins[i]);
 			if (i==0) { val -= stats_info->cov_stats->total_Ns_bases; }		// need to remove all Ns
 
-			percent = calculatePercentage32(val, total_genome_non_Ns_bases);
+			percent = calculatePercentage32_64(val, total_genome_non_Ns_bases);
 			fprintf(out_fp, "Bases_with_%dx_coverage\t%"PRIu32"\n", bins[i], val);
 			fprintf(out_fp, "PCT_of_Bases_with_%dx_coverage\t%.2f%%\n", bins[i], percent);
 		}
@@ -828,23 +809,16 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "\n");
 		fprintf(out_fp, "#Coverage_Frequency_Distribution_for_Whole_Genome\n");
 
-		for (i=1; i<=1000; i++) {
-            k_iter = kh_put(m32, stats_info->genome_cov_histogram, i, &ret);
-            if (ret)
-                kh_value(stats_info->genome_cov_histogram, k_iter) = 0;
+		for (i=0; i<=1000; i++)
+			fprintf(out_fp, "%d,", i);
 
-			fprintf(out_fp, "%"PRIu32",", kh_key(stats_info->genome_cov_histogram, k_iter)-1);
-        }
-		fprintf(out_fp, "1000,\n");
-
+		fprintf(out_fp, "\n");
 		fprintf(out_fp, ">>");
-		for (k_iter=kh_begin(stats_info->genome_cov_histogram); k_iter!=kh_end(stats_info->genome_cov_histogram); k_iter++) {
-			if (kh_exist(stats_info->genome_cov_histogram, k_iter)) {
-				fprintf(out_fp, "%"PRIu32",", kh_value(stats_info->genome_cov_histogram, k_iter));
-			}
-		}
-	    fprintf(out_fp, "\n");
 
+		for (i=0; i<=1000; i++)
+			fprintf(out_fp, "%"PRIu32",", stats_info->genome_cov_histogram[i]);
+
+	    fprintf(out_fp, "\n");
 		fclose(out_fp);
 	}
 
@@ -901,21 +875,15 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 		fprintf(trt_fp, "\n");
 		fprintf(trt_fp, "#Coverage_Frequency_Distribution_For_Capture_Enrichment\n");
 
-		for (i=1; i<=1000; i++) {
-			k_iter = kh_put(m32, stats_info->target_cov_histogram, i, &ret);
-			if (ret)
-				kh_value(stats_info->target_cov_histogram, k_iter) = 0;
+		for (i=0; i<=1000; i++)
+			fprintf(trt_fp, "%d,", i);
 
-			fprintf(trt_fp, "%"PRIu32",", kh_key(stats_info->target_cov_histogram, k_iter)-1);
-		}
-    	fprintf(trt_fp, "1000,\n");
-
+    	fprintf(trt_fp, "\n");
 		fprintf(trt_fp, ">>");
-		for (k_iter=kh_begin(stats_info->target_cov_histogram); k_iter!=kh_end(stats_info->target_cov_histogram); k_iter++) {
-			if (kh_exist(stats_info->target_cov_histogram, k_iter)) {
-				fprintf(trt_fp, "%"PRIu32",", kh_value(stats_info->target_cov_histogram, k_iter));
-			}
-		}
+
+		for (i=0; i<=1000; i++)
+			fprintf(trt_fp, "%"PRIu32",", stats_info->target_cov_histogram[i]);
+
 		fprintf(trt_fp, "\n");
 
 		/*fprintf(trt_fp, "Target and region coverage plot\n");
@@ -930,9 +898,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
             fprintf(trt_fp, "%d,%"PRIu32"\n", i, stats_info->target_coverage[i]);
         }*/
 
-		//printf("Before free the file name second time\n");
 		fclose(trt_fp);
-		//printf("END\n");
 	}
 }
 
@@ -940,7 +906,7 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
     if (type == 2) fprintf(fp, "BUFFER_size\t%d\n", user_inputs->target_buffer_size);
     fprintf(fp, "#Read_Stats\n");
      
-    fprintf(fp, "Total_Reads(TR)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Total_Reads(TR)\t%"PRIu64"\n", stats_info->cov_stats->total_reads_produced);
 
     uint64_t yield = stats_info->cov_stats->read_length * (uint64_t) stats_info->cov_stats->total_reads_produced;
     fprintf(fp, "Sequenced_Read_Length\t%d\n", stats_info->cov_stats->read_length);
@@ -949,66 +915,66 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
     yield = stats_info->cov_stats->read_length * (uint64_t) (stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads);
     //fprintf(fp, "Uniquely_Aligned_Yield\t%"PRIu64"\n", yield);
 
-    float percent = calculatePercentage32(stats_info->cov_stats->total_reads_aligned,stats_info->cov_stats->total_reads_produced);
-    fprintf(fp, "Aligned_Reads(AR)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
+    float percent = calculatePercentage64(stats_info->cov_stats->total_reads_aligned,stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Aligned_Reads(AR)\t%"PRIu64"\n", stats_info->cov_stats->total_reads_aligned);
     fprintf(fp, "PCT_Reads_Aligned\t%.2f%%\n", percent);
 
-    uint32_t uniquely_aligned = stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads;
-	percent = calculatePercentage32(uniquely_aligned, stats_info->cov_stats->total_reads_produced);
-	fprintf(fp, "Unique_Aligned_Reads\t%"PRIu32"\n", uniquely_aligned); 
+    uint64_t uniquely_aligned = stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads;
+	percent = calculatePercentage64(uniquely_aligned, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Unique_Aligned_Reads\t%"PRIu64"\n", uniquely_aligned); 
 	fprintf(fp, "PCT_of_Unique_Aligned_Reads_(agst_TR)\t%.2f%%\n", percent); 
 
-	percent = calculatePercentage32(uniquely_aligned, stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage64(uniquely_aligned, stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "PCT_of_Unique_Aligned_Reads_(agst_AR)\t%.2f%%\n", percent); 
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_duplicate_reads, stats_info->cov_stats->total_reads_produced);
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_duplicate_reads, stats_info->cov_stats->total_reads_produced);
     fprintf(fp, "Duplicate_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_duplicate_reads);
     fprintf(fp, "PCT_of_Duplicate_Reads_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_duplicate_reads,stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_duplicate_reads,stats_info->cov_stats->total_reads_aligned);
     fprintf(fp, "PCT_of_Duplicate_Reads_(agst_AR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "Supplementary_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_supplementary_reads);
 	fprintf(fp, "PCT_of_Supplementary_Reads_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_produced);
-	fprintf(fp, "Paired_READ\t%"PRIu32"\n", stats_info->cov_stats->total_reads_paired);
+	percent = calculatePercentage64(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Paired_READ\t%"PRIu64"\n", stats_info->cov_stats->total_reads_paired);
 	fprintf(fp, "PCT_of_Paired_READ_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage64(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "PCT_of_Paired_READ_(agst_AR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_produced);
-    fprintf(fp, "Paired_Reads_With_Mapped_Mates\t%"PRIu32"\n", stats_info->cov_stats->total_paired_reads_with_mapped_mates);
+	percent = calculatePercentage64(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Paired_Reads_With_Mapped_Mates\t%"PRIu64"\n", stats_info->cov_stats->total_paired_reads_with_mapped_mates);
     fprintf(fp, "PCT_of_Paired_Reads_With_Mapped_Mates_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage64(stats_info->cov_stats->total_paired_reads_with_mapped_mates, stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "PCT_of_Paired_Reads_With_Mapped_Mates_(agst_AR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_produced);
-	fprintf(fp, "Properly_Paired_Reads\t%"PRIu32"\n",stats_info->cov_stats->total_reads_proper_paired);
+	percent = calculatePercentage64(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_produced);
+	fprintf(fp, "Properly_Paired_Reads\t%"PRIu64"\n",stats_info->cov_stats->total_reads_proper_paired);
 	fprintf(fp, "PCT_of_Properly_Paired_Reads_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage64(stats_info->cov_stats->total_reads_proper_paired, stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "PCT_of_Properly_Paired_Reads_(agst_AR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_produced);
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_produced);
 	fprintf(fp, "Chimeric_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_chimeric_reads);
 	fprintf(fp, "PCT_of_Chimeric_Reads_(agst_TR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_aligned);
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_chimeric_reads, stats_info->cov_stats->total_reads_aligned);
 	fprintf(fp, "PCT_of_Chimeric_Reads_(agst_AR)\t%.2f%%\n", percent);
 
 	if (type == 2) {
-		percent = calculatePercentage32(stats_info->cov_stats->in_buffer_read_hit_count, stats_info->cov_stats->total_reads_aligned);
+		percent = calculatePercentage32_64(stats_info->cov_stats->in_buffer_read_hit_count, stats_info->cov_stats->total_reads_aligned);
 		fprintf(fp, "Aligned_Reads_On-Buffer\t%"PRIu32"\n", stats_info->cov_stats->in_buffer_read_hit_count);
 		fprintf(fp, "PCT_of_Aligned_Reads_On-Buffer_(agst_AR)\t%.2f%%\n", percent);
 
-		percent = calculatePercentage32(stats_info->cov_stats->on_target_read_hit_count, stats_info->cov_stats->total_reads_aligned);
+		percent = calculatePercentage32_64(stats_info->cov_stats->on_target_read_hit_count, stats_info->cov_stats->total_reads_aligned);
 		if (user_inputs->remove_duplicate) {
 			fprintf(fp, "Aligned_Reads_On-Target_(Total_Usable_Reads)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
-			fprintf(fp, "PC_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);
+			fprintf(fp, "PCT_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);
 		} else {
 			fprintf(fp, "Aligned_Reads_On-Target_(Include_Duplicates)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count);
 			fprintf(fp, "PCT_of_Aligned_Reads_On-Target_(agst_AR)\t%.2f%%\n", percent);
@@ -1020,7 +986,7 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 		fprintf(fp, "Median_Coverage\t%d\n", stats_info->cov_stats->median_genome_coverage);
 		fprintf(fp, "Mode_Coverage_For_Uniformity\t%d\n", stats_info->cov_stats->mode);
 		fprintf(fp, "Uniformity_Primary_Autosome_Only\t%.3f\n", stats_info->cov_stats->uniformity_metric_primary_autosome_only);
-		fprintf(fp, "Uniformity_Primary_Autosome_plus_X_and_Y\t%.3f\n", stats_info->cov_stats->uniformity_metric_all_primary);
+		//fprintf(fp, "Uniformity_Primary_Autosome_plus_X_and_Y\t%.3f\n", stats_info->cov_stats->uniformity_metric_all_primary);
 		//fprintf(fp, "Uniformity_Primary_Autosome_plus_Alt_Decoys_HLA\t%.3f\n", stats_info->cov_stats->uniformity_metric_autosome_only);
 		//fprintf(fp, "Uniformity_Primary_Autosome_plus_X_Y_Alt_Decoys_HLA_(Everything)\t%.3f\n", stats_info->cov_stats->uniformity_metric_all);
 	}
@@ -1044,11 +1010,11 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 
 	if (type == 2) {
 		uint32_t reads_hit_target_or_buffer = stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count;
-		percent = calculatePercentage32(reads_hit_target_or_buffer, stats_info->cov_stats->total_reads_aligned);
+		percent = calculatePercentage32_64(reads_hit_target_or_buffer, stats_info->cov_stats->total_reads_aligned);
 		fprintf(fp, "Reads_that_hit_target_or_buffer\t%"PRIu32"\n", reads_hit_target_or_buffer);
 		fprintf(fp, "PCT_of_Reads_that_hit_target_or_buffer_(agst_AR)\t%.2f%%\n", percent);
 
-		fprintf(fp, "Total_Aligned_Reads_(expected)\t%"PRIu32"\n", stats_info->cov_stats->total_reads_aligned);
+		fprintf(fp, "Total_Aligned_Reads_(expected)\t%"PRIu64"\n", stats_info->cov_stats->total_reads_aligned);
 		fprintf(fp, "Total_Aligned_Reads_(calculated)\t%"PRIu32"\n", stats_info->cov_stats->on_target_read_hit_count + stats_info->cov_stats->in_buffer_read_hit_count + stats_info->cov_stats->off_target_read_hit_count);
 	}
 }
@@ -1228,9 +1194,6 @@ void storeGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Inp
 					char transcript_name[35];
 					strcpy(transcript_name, kh_value(gene_transcripts, iter_gt)->theArray[i]);
 					khiter_t iter_tsh = kh_get(khStrLCG, transcript_hash, transcript_name);
-
-					//if (strcmp(transcript_name, "NM_000047") == 0)
-					//	printf("Duckling\n");
 
 					if (iter_tsh == kh_end(transcript_hash)) {
 						// transcript name doesn't exist
