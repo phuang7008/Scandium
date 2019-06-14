@@ -52,6 +52,10 @@ int khStrLCG = 33;
 //
 int khStrGTP = 35;
 
+// for khash: key -> string (char*); value -> Overlapped_Reads
+//
+//int khStrOR = 36;
+
 int main(int argc, char *argv[]) {
 	//fprintf(stderr, "Starting ... %ld\n", time(NULL));
 

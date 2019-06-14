@@ -218,8 +218,31 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
 	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
-	uint32_t pos_r = rec->core.pos;				// position at the reference
+	uint32_t pos_r = rec->core.pos;				// start position at the reference
+    uint32_t pos_r_end = bam_endpos(rec);       // end position at the reference
 	uint32_t pos_q = 0;							// position at the query
+
+    // before proceeding, we need to find out if there is overlapping between pair-end reads
+    // here we only handle the first left most reads as we have trouble tracking them through khash table
+    // as khash is not thread safe
+    // Get its mate info and make sure they are on the same chromosome
+    //
+    uint32_t m_pos_r  = rec->core.mpos;         // mate position at the reference
+    bool flag_overlap = false;
+
+    if ( (rec->core.tid == rec->core.mtid) &&   // on the same chromosome
+         (pos_r < m_pos_r) &&                   // ensure it is the first read
+         (pos_r_end > m_pos_r)                  // if they overlap
+       ) {
+        // we will handle the overlapping here
+        //
+        cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;
+		cov_stats->total_aligned_bases -= pos_r_end - m_pos_r + 1;
+
+        flag_overlap = true;
+    }
+
+
 
 	for (i=0; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
@@ -231,7 +254,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
 		*/
 		if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
-			cov_stats->total_aligned_bases += cln;
+		    cov_stats->total_aligned_bases += cln;
 
 			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
 			//
@@ -252,8 +275,10 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					}
 				}
 
-				if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
-				if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
+                if ( (!flag_overlap) || (flag_overlap && pos_r < m_pos_r) ) {
+				    if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
+				    if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
+                }
 
 				if ( (user_inputs->min_base_quality) > 0 && (qual[pos_q] < user_inputs->min_base_quality) ) {	
 					// filter based on the MIN_BASE_SCORE
@@ -263,7 +288,8 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					continue;
 				}
 
-				kh_value(coverage_hash, *iter_in_out)->cov_array[pos_r]++;
+                if ( (!flag_overlap) || (flag_overlap && pos_r < m_pos_r) )
+				    kh_value(coverage_hash, *iter_in_out)->cov_array[pos_r]++;
 				pos_r++;
 				pos_q++;
 			}

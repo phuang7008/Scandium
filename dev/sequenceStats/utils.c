@@ -1474,6 +1474,7 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->total_genome_coverage = 0;
 	cov_stats->base_quality_20 = 0;
 	cov_stats->base_quality_30 = 0;
+    cov_stats->total_overlapped_bases = 0;
 
 	cov_stats->total_reads_paired = 0;
 	cov_stats->total_reads_proper_paired = 0;
@@ -1542,7 +1543,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 	for (i=0; i<Ns_info->size; i++) {
 		if (strcmp(Ns_info->coords[i].chrom_id, chrom_id) == 0) {
 			//printf("%s\t%"PRIu32"\t%"PRIu32"\n", Ns_info->coords[i].chr, Ns_info->coords[i].start, Ns_info->coords[i].end);
-			for (j=Ns_info->coords[i].start; j<=Ns_info->coords[i].end; j++) {
+			for (j=Ns_info->coords[i].start; j<Ns_info->coords[i].end; j++) {
 				if (j>=chrom_len) continue;
 
 				//printf("value of j is %d\n", j);
@@ -1648,10 +1649,11 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 
 	// base related stats
 	//
-	stats_info->cov_stats->total_aligned_bases   += cov_stats->total_aligned_bases;
-	stats_info->cov_stats->total_mapped_bases    += cov_stats->total_mapped_bases;
-	stats_info->cov_stats->base_quality_20       += cov_stats->base_quality_20;
-	stats_info->cov_stats->base_quality_30       += cov_stats->base_quality_30;
+	stats_info->cov_stats->total_aligned_bases    += cov_stats->total_aligned_bases;
+	stats_info->cov_stats->total_mapped_bases     += cov_stats->total_mapped_bases;
+	stats_info->cov_stats->base_quality_20        += cov_stats->base_quality_20;
+	stats_info->cov_stats->base_quality_30        += cov_stats->base_quality_30;
+	stats_info->cov_stats->total_overlapped_bases += cov_stats->total_overlapped_bases;
 
 	// target (capture) related stats
 	//
