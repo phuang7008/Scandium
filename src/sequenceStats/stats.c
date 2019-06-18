@@ -219,7 +219,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
 	uint32_t pos_r = rec->core.pos;				// start position at the reference
-    uint32_t pos_r_end = bam_endpos(rec);       // end position at the reference
+    uint32_t pos_r_end = bam_endpos(rec);       // end position at the reference (1-based, need to subtract 1 to be 0-based)
 	uint32_t pos_q = 0;							// position at the query
 
     // before proceeding, we need to find out if there is overlapping between pair-end reads
@@ -236,8 +236,8 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
        ) {
         // we will handle the overlapping here
         //
-        cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;
-		cov_stats->total_aligned_bases -= pos_r_end - m_pos_r + 1;
+        cov_stats->total_overlapped_bases += pos_r_end - m_pos_r;   // shouldn't add 1 because endpos is 1-based
+		cov_stats->total_aligned_bases -= pos_r_end - m_pos_r;      // shouldn't add 1 because endpos is 1-based
 
         flag_overlap = true;
     }
