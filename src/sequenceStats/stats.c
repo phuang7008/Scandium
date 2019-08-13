@@ -131,7 +131,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			cov_stats->total_reads_proper_paired++;
 		} else {
 			cov_stats->total_chimeric_reads++;
-            continue;       // in hg37, it is also has supplementary flag set
+            //continue;       // in hg37, it is also has supplementary flag set
 		}
 
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSUPPLEMENTARY) {
