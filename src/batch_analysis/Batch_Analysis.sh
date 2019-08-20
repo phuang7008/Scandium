@@ -154,7 +154,7 @@ if [ -z "$User_Defined_DB" ]; then
 	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $BED_FILE -b $Official_Exons -wao | awk -F"\t" '($7!="") {print}' | cut -f1,2,3,7 > $Targeted_Exon_Annotation
 
 	# Intersect the shortened Official database (ie, Targeted_Exon_Annotation)  with $LOW_COVERAGE_Merged_File
-	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $OUTPUTDIR/$Targeted_Exon_Annotation -wao > $Low_Coverage_Merged_Annotation
+	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $OUTPUTDIR/$Targeted_Exon_Annotation -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 
 	echo "Now run the batch analysis"
 	echo "/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $Targeted_Exon_Annotation -t $BED_FILE"
@@ -165,7 +165,7 @@ else
 
 	# Intersect the user-defined database/annotation with $LOW_COVERAGE_Merged_File
 	echo "Intersect user-defined annotations with $LOW_COVERAGE_Merged_File"
-	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $Low_Coverage_Merged_Annotation
+	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 
 	echo "Now run the batch analysis"
 	echo "/stornext/snfs5/next-gen/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $User_Defined_DB -t $BED_FILE"

@@ -2,7 +2,7 @@
 # variable definitions
 CC=g++
 CXXFLAGS=-g -Wall -std=c++0x
-CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/git_repo/dev/batch_analysis/src
+#CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/git_repo/dev/batch_analysis/src
 MYSQLDIR=-I/usr/include/mysql
 MYSQLLIB=/usr/lib64
 
@@ -11,7 +11,8 @@ LIBS = -lmysqlclient
 
 # define dependent header files
 _DEPS = hts_data.hpp exon.hpp annotation.hpp user_inputs.hpp utils.hpp
-DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
+#DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
+DEPS=$(patsubst %,/%,$(_DEPS))
 
 # define the C++ source files
 SRCS = annotation.cpp main.cpp user_inputs.cpp utils.cpp
