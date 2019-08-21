@@ -106,6 +106,7 @@ typedef struct {
 	bool remove_supplementary_alignments;
 	bool annotation_on;
 	bool above_10000_on;				// output bases/regions with coverage > 10000
+    bool excluding_overlapping_bases;   // to exclude overlapping reads/bases for double counting
 	bool wgs_coverage;
 	bool Write_Capture_cov_fasta;
 	bool Write_WGS_cov_fasta;			// need two different flags, one for Capture and one for WGS
@@ -316,6 +317,15 @@ typedef struct {
 	bool has_HGMD;
 } Gene_Transcript_Percentage;
 
+// define a struct to store reads info for handling pair-end reads
+/*
+typedef struct {
+    char* qname;
+    uint32_t start;
+    uint32_t end;
+} Overlapped_Reads;
+*/
+
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
@@ -343,6 +353,8 @@ KHASH_MAP_INIT_STR(khStrLCG, Low_Coverage_Genes*)
 
 KHASH_MAP_INIT_STR(khStrGTP, Gene_Transcript_Percentage*)
 
+//KHASH_MAP_INIT_STR(khSTROR, Overlapped_Reads*)
+
 /**
  * define a coverage statistics structure
  */
@@ -357,6 +369,7 @@ typedef struct {
 	uint64_t total_genome_coverage;			//total number of read bases aligned to the Genome (used to calculate average coverage)
 	uint64_t base_quality_20;				//total number of aligned bases with quality >= 20
 	uint64_t base_quality_30;				//total number of aligned bases with quality >=30
+    uint32_t total_overlapped_bases;        //total number of overlapped bases from pair-end reads
 
 	//read stats
 	uint64_t total_reads_paired;			//total number of reads with mate pairs (if any)

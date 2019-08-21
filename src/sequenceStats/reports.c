@@ -789,6 +789,9 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "Total_Mapped_Bases\t%"PRIu64"\n", stats_info->cov_stats->total_mapped_bases);
 	    fprintf(out_fp, "Total_Uniquely_Aligned_Bases\t%"PRIu64"\n", stats_info->cov_stats->total_aligned_bases);
 
+        if (user_inputs->excluding_overlapping_bases)
+	        fprintf(out_fp, "Total_Overlapped_Aligned_Bases\t%"PRIu32"\n", stats_info->cov_stats->total_overlapped_bases);
+
 		float percent = calculatePercentage64(stats_info->cov_stats->base_quality_20, stats_info->cov_stats->total_aligned_bases);
 	    fprintf(out_fp, "Total_Bases_w_Qual_>=20\t%"PRIu64"\n", stats_info->cov_stats->base_quality_20);
 	    fprintf(out_fp, "PCT_Bases_w_Qual_>=20\t%0.2f%%\n", percent);

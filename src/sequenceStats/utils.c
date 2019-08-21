@@ -466,7 +466,7 @@ void usage() {
 
 	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
 	printf("\t[-M] Use HGMD annotation. Default: off\n");
-	//printf("\t[-P] Use primary chromosomes only (for uniformity calculation only). Default: off\n");
+	printf("\t[-O] Handle Overlapping Reads/Bases to avoid double counting. Default: off\n");
 	printf("\t[-V] Output regions with high coverage (used with -H: default 10000). Default: off\n");
 	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
 	printf("\t[-h] Print this help/usage message\n");
@@ -512,7 +512,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	//When getopt returns -1, no more options available
 	//
 	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
-	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:p:P:r:st:T:u:U:VwWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:Op:P:r:st:T:u:U:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -611,6 +611,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->output_dir = (char *) malloc((strlen(optarg)+1) * sizeof(char));
                 strcpy(user_inputs->output_dir, optarg);
                 break;
+            case 'O':
+                user_inputs->excluding_overlapping_bases = true;
+                break;
             case 'p': 
 			   	flag_float = isFloat(optarg, &(user_inputs->percentage)); 
 				if (!flag_float) {
@@ -662,8 +665,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case '?':
 				if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
 					|| optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
-					|| optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' || optopt == 'r'
-					|| optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
+					|| optopt == 'n' || optopt == 'o' || optopt == 'O' || optopt == 'p' || optopt == 'P' 
+                    || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
                     fprintf(stderr, "===>Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
@@ -983,6 +986,12 @@ void outputUserInputOptions(User_Input *user_inputs) {
 		fprintf(stderr, "\tRemove duplicate reads is OFF\n");
 	}
 
+    if (user_inputs->excluding_overlapping_bases) {
+        fprintf(stderr, "\tExcluding Overlapping bases is ON\n");
+    } else {
+        fprintf(stderr, "\tExcluding Overlapping bases is Off\n");
+    }
+
 	if (user_inputs->remove_supplementary_alignments) {
 		fprintf(stderr, "\tRemove supplementary alignments is ON\n");
 	} else {
@@ -1025,6 +1034,7 @@ User_Input * userInputInit() {
 	user_inputs->Write_Capture_cov_fasta = false;
 	user_inputs->Write_WGS_cov_fasta = false;
 	user_inputs->Write_WIG = false;
+    user_inputs->excluding_overlapping_bases = false;
 	user_inputs->remove_duplicate = true;
 	user_inputs->remove_supplementary_alignments = false;
 
@@ -1474,6 +1484,7 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->total_genome_coverage = 0;
 	cov_stats->base_quality_20 = 0;
 	cov_stats->base_quality_30 = 0;
+    cov_stats->total_overlapped_bases = 0;
 
 	cov_stats->total_reads_paired = 0;
 	cov_stats->total_reads_proper_paired = 0;
@@ -1648,10 +1659,11 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 
 	// base related stats
 	//
-	stats_info->cov_stats->total_aligned_bases   += cov_stats->total_aligned_bases;
-	stats_info->cov_stats->total_mapped_bases    += cov_stats->total_mapped_bases;
-	stats_info->cov_stats->base_quality_20       += cov_stats->base_quality_20;
-	stats_info->cov_stats->base_quality_30       += cov_stats->base_quality_30;
+	stats_info->cov_stats->total_aligned_bases    += cov_stats->total_aligned_bases;
+	stats_info->cov_stats->total_mapped_bases     += cov_stats->total_mapped_bases;
+	stats_info->cov_stats->base_quality_20        += cov_stats->base_quality_20;
+	stats_info->cov_stats->base_quality_30        += cov_stats->base_quality_30;
+	stats_info->cov_stats->total_overlapped_bases += cov_stats->total_overlapped_bases;
 
 	// target (capture) related stats
 	//
