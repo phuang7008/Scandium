@@ -106,6 +106,7 @@ typedef struct {
 	bool remove_supplementary_alignments;
 	bool annotation_on;
 	bool above_10000_on;				// output bases/regions with coverage > 10000
+    bool excluding_overlapping_bases;   // to exclude overlapping reads/bases for double counting
 	bool wgs_coverage;
 	bool Write_Capture_cov_fasta;
 	bool Write_WGS_cov_fasta;			// need two different flags, one for Capture and one for WGS

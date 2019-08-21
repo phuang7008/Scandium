@@ -219,7 +219,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
 	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
-	uint32_t pos_r = rec->core.pos;				// start position at the reference
+	uint32_t pos_r = rec->core.pos;				// position at the reference
     uint32_t pos_r_end = bam_endpos(rec);       // end position at the reference (1-based, need to subtract 1 to be 0-based)
 	uint32_t pos_q = 0;							// position at the query
 
@@ -231,19 +231,18 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
     uint32_t m_pos_r  = rec->core.mpos;         // mate position at the reference
     bool flag_overlap = false;
 
-    if ( (rec->core.tid == rec->core.mtid) &&   // on the same chromosome
-         (pos_r < m_pos_r) &&                   // ensure it is the first read
-         (pos_r_end > m_pos_r)                  // if they overlap
+    if ( user_inputs->excluding_overlapping_bases &&    // check if users turn on the flag to excluding overlapped bases
+         (rec->core.tid == rec->core.mtid) &&           // on the same chromosome
+         (pos_r < m_pos_r) &&                           // ensure it is the first read
+         (pos_r_end > m_pos_r)                          // if they overlap
        ) {
         // we will handle the overlapping here
         //
         cov_stats->total_overlapped_bases += pos_r_end - m_pos_r;   // shouldn't add 1 because endpos is 1-based
-		cov_stats->total_aligned_bases -= pos_r_end - m_pos_r;      // shouldn't add 1 because endpos is 1-based
+        cov_stats->total_aligned_bases -= pos_r_end - m_pos_r;      // shouldn't add 1 because endpos is 1-based
 
         flag_overlap = true;
     }
-
-
 
 	for (i=0; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
@@ -255,7 +254,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
 		*/
 		if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
-		    cov_stats->total_aligned_bases += cln;
+            cov_stats->total_aligned_bases += cln;
 
 			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
 			//
