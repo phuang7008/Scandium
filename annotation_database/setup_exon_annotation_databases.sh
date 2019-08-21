@@ -5,9 +5,15 @@
 #
 if [[ $# -ne 2 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_exon_annotation_databases.sh output_directory db_version(hg38 or hg37)"
+	echo "/SCRIPT_PATH/setup_exon_annotation_databases.sh output_directory db_version(hg38 or hg37)"
 	exit
 fi
+
+# we don't want to hard code the path to the script. 
+# we will use the following to get the bash script path
+# this needs to be done before I change the directory
+#
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # get the working directory and cd to the directory
 BASEDIR=$1
@@ -29,7 +35,7 @@ else
 	wget ftp://mirbase.org/pub/mirbase/20/genomes/hsa.gff3
 	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' hsa.gff3 | grep '^chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/^chr//gi | awk '{t=$5"\t"; $5=$4"\t"; $4=t"\t"; print}' | awk '{ $4=$4"|exon_1|miRNA_1="$5; print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > $new_miRNA_file
 	#new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed
-	#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
+	#$SCRIPT_PATH/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
 	#printf "Producing rearranged miRNA file $new_miRNA_file \n"
 fi
 
@@ -44,7 +50,7 @@ cat $HGNC | cut -f 1,2,9,11,20,21,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed 
 # As I am testing, I don't want to do it over and over
 #
 printf "dump $HGNC_simplified info into DB using processHGNCtoDB.pl \n"
-#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/processHGNCtoDB.pl "$HGNC_simplified" "$gene_db_version"
+#$SCRIPT_PATH/processHGNCtoDB.pl "$HGNC_simplified" "$gene_db_version"
 
 # now get rid of .txt file extension before preceed, as we will unzip the tar file into .txt
 #
@@ -81,17 +87,17 @@ if [ "$(uname)" == "Darwin" ]; then
 	echo "For Darwin"
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
 	if [ "$gene_db_version" == "hg38" ]; then
-		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
 	else
-		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi >> "$FILE.bed"; done;
+		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi >> "$FILE.bed"; done;
 	fi
 elif [ "$(uname)" == "Linux" ]; then
 	echo "For Linux"
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
 	if [ "$gene_db_version" == "hg38" ]; then
-		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
+		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
 	else
-		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi > "$FILE.bed"; done;
+		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi > "$FILE.bed"; done;
 	fi
 fi
 
@@ -145,19 +151,19 @@ do
 	if echo $f | grep -iqF "ref" ; then
 	#if [[ $f == *"ref"* ]]; then
 		echo "dumping RefSeq exons"
-		#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "refseq"
+		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "refseq"
 	elif echo $f | grep -iqF "ccds"; then
 	#elif [[ $f == *"ccds"* ]]; then
 		echo "dumping CCDS exons"
-		#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "ccds"
+		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "ccds"
 	elif echo $f | grep -iqF "vega"; then
 	#elif [[ $f == *"vega"* ]]; then
 		echo "dumping VEGA exons"
-		#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "vega"
+		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "vega"
 	elif echo $f | grep -iqF "gen"; then
 	#elif [[ $f == *"gen"* ]] ; then
 		echo "dumping Gencode exons"
-		#/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "gencode"
+		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "gencode"
 	fi
 done
 
@@ -175,7 +181,7 @@ echo "merge perfect matched regions in $combined_sorted_bed_file to produce $com
 
 # now need to extract all the exon info for all genes for batch analysis
 #
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/geneExonAnnotationForBatchAnalysis.pl "$combined_sorted_bed_file_merged_perfect_matches" "$gene_db_version"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/geneExonAnnotationForBatchAnalysis.pl "$combined_sorted_bed_file_merged_perfect_matches" "$gene_db_version"
 
 # Now it is the time to generate exon partition file
 #
@@ -210,7 +216,7 @@ cat $annotation_for_chr10_22 >> $final_partitioned_file
 # Finally, dump everything into MySQL database named: Gene_Annotations37/38
 #
 printf "dump all partitioned exons into MySQL database Gene_Annotations37/38 ==> exonAnnotations.pl $final_partitioned_file \n"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/exonAnnotations.pl "$final_partitioned_file" "$gene_db_version"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/exonAnnotations.pl "$final_partitioned_file" "$gene_db_version"
 
 ####
 #END

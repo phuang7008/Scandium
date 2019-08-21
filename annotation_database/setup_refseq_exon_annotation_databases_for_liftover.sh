@@ -5,9 +5,15 @@
 #
 if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_refseq_exon_annotation_databases_for_liftover.sh target_bed_file output_dir db_version(hg38 or hg37)"
+	echo "/SCRIPT_PATH/setup_refseq_exon_annotation_databases_for_liftover.sh target_bed_file output_dir db_version(hg38 or hg37)"
 	exit
 fi
+
+# we don't want to hard code the path to the script. 
+# we will use the following to get the bash script path
+# this needs to be done before I change the directory
+#
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Capture target bed file and get rid of the 'chr' in front chromosome id
 original_target_bed_file=$1
@@ -36,14 +42,14 @@ fi
 renamed_file='RefSeq_renamed'
 if [ "$(uname)" == "Darwin" ]; then
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
+    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
 elif [ "$(uname)" == "Linux" ]; then
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
+    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
 fi
 
 refseq_bed_file="$renamed_file"_bed
-/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_refseq_exon_bed_for_liftover.py -i "$renamed_file" > "$refseq_bed_file"
+$SCRIPT_PATH/generate_refseq_exon_bed_for_liftover.py -i "$renamed_file" > "$refseq_bed_file"
 
 # save all the .txt.gz downloaded source files in case we need it in the future!
 tmp_timestamp=$(date +%Y'_'%m'_'%d)
@@ -74,7 +80,7 @@ echo "bedtools intersect to produce $exon_target_intersect_file from $refseq_sor
 # Finally, dump everything into MySQL database named: Gene_RefSeq_Exon
 #
 echo "dump all exons into MySQL database Capture_Regions38 ==> exonAnnotation_liftover.pl $exon_target_intersect_file"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/geneExonAnnotation_liftover.pl "$exon_target_intersect_file" "$gene_db_version"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/geneExonAnnotation_liftover.pl "$exon_target_intersect_file" "$gene_db_version"
 
 ####
 #END

@@ -10,7 +10,7 @@ my $type = shift || die "Please specify the version of gene annotation hg19 or h
 my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
 # connect to the database
-my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
+my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang468', 'phuang468') or die "DB connection failed: $!";
 
 my ($sql, $sth);
 

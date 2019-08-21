@@ -5,9 +5,15 @@
 #
 if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE(output file from setup_exon_annotation_databases.sh run) output_directory db_version(hg38 or hg37)"
+	echo "/SCRIPT_PATH/setup_intron_annotation_databases.sh Sorted_Merged_Partitioned_Exon_FILE(output file from setup_exon_annotation_databases.sh run) output_directory db_version(hg38 or hg37)"
 	exit
 fi
+
+# we don't want to hard code the path to the script. 
+# we will use the following to get the bash script path
+# this needs to be done before I change the directory
+#
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # get the working directory and cd to the directory
 BASEDIR=$2
@@ -40,10 +46,10 @@ fi
 # untar the zipped files
 if [ "$(uname)" == "Darwin" ]; then
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/extractIntrons.py -i "$FILE.tmp" > "$FILE.bed"; done;
+    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/extractIntrons.py -i "$FILE.tmp" > "$FILE.bed"; done;
 elif [ "$(uname)" == "Linux" ]; then
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/extractIntrons.py -i "$FILE.tmp" > "$FILE.bed"; done;
+    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/extractIntrons.py -i "$FILE.tmp" > "$FILE.bed"; done;
 fi
 
 # remove all the tmp files files
@@ -88,7 +94,7 @@ echo "Generate final intronic regions with annotation from $introns_partitioned 
 # Finally, dump everything into MySQL database named: Intron_Regions38/37
 #
 echo "dump all partitioned introns into MySQL database Intron_Regions38/37 ==> forIntronicRegions.pl $introns_partitioned"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/forIntronicRegions.pl "$final_intron_regions" "$gene_db_version"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/forIntronicRegions.pl "$final_intron_regions" "$gene_db_version"
 
 ####
 #END

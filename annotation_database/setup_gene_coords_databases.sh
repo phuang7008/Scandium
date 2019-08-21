@@ -8,9 +8,15 @@
 #
 if [[ $# -ne 3 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/setup_gene_coords_databases.sh output_dir db_version(hg38 or hg37) db_name"
+	echo "/SCRIPT_PATH/setup_gene_coords_databases.sh output_dir db_version(hg38 or hg37) db_name"
 	exit
 fi
+
+# we don't want to hard code the path to the script. 
+# we will use the following to get the bash script path
+# this needs to be done before I change the directory
+#
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # get the working directory and cd to the directory
 #
@@ -33,15 +39,15 @@ if [[ $db_name == "refseq" ]]; then
 	# here we are only interested in refseq source of annotation/coords.
 	#
 	if [ "$gene_db_version" == "hg38" ]; then
-		rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+		rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz .
 	else
-		rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
+		rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ncbiRefSeq.txt.gz .
 	fi
 
 	renamed_file='RefSeq_renamed'
 	project_name="RefSeq"
 
-else
+elif [[ $db_name == "gencode" ]]; then
 	# Gencode
 	#
 	if [ "$gene_db_version" == "hg38" ]; then
@@ -53,22 +59,34 @@ else
 
 	renamed_file='Gencode_renamed'
 	project_name="Gencode"
+else
+    # CCDS == note, code for handling ccds is not working at this moment!
+    if [ "$gene_db_version" == "hg38" ]; then
+        rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
+    else
+        rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
+    fi
+
+    renamed_file='CCDS_renamed'
+    project_name="CCDS"
 fi
 
 # untar the zipped files
 # several refseq sequences could have the same name, even if they refer to different genomic locations
 # For example: The name will be changed from NM_000015 to NM_000015-1, NM_000015-2 etc
 #
-if [ "$(uname)" == "Darwin" ]; then
-    ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
-elif [ "$(uname)" == "Linux" ]; then
-    ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-    ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
+if [[ $db_name == "refseq" ]]; then
+    if [ "$(uname)" == "Darwin" ]; then
+        ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
+        ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
+    elif [ "$(uname)" == "Linux" ]; then
+        ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
+        ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/renameRefSeq.pl "$FILE.tmp" > $renamed_file; done;
+    fi
 fi
 
 bed_file="$renamed_file"_bed
-/stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/generate_refseq_exon_bed.py -i "$renamed_file" -v $gene_db_version > "$bed_file"
+$SCRIPT_PATH/generate_refseq_exon_bed.py -i "$BASEDIR/$renamed_file" -t $db_name -v $gene_db_version  > "$BASEDIR/$bed_file"
 
 # save all the .txt.gz downloaded source files in case we need it in the future!
 #
@@ -92,14 +110,14 @@ echo "merge perfect matched regions in $sorted_bed_file to produce $sorted_bed_f
 # to better scale the analysis for other project such as eMerge and CCDS, we will dump CDS here and do the rest when we are running it
 #
 #echo "dump all the CDS into the database"
-#/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/refseqCDSAnnotation.pl "$sorted_bed_file_merged_perfect_matches" "$gene_db_version"
+#/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/refseqCDSAnnotation.pl "$sorted_bed_file_merged_perfect_matches" "$gene_db_version"
 
 #echo "DONE for CDS into the database!"
 
 # dump everything into MySQL table named: Gene_DB-Name_Coords37/38 (either RefSeq or Gencode or some other databases)
 #
 echo "dump all exons into MySQL database Gene_RefSeq_Coords37/38 ==> fetchGeneCDSCoords.pl $exon_target_intersect_file"
-/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/annotation_database/fetchGeneCDSCoords.pl "$sorted_bed_file_merged_perfect_matches" "$gene_db_version" "$project_name"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/fetchGeneCDSCoords.pl "$sorted_bed_file_merged_perfect_matches" "$gene_db_version" "$project_name"
 
 shopt -u nocasematch
 

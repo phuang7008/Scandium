@@ -1,4 +1,4 @@
-#!/users/phuang/anaconda3/bin/python
+#!/hgsc_software/python/anaconda3/bin/python
 
 import sys, getopt
 
