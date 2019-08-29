@@ -77,14 +77,15 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			fprintf(stderr, "Random selection (i.e. downsampling) is ON\n");
         }
 
-		cov_stats->total_reads_produced++;
+		//cov_stats->total_reads_produced++;
 
 		// Need to check various 'READ' flags regarding the current read before doing statistics analysis
 		// But the order here is quite important,
 		// mapped vs unmapped first
 		//
         if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FUNMAP)	{			// Read Unmapped
-             continue;
+		    cov_stats->total_reads_produced++;
+            continue;
 		}
 
 		// among mapped reads, need to check if we are only interested in the primary chromosomes
@@ -97,6 +98,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 				continue;
 			}
 		}
+		cov_stats->total_reads_produced++;
 
 		if(read_buff_in->chunk_of_reads[i]->core.qual < user_inputs->min_map_quality) {
             continue;
