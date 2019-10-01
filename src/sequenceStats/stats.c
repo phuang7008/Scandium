@@ -138,8 +138,8 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSUPPLEMENTARY) {
 			cov_stats->total_supplementary_reads++;
-			if (user_inputs->remove_supplementary_alignments)
-				continue;
+			//if (user_inputs->remove_supplementary_alignments)
+			continue;
 		}
 
 		// skip if RNAME is "*"
@@ -221,8 +221,8 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	// Need to take care of soft-clip here as it will be part of the length, especially the soft-clip after a match string
 	//
     uint32_t * cigar = bam_get_cigar(rec);		// get cigar info
-	uint32_t pos_r = rec->core.pos;				// position at the reference
-    uint32_t pos_r_end = bam_endpos(rec);       // end position at the reference (1-based, need to subtract 1 to be 0-based)
+	uint32_t pos_r = rec->core.pos;				// position at the reference 0-based (my own debugging finding)
+    uint32_t pos_r_end = bam_endpos(rec)-1;     // end position at the reference is 1-based, so change it to 0-based
 	uint32_t pos_q = 0;							// position at the query
 
     // before proceeding, we need to find out if there is overlapping between pair-end reads
@@ -230,20 +230,26 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
     // as khash is not thread safe
     // Get its mate info and make sure they are on the same chromosome
     //
-    uint32_t m_pos_r  = rec->core.mpos;         // mate position at the reference
+    uint32_t m_pos_r      = rec->core.mpos;         // mate alignment start position at the reference 0-based
+    uint32_t m_pos_r_end  = 0;                      // mate alignment end position at the reference 0-based
+    int32_t  isize = rec->core.isize;               // insertion size (isize or TLEN)
     bool flag_overlap = false;
 
-    if ( user_inputs->excluding_overlapping_bases &&    // check if users turn on the flag to excluding overlapped bases
-         (rec->core.tid == rec->core.mtid) &&           // on the same chromosome
-         (pos_r < m_pos_r) &&                           // ensure it is the first read
-         (pos_r_end > m_pos_r)                          // if they overlap
-       ) {
-        // we will handle the overlapping here
-        //
-        cov_stats->total_overlapped_bases += pos_r_end - m_pos_r;   // shouldn't add 1 because endpos is 1-based
-        cov_stats->total_aligned_bases -= pos_r_end - m_pos_r;      // shouldn't add 1 because endpos is 1-based
+    if (isize == -2 && pos_r == 47213330)
+        printf("matched\n");
 
-        flag_overlap = true;
+    if ( isize > 0 && user_inputs->excluding_overlapping_bases) {    // check if users turn on the flag to excluding overlapped bases
+        flag_overlap = getOverlapInfo(user_inputs, cov_stats, rec, &m_pos_r_end);
+
+        if (m_pos_r <= pos_r && pos_r_end <= m_pos_r_end) {
+            // complete engulfed by the Reverse read, will skip this Forward read
+            //      --------------------------------- forward
+            //  -------------------------------------------------- reverse
+            //
+            return;
+        }
+
+        //if (flag_overlap) fprintf(stderr, "%s\n", rec->data);
     }
 
 	for (i=0; i<rec->core.n_cigar; ++i) {
@@ -256,7 +262,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
 		*/
 		if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
-            cov_stats->total_aligned_bases += cln;
+            //cov_stats->total_uniquely_aligned_bases += cln;
 
 			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
 			//
@@ -277,7 +283,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					}
 				}
 
-                if ( (!flag_overlap) || (flag_overlap && pos_r < m_pos_r) ) {
+                if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {
 				    if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
 				    if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
                 }
@@ -290,8 +296,10 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 					continue;
 				}
 
-                if ( (!flag_overlap) || (flag_overlap && pos_r < m_pos_r) )
+                if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {
 				    kh_value(coverage_hash, *iter_in_out)->cov_array[pos_r]++;
+                    cov_stats->total_uniquely_aligned_bases++;
+                }
 				pos_r++;
 				pos_q++;
 			}
@@ -307,7 +315,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			// as they are not part of the reference, we will not advance the pos_r
 			// this is confirmed by the web:  https://github.com/lh3/samtools/blob/master/bam_md.c
 			//
-			//cov_stats->total_aligned_bases += cln;
+			//cov_stats->total_uniquely_aligned_bases += cln;
 			for (j=0; j<cln; ++j) {
 				if (pos_r < 0) continue;                                                                        
 				if (pos_r >= chrom_len) break; 
@@ -327,10 +335,12 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 		} else if (cop == BAM_CPAD) {
 			// according to the https://www.biostars.org/p/4211/
 			// BAM_CPAD shouldn't advance pos_r
-			//
-			pos_q += cln;
+			// but according to the samtools specs, it shouldn't consume query also
+            //
 
-		}
+		} else {
+            fprintf(stderr, "bam case not handled: %s\n", rec->data);
+        }
 	}
 
 	if (TARGET_FILE_PROVIDED) {
@@ -391,4 +401,105 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 			}
 		}
 	}
+}
+
+// For return value: 0 => No overlapping; 1 => Overlapping Yes; 2 => Completely Overlap (need to skip)
+//
+bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *rec, uint32_t *m_pos_r_end) {
+    if ( user_inputs->excluding_overlapping_bases &&    // check if users turn on the flag to excluding overlapped bases
+         (rec->core.tid == rec->core.mtid)              // on the same chromosome
+       ) {
+        // obtain overlapping info
+        // need to find its mate coords
+        //
+        //int32_t  isize = rec->core.isize;           // insertion size (isize or TLEN)
+        uint32_t pos_r = rec->core.pos;             // position at the reference 0-based (my own debugging finding)
+        uint32_t pos_r_end = bam_endpos(rec)-1;     // end position at the reference is 1-based, so change it to 0-based
+        uint32_t m_pos_r   = rec->core.mpos;        // mate alignment start position at the reference 0-based
+
+        // For overlapping reads
+        //
+        uint8_t *tag_i = bam_aux_get(rec, "MC");
+        if (tag_i == NULL) {
+            // the MC tag is not set
+            //
+            if ((rec->core.tid == rec->core.mtid) &&        // on the same chromosome
+                (pos_r <= m_pos_r) &&                       // ensure it is the left-most read
+                (pos_r_end >= m_pos_r) ) {
+                cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
+                return true;
+            }
+            return false;
+        }
+
+        // the following handles the case where MC tag is set
+        //
+        char *cigar_str = bam_aux2Z(tag_i);
+        char *cigar_end = cigar_str;
+        int cigar_length = 0;       // only add cases where the cigar string consumes the reference
+
+        while (*cigar_end) {
+            int n = strtol(cigar_str, &cigar_end, 10);
+            switch (*cigar_end) {
+                case 'D':
+                    cigar_length += n;
+                    break;
+                case 'M':
+                    cigar_length += n;
+                    break;
+                case 'N':
+                    cigar_length += n;
+                    break;
+                case 'H':
+                case 'I':
+                case 'P':
+                case 'S':
+                    break;
+                case 'X':
+                    cigar_length += n;
+                    break;
+                case '=':
+                    cigar_length += n;
+                    break;
+                case '?':
+                    fprintf(stderr, "unknown and value is %d%c\n", n, *cigar_end);
+                    break;
+                default:
+                    fprintf(stderr, "===>Non-option argument %c\n", *cigar_end);
+                    break;
+            }
+            cigar_end++;
+            cigar_str = cigar_end;
+        }
+
+        *m_pos_r_end = m_pos_r + cigar_length - 1;      // because cigar_length is 1-based, while m_pos_r is 0-based
+
+        // because the uint32_t subtraction will cause over-flow is it is negative
+        //
+        int32_t diff_starts = pos_r_end - m_pos_r;
+        int32_t diff_ends   = *m_pos_r_end - pos_r;
+
+        //if (isize == 2 && pos_r == 47213293) 
+        //    printf("matched\n");
+
+        if ( diff_starts >= 0 && diff_ends >= 0 ) {
+            // the overlapping algorithm was taken from 
+            // https://stackoverflow.com/questions/15726825/find-overlap-between-collinear-lines
+            //
+            uint32_t start = (pos_r >= m_pos_r)? pos_r : m_pos_r;
+            uint32_t end = (pos_r_end <= *m_pos_r_end) ? pos_r_end : *m_pos_r_end;
+            if (end < start) {
+                printf("end < start %s\n", rec->data);
+            }
+            cov_stats->total_overlapped_bases += end - start + 1;   // should add 1 because endpos is 0-based
+
+            return true;
+        } else {
+            //fprintf(stderr, "No Overlap: %s\n", rec->data);
+            return false;
+        }
+    }
+
+    fprintf(stderr, "Not Handled: %s\n", rec->data);
+    return false;
 }

@@ -84,4 +84,6 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
  */
 void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash);
 
+bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *rec, uint32_t *m_pos_r_end);
+
 #endif // STATS_H

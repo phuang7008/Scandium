@@ -427,7 +427,7 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 //
 void usage() {
 	printf("Version %s\n\n", VERSION_ );
-	printf("Usage:  coverage -i bam/cram -o output_directory [options ...]\n");
+	printf("Usage:  scandium -i bam/cram -o output_directory [options ...]\n");
 	printf("Note:   this is a multi-threading program. Each thread needs 4Gb of memory. So please allocate them accordingly!\n");
 	printf("\tfor example: 3 threads would use 12Gb of memory, while 4 threads would need 16Gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
@@ -442,7 +442,7 @@ void usage() {
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapping quality less than m. Default 0>\n");
 	printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
-	printf("\t-r <file name that contains chromosomes and their regions need to be processed (for hg38 only). Default: Not Provided>\n");
+	printf("\t-r <file name that contains chromosomes and their regions need to be processed. Default: Not Provided>\n");
 	printf("\t-t <target file. If this is specified, all of the output file names related to this will contain '.Capture_'>\n");
 
 	printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
@@ -926,6 +926,9 @@ void outputUserInputOptions(User_Input *user_inputs) {
 
 	if (user_inputs->n_file)
 		fprintf(stderr, "\tThe file that contains all Ns regions is: %s\n", user_inputs->n_file);
+
+    if (user_inputs->chromosome_bed_file)
+        fprintf(stderr, "\tThe file that contains the chromosome IDs and regions to be processed: %s\n", user_inputs->chromosome_bed_file);
 
 	if (USER_DEFINED_DATABASE) {
 		fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_file);
@@ -1475,7 +1478,7 @@ void coverageStatsInit(Coverage_Stats * cov_stats) {
 	cov_stats->total_genome_bases = 0;
 	cov_stats->total_buffer_bases = 0;
 	cov_stats->total_targeted_bases = 0;
-	cov_stats->total_aligned_bases = 0;
+	cov_stats->total_uniquely_aligned_bases = 0;
 	cov_stats->total_mapped_bases = 0;
 	cov_stats->total_Ns_bases = 0;
 	cov_stats->total_Ns_bases_on_chrX = 0;
@@ -1659,7 +1662,7 @@ void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
 
 	// base related stats
 	//
-	stats_info->cov_stats->total_aligned_bases    += cov_stats->total_aligned_bases;
+	stats_info->cov_stats->total_uniquely_aligned_bases += cov_stats->total_uniquely_aligned_bases;
 	stats_info->cov_stats->total_mapped_bases     += cov_stats->total_mapped_bases;
 	stats_info->cov_stats->base_quality_20        += cov_stats->base_quality_20;
 	stats_info->cov_stats->base_quality_30        += cov_stats->base_quality_30;

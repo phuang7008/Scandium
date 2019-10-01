@@ -787,16 +787,17 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "Total_Genome_Base_Targeted_w/o_Ns\t%"PRIu64"\n", total_genome_non_Ns_bases);
 	    fprintf(out_fp, "Total_Ns_Bases_in_Ns_Regions\t%"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
 	    fprintf(out_fp, "Total_Mapped_Bases\t%"PRIu64"\n", stats_info->cov_stats->total_mapped_bases);
-	    fprintf(out_fp, "Total_Uniquely_Aligned_Bases\t%"PRIu64"\n", stats_info->cov_stats->total_aligned_bases);
+	    fprintf(out_fp, "Total_Uniquely_Aligned_Bases\t%"PRIu64"\n", stats_info->cov_stats->total_uniquely_aligned_bases);
 
-        if (user_inputs->excluding_overlapping_bases)
-	        fprintf(out_fp, "Total_Overlapped_Aligned_Bases\t%"PRIu32"\n", stats_info->cov_stats->total_overlapped_bases);
+        float percent = calculatePercentage64(stats_info->cov_stats->total_overlapped_bases, stats_info->cov_stats->total_mapped_bases);
+	    fprintf(out_fp, "Total_Overlapped_Aligned_Bases\t%"PRIu32"\n", stats_info->cov_stats->total_overlapped_bases);
+        fprintf(out_fp, "PCT_Overlapped_Aligned_Bases\t%0.2f%%\n", percent);
 
-		float percent = calculatePercentage64(stats_info->cov_stats->base_quality_20, stats_info->cov_stats->total_aligned_bases);
+		percent = calculatePercentage64(stats_info->cov_stats->base_quality_20, stats_info->cov_stats->total_uniquely_aligned_bases);
 	    fprintf(out_fp, "Total_Bases_w_Qual_>=20\t%"PRIu64"\n", stats_info->cov_stats->base_quality_20);
 	    fprintf(out_fp, "PCT_Bases_w_Qual_>=20\t%0.2f%%\n", percent);
 
-		percent = calculatePercentage64(stats_info->cov_stats->base_quality_30, stats_info->cov_stats->total_aligned_bases);
+		percent = calculatePercentage64(stats_info->cov_stats->base_quality_30, stats_info->cov_stats->total_uniquely_aligned_bases);
 	    fprintf(out_fp, "Total_Bases_w_Qual_>=30\t%"PRIu64"\n", stats_info->cov_stats->base_quality_30);
 	    fprintf(out_fp, "PCT_Bases_w_Qual_>=30\t%0.2f%%\n", percent);
 
@@ -937,9 +938,12 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
 	percent = calculatePercentage32_64(stats_info->cov_stats->total_duplicate_reads,stats_info->cov_stats->total_reads_aligned);
     fprintf(fp, "PCT_of_Duplicate_Reads_(agst_AR)\t%.2f%%\n", percent);
 
-	percent = calculatePercentage32_64(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
+    percent = calculatePercentage32_64(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_produced);
 	fprintf(fp, "Supplementary_Reads\t%"PRIu32"\n", stats_info->cov_stats->total_supplementary_reads);
 	fprintf(fp, "PCT_of_Supplementary_Reads_(agst_TR)\t%.2f%%\n", percent);
+
+	percent = calculatePercentage32_64(stats_info->cov_stats->total_supplementary_reads,stats_info->cov_stats->total_reads_aligned);
+	fprintf(fp, "PCT_of_Supplementary_Reads_(agst_AR)\t%.2f%%\n", percent);
 
 	percent = calculatePercentage64(stats_info->cov_stats->total_reads_paired, stats_info->cov_stats->total_reads_produced);
 	fprintf(fp, "Paired_READ\t%"PRIu64"\n", stats_info->cov_stats->total_reads_paired);

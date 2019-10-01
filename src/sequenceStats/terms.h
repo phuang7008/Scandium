@@ -317,15 +317,6 @@ typedef struct {
 	bool has_HGMD;
 } Gene_Transcript_Percentage;
 
-// define a struct to store reads info for handling pair-end reads
-/*
-typedef struct {
-    char* qname;
-    uint32_t start;
-    uint32_t end;
-} Overlapped_Reads;
-*/
-
 #include "htslib/khash.h"
 
 // Instantiate a hash map containing integer keys
@@ -365,7 +356,7 @@ typedef struct {
 	uint32_t total_Ns_bases_on_chrX;		//total number of bases that are N (unknown) on X chromosome
 	uint32_t total_Ns_bases_on_chrY;		//total number of bases that are N (unknown) on Y chromosome
 	uint64_t total_mapped_bases;			//total number of mapped bases
-	uint64_t total_aligned_bases;			//total number of aligned bases (with soft-clipped removed)
+	uint64_t total_uniquely_aligned_bases;	//aka. Reads Usable - where "Usable" is uniquely aligned, non-duplicate, on-target reads or chromosomes
 	uint64_t total_genome_coverage;			//total number of read bases aligned to the Genome (used to calculate average coverage)
 	uint64_t base_quality_20;				//total number of aligned bases with quality >= 20
 	uint64_t base_quality_30;				//total number of aligned bases with quality >=30
