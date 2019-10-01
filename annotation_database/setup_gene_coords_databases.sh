@@ -103,9 +103,9 @@ sort $sort_flag -o $sorted_bed_file $bed_file
 
 # Next, we need to merge those exons with perfect coordinates.
 #
-sorted_bed_file_merged_perfect_matches="$sorted_bed_file"_merged_perfect_matches
-echo "merge perfect matched regions in $sorted_bed_file to produce $sorted_bed_file_merged_perfect_matches"
-/stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$sorted_bed_file" | uniq - > "$sorted_bed_file_merged_perfect_matches"
+#sorted_bed_file_merged_perfect_matches="$sorted_bed_file"_merged_perfect_matches
+#echo "merge perfect matched regions in $sorted_bed_file to produce $sorted_bed_file_merged_perfect_matches"
+#/stornext/snfs5/next-gen/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$sorted_bed_file" | uniq - > "$sorted_bed_file_merged_perfect_matches"
 
 # to better scale the analysis for other project such as eMerge and CCDS, we will dump CDS here and do the rest when we are running it
 #
@@ -117,7 +117,7 @@ echo "merge perfect matched regions in $sorted_bed_file to produce $sorted_bed_f
 # dump everything into MySQL table named: Gene_DB-Name_Coords37/38 (either RefSeq or Gencode or some other databases)
 #
 echo "dump all exons into MySQL database Gene_RefSeq_Coords37/38 ==> fetchGeneCDSCoords.pl $exon_target_intersect_file"
-/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/fetchGeneCDSCoords.pl "$sorted_bed_file_merged_perfect_matches" "$gene_db_version" "$project_name"
+/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/fetchGeneCDSCoords.pl "$sorted_bed_file" "$gene_db_version" "$project_name"
 
 shopt -u nocasematch
 
