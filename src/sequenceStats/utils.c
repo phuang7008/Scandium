@@ -567,7 +567,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->bam_file, optarg);
                 break;
 			case 'k':
-				user_inputs->size_of_peak_area = (uint8_t) strtol(optarg, NULL, 10); break;
+				user_inputs->size_of_peak_area = (uint8_t) strtol(optarg, NULL, 10);
 				user_inputs->user_set_peak_size_on = true; break;
 			case 'L':
 				if (!isNumber(optarg)) {
@@ -945,6 +945,7 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
 	fprintf(stderr, "\tThe uniformity data file will be produced\n");
+	fprintf(stderr, "\tThe number of points selected around peak (eg, Mode) area is %d\n", user_inputs->size_of_peak_area);
 	fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
 
 	if (user_inputs->annotation_on) {

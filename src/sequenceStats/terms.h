@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.3"
+#define VERSION_ "##Scandium v1.4"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
