@@ -26,10 +26,10 @@
 using namespace std;
 
 /* The argument is the WGS_uniformity file produced by the Scandium run
- * 1). smoothing
+ * 1). read data from the input uniformity file
  * 2). graph generation
  * 3). plot to a file
- * For gnuplot graph color: https://www2.uni-hamburg.de/Wiss/FB/15/Sustainability/schneider/gnuplot/colors.htm
+ * For gnuplot graphing: https://www2.uni-hamburg.de/Wiss/FB/15/Sustainability/schneider/gnuplot/colors.htm
  */
 int main(int argc, char *argv[]) {
 	// get user options
@@ -39,42 +39,23 @@ int main(int argc, char *argv[]) {
 	
 	Utils *utils = new Utils();
 
-	// declare Coverage_Array with size of 2
-	// the first one is for the original data from the WGS_uniformity file
-	// the second one is WGS_uniformity data after smoothing
-	// Here I declare them as vector pointers as their sizes will grow
+	// declare Coverage_Array
+	// Here I declare it as vector pointers as their sizes will grow
 	//
 	vector<Coverage> *cov_raw = new vector<Coverage>;
-	vector<Coverage> *cov_sm  = new vector<Coverage>;
 	cov_raw->reserve(utils->get_init_vector_size());
-	cov_sm->reserve(utils->get_init_vector_size());
 
-	if (user_inputs->get_smoothing_type() == 1) {
-		// gVCF type smoothing
-		//
-		utils->processInputFile1(user_inputs, cov_raw, cov_sm);
-	} else {
-		// range bound smoothing
-		//
-		utils->processInputFile2(user_inputs, cov_raw, cov_sm);
-	}
+	// check if a centromere region file is provided!
+	//
+	if (user_inputs->get_chromosome_centromere_file().length() > 0)
+		utils->read_in_centromere_regions(user_inputs);
+
+	utils->processInputFile(user_inputs, cov_raw);
 
 	// graphing
 	//
-	utils->setupChromLengthMap(user_inputs);
-	map<string, uint32_t> len_map = utils->get_chrom_length_map();
-	
-	uint32_t length;
-	//map<string,uint32_t>::iterator it = utils->get_chrom_length_map().find(user_inputs->get_chrom_id());
-	map<string, uint32_t>::iterator it = len_map.find(user_inputs->get_chrom_id());
-	//if (it == utils->get_chrom_length_map().end()) {
-	if (it == len_map.end()) {
-		cerr << "Can't find the chromosome length for chromosome id " << user_inputs->get_chrom_id() << endl;
-		exit(1);
-	} else {
-		length = it->second;
-	}
-	cerr << "Total chromosome length is " << length << endl;
+	uint32_t chr_length = user_inputs->get_chromosome_length();
+	cerr << "Total chromosome length is " << chr_length << endl;
 	cerr << "output file name is " << user_inputs->get_output_file().c_str() << endl;
 
 	// One can avoid having to write to a file by sending gnuplot the plot '-' command
@@ -92,25 +73,23 @@ int main(int argc, char *argv[]) {
 	fprintf(gnuplot_pipe, "set terminal png size 2000,700\n");
 	fprintf(gnuplot_pipe, "set output '%s.png'\n", user_inputs->get_output_file().c_str());
 	fprintf(gnuplot_pipe, "set format x \"%%.0s*10^%%T\"\n");	// to set the format to 15*10^8
-	fprintf(gnuplot_pipe, "set xrange [0:%" PRIu32 "]\n", length);
+	fprintf(gnuplot_pipe, "set xrange [0:%" PRIu32 "]\n", chr_length);
 	fprintf(gnuplot_pipe, "set yrange [1:200]\n");
 	fprintf(gnuplot_pipe, "set title 'Uniformity Graphing'\n");
 	fprintf(gnuplot_pipe, "set xlabel 'Chromsome Position'\n");
 	fprintf(gnuplot_pipe, "set ylabel 'Coverage'\n");
-	fprintf(gnuplot_pipe, "plot '-'\n");
+	fprintf(gnuplot_pipe, "plot '-' with points pointtype 7 ps 0.75 lc rgb \"#32CD32\"\n");
+	//fprintf(gnuplot_pipe, "plot '-' with points pointtype 26\n");
 
 	uint32_t i, j;
 
 	
-	FILE * temp = fopen("data.temp", "w");
-	for (i = 0; i < cov_sm->size(); i++) {
+	/*FILE * temp = fopen("data.temp", "w");
+	for (i = 0; i < cov_raw->size(); i++) {
 		int32_t val=-1;
-		for (j = cov_sm->at(i).get_start(); j < cov_sm->at(i).get_stop(); j++) {
-			if (cov_sm->at(i).get_chrom_id() != user_inputs->get_chrom_id())
-				continue;
-
+		for (j = cov_raw->at(i).get_start(); j < cov_raw->at(i).get_stop(); j++) {
 			if (val == -1) {
-				fprintf(temp, "%" PRIu32" %" PRIu32 "\n", j, cov_sm->at(i).get_cov());
+				fprintf(temp, "%" PRIu32" %" PRIu32 "\n", j, cov_raw->at(i).get_cov());
 				val = 1;
 			} else {
 				fprintf(temp, "%" PRIu32" %" PRIu32 "\n", j, 0);
@@ -118,17 +97,14 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	fclose(temp);
-	
+	*/
 
-	for (i = 0; i < cov_sm->size(); i++) {
+	for (i = 0; i < cov_raw->size(); i++) {
 		int32_t val=-1;
 
-		for (j = cov_sm->at(i).get_start(); j < cov_sm->at(i).get_stop(); j++) {
-			if (cov_sm->at(i).get_chrom_id() != user_inputs->get_chrom_id())
-				continue;
-
+		for (j = cov_raw->at(i).get_start(); j < cov_raw->at(i).get_stop(); j++) {
 			if (val == -1) {
-				fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, cov_sm->at(i).get_cov());
+				fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, cov_raw->at(i).get_cov());
 				val = 1;
 			} else {
 				fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 0);
@@ -145,6 +121,5 @@ int main(int argc, char *argv[]) {
 	delete user_inputs;
 	delete utils;
 	delete cov_raw;
-	delete cov_sm;
 	return 0;
 }

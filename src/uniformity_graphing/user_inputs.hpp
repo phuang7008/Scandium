@@ -10,8 +10,8 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Dr. Fritz Mehner (mn), mehner@fh-swf.de
- *        Company:  FH Südwestfalen, Iserlohn
+ *         Author:  Peiming (Peter) Huang, phuang@bcm.edu
+ *        Company:  Baylor College of Medicine
  *
  * =====================================================================================
  */
@@ -32,10 +32,8 @@ class User_Inputs {
 		std::string get_output_file() { return output_file; }
 		std::string get_chrom_id()    { return chrom_id; }
 		std::string get_reference_version() { return reference_version; }
-		uint16_t get_upper_bound()    { return upper_bound; }
-		uint16_t get_buffer_size()    { return buffer_size; }
-		uint8_t  get_smoothing_type() { return smoothing_type; }
-		uint8_t  get_percentage()     { return percentage; }
+		std::uint64_t get_chromosome_length() { return chromosome_length;}
+		std::string get_chromosome_centromere_file() { return chromosome_centromere_file; }
 
 		// setters
 		//
@@ -43,10 +41,8 @@ class User_Inputs {
 		void set_output_file(std::string o_file) { output_file = o_file; }
 		void set_chrom_id(std::string cid) { chrom_id = cid; }
 		void set_reference_version (std::string ref) { reference_version = ref; }
-		void set_upper_bound(uint16_t upper)  { upper_bound = upper; }
-		void set_buffer_size(uint16_t buffer) { buffer_size = buffer; }
-		void set_smoothing_type(uint8_t type) { smoothing_type = type; }
-		void set_percentage(uint8_t pct) { percentage = pct; }
+		void set_chromosome_length (uint64_t chr_length) { chromosome_length = chr_length; }
+		void set_chromosome_centromere_file (std::string chr_centromere_file) { chromosome_centromere_file = chr_centromere_file; }
 
 		void usage();
 		bool isNumber(const char * inStr);
@@ -58,11 +54,8 @@ class User_Inputs {
 		std::string output_file;
 		std::string chrom_id;			// the chromosome id to be drawn
 		std::string reference_version;
-
-		uint16_t upper_bound;		// upper bound used to generate the range file
-		uint16_t buffer_size;		// the smoothing size around the upper_bound for type 2
-		uint8_t smoothing_type;		// type 1: gVCF; type 2: range based
-		uint8_t percentage;			// the percentage for the type 1 gVCF formula BLOCKAVE_'p'p
+		std::string chromosome_centromere_file;
+		uint64_t chromosome_length;
 };
 
 #endif
