@@ -438,7 +438,7 @@ void usage() {
 	printf("\t-b <minimal base quality: to filter out any bases with base quality  less than b. Default 0>\n");
 	printf("\t-f <file name that contains user defined database (for annotation only)>\n");
 	printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
-	printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Default 7>\n");
+	printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Dynamically Selected Based on Average Coverage of the Sample>\n");
 	printf("\t-m <minimal mapping quality score: to filter out any reads with mapping quality less than m. Default 0>\n");
 	printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
 	printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
@@ -945,7 +945,6 @@ void outputUserInputOptions(User_Input *user_inputs) {
 	fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
 	fprintf(stderr, "\tThe uniformity data file will be produced\n");
-	fprintf(stderr, "\tThe number of points selected around peak (eg, Mode) area is %d\n", user_inputs->size_of_peak_area);
 	fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
 
 	if (user_inputs->annotation_on) {
@@ -2211,10 +2210,24 @@ void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs) 
 			user_inputs->size_of_peak_area = 6;
 		} else if (average_coverage > 35 && average_coverage <= 55) {
 			user_inputs->size_of_peak_area = 7;
+        } else if (average_coverage > 55 && average_coverage <= 70) {
+            user_inputs->size_of_peak_area = 8;
+        } else if (average_coverage > 70 && average_coverage <= 85) {
+            user_inputs->size_of_peak_area = 9;
+		} else if (average_coverage > 85 && average_coverage <= 100) {
+			user_inputs->size_of_peak_area = 10;
+		} else if (average_coverage > 100 && average_coverage <= 110) {
+			user_inputs->size_of_peak_area = 11;
+		} else if (average_coverage > 110 && average_coverage <= 120) {
+			user_inputs->size_of_peak_area = 12;
 		} else {
-			user_inputs->size_of_peak_area = 8;
-		}
-	}
+            user_inputs->size_of_peak_area = 13;
+        }
+
+        fprintf(stderr, "\tThe number of points selected around peak (eg, Mode) area based on average coverage is %d\n", user_inputs->size_of_peak_area);
+	} else {
+        fprintf(stderr, "\tThe number of points selected around peak (eg, Mode) area based on the user input is %d\n", user_inputs->size_of_peak_area);
+    }
 }
 
 void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist) {

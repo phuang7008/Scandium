@@ -235,14 +235,12 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
     int32_t  isize = rec->core.isize;               // insertion size (isize or TLEN)
     bool flag_overlap = false;
 
-    if (isize == -2 && pos_r == 47213330)
-        printf("matched\n");
-
     if ( isize > 0 && user_inputs->excluding_overlapping_bases) {    // check if users turn on the flag to excluding overlapped bases
         flag_overlap = getOverlapInfo(user_inputs, cov_stats, rec, &m_pos_r_end);
 
         if (m_pos_r <= pos_r && pos_r_end <= m_pos_r_end) {
             // complete engulfed by the Reverse read, will skip this Forward read
+            //
             //      --------------------------------- forward
             //  -------------------------------------------------- reverse
             //
@@ -420,16 +418,35 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
         // For overlapping reads
         //
         uint8_t *tag_i = bam_aux_get(rec, "MC");
+
         if (tag_i == NULL) {
             // the MC tag is not set
             //
-            if ((rec->core.tid == rec->core.mtid) &&        // on the same chromosome
-                (pos_r <= m_pos_r) &&                       // ensure it is the left-most read
-                (pos_r_end >= m_pos_r) ) {
-                cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
-                return true;
+            if (rec->core.tid == rec->core.mtid) {          // on the same chromosome
+                if ( (pos_r <= m_pos_r) && (m_pos_r <= pos_r_end) ) {
+                    // The normal overlapping situation
+                    //  pos_r ----------------- pos_r_end
+                    //          m_pos_r --------------------- don't know
+                    //
+                    cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
+                    return true;
+                } else if (pos_r > m_pos_r) {
+                    // Special cases
+                    //          pos_r ---------------- pos_r_end
+                    //  m_pos_r ---------------............. don't know
+                    //
+                    cov_stats->total_overlapped_bases += pos_r_end - pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
+                    return true;
+                } else {
+                    // non overlapping on the same chromosome
+                    //  pos_r ----------- pos_r_end
+                    //                  m_pos_r ----------------- don't know
+                    //
+                    return false;
+                }
+            } else {
+                return false;
             }
-            return false;
         }
 
         // the following handles the case where MC tag is set
