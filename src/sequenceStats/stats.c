@@ -505,9 +505,14 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
             //
             uint32_t start = (pos_r >= m_pos_r)? pos_r : m_pos_r;
             uint32_t end = (pos_r_end <= *m_pos_r_end) ? pos_r_end : *m_pos_r_end;
-            if (end < start) {
-                printf("end < start %s\n", rec->data);
+            if ((end - start + 1) == 0) {
+                printf("handle [(end - start + 1) == 0] as no overlapping %s\n", rec->data);
+
+                return false;
+            } else if (end < start) {
+                printf ("end < start => Special case to be handled later %s\n", rec->data);
             }
+
             cov_stats->total_overlapped_bases += end - start + 1;   // should add 1 because endpos is 0-based
 
             return true;
