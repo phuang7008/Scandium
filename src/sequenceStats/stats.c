@@ -410,7 +410,7 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
         // obtain overlapping info
         // need to find its mate coords
         //
-        //int32_t  isize = rec->core.isize;           // insertion size (isize or TLEN)
+        //int32_t  isize = rec->core.isize;         // insertion size (isize or TLEN)
         uint32_t pos_r = rec->core.pos;             // position at the reference 0-based (my own debugging finding)
         uint32_t pos_r_end = bam_endpos(rec)-1;     // end position at the reference is 1-based, so change it to 0-based
         uint32_t m_pos_r   = rec->core.mpos;        // mate alignment start position at the reference 0-based
@@ -418,6 +418,7 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
         // For overlapping reads
         //
         uint8_t *tag_i = bam_aux_get(rec, "MC");
+        if (user_inputs->non_MC_tag_ON) tag_i = NULL;   // developer option for testing to turn non_MC_tag algorithm ON
 
         if (tag_i == NULL) {
             // the MC tag is not set

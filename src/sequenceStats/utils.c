@@ -466,6 +466,7 @@ void usage() {
 
 	printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
 	printf("\t[-M] Use HGMD annotation. Default: off\n");
+	//printf("\t[-N] Developer option for turn non_MC_tag_ON. Default: off\n");
 	printf("\t[-O] Handle Overlapping Reads/Bases to avoid double counting. Default: off\n");
 	printf("\t[-V] Output regions with high coverage (used with -H: default 10000). Default: off\n");
 	printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
@@ -512,7 +513,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	//When getopt returns -1, no more options available
 	//
 	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
-	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:o:Op:P:r:st:T:u:U:VwWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:st:T:u:U:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -602,6 +603,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 			case 'M':
 				HGMD_PROVIDED = true;
 				break;
+            case 'N':
+                user_inputs->non_MC_tag_ON = true;
+                break;
 			case 'n':
 				N_FILE_PROVIDED = true;
 				user_inputs->n_file = malloc(strlen(optarg)+1 * sizeof(char));
@@ -1050,6 +1054,8 @@ User_Input * userInputInit() {
 
 	user_inputs->database_version = calloc(10, sizeof(char));
 	strcpy(user_inputs->database_version, "hg37");
+
+    user_inputs->non_MC_tag_ON = false;
 	
 	return user_inputs;
 }

@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.4"
+#define VERSION_ "##Scandium v1.4.1"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -112,6 +112,9 @@ typedef struct {
 	bool Write_WGS_cov_fasta;			// need two different flags, one for Capture and one for WGS
 	bool Write_WIG;
 	//bool primary_chromosomes_only;		// do we need all chromosomes including decoy, alt etc or primary only
+
+    // developer testing options
+    bool non_MC_tag_ON;                 // use non_MC_tag approach for overlap base removal even though the bam file has MC_tags
 } User_Input;
 
 /**
