@@ -50,10 +50,20 @@ uint32_t getLineCount(char *bed_file) {
 // It will open the bed-formatted file and then record all the start and stop positions along with chromosome ids
 // for chromosome X and Y are characters, I will use array of chars (ie array of string) to store chromosome ids
 //
-uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
-	FILE *fp = fopen(bed_file, "r");
+uint32_t loadBedFiles(User_Input *user_inputs, Bed_Coords * coords, short type) {
+
+	FILE *fp;
+    char * bed_file;
+    if (type == 1) {
+        fp = fopen(user_inputs->target_file, "r");
+        bed_file = user_inputs->target_file;
+    } else {
+        fp = fopen(user_inputs->n_file, "r");
+        bed_file = user_inputs->n_file;
+    }
+
     if (fp == NULL) {       // ensure the target file open correctly!
-        printf("target file %s open failed!", bed_file);
+        printf("target or N region bed file %s open failed!", bed_file);
         exit(EXIT_FAILURE);
     }
 
@@ -90,8 +100,10 @@ uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords) {
 		while ((p_token = strtok_r(savePtr, "\t", &savePtr))) {
 			// get the first item, which is chromosome id
 			//
-			if (i == 0)
+			if (i == 0) {
+                checkChromosomeID(user_inputs, p_token);       // check chromosome id for versioning
 				strcpy(coords[count].chrom_id,  p_token);
+            }
 
 			if (i == 1)
 				coords[count].start = (uint32_t) strtol(p_token, NULL, 10);
@@ -165,12 +177,8 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
 	
 	// load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
 	//
-	uint32_t total_size=0;
-	if (type == 1) {
-		total_size = loadBedFiles(user_inputs->target_file, bed_info->coords);
-	} else {
-		total_size = loadBedFiles(user_inputs->n_file, bed_info->coords);
-	}
+	uint32_t total_size = loadBedFiles(user_inputs, bed_info->coords, type);
+    //printf("total size is %"PRIu32"\n", total_size);
 
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
@@ -180,15 +188,18 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
 	// Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
 	//
 	if (type == 1) {
+        //printf("Total target is %"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
 		if (total_size != stats_info->cov_stats->total_targeted_bases) {
-			printf("\n***Note: the target bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			printf("\n***Note: the target bed file needs to be bedtools sorted, merged and uniqued!\n");
+            printf("\n\t\t Also ensure the chrom list in the chrom input file matchs the chrom list in the capture bed file!\n");
 			exit(EXIT_FAILURE);
 		}
 	} else {
+        //printf("Total Ns region is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
 		if (total_size != stats_info->cov_stats->total_Ns_bases) {
-			printf("\n***Note: the Ns-region bed file needs to be bedtools sorted, merged and uniqued! Please do so before continue...\n");
+			printf("\n***Note: the Ns-region bed file needs to be bedtools sorted, merged and uniqued!\n");
+			printf("\n\t\t Also ensure the chrom list in the chrom input file matchs the chrom list in the Ns-region bed file!\n");
 			exit(EXIT_FAILURE);
-
 		}
 	}
 }

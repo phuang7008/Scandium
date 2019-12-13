@@ -432,7 +432,8 @@ void usage() {
 	printf("\tfor example: 3 threads would use 12Gb of memory, while 4 threads would need 16Gb of memory, etc.\n\n");
 	printf("Mandatory:\n");
 	printf("\t-i <BAM/CRAM alignment file (multiple files are not allowed!). It Is Mandatory >\n");
-	printf("\t-o <output directory. It Is Mandatory>\n\n");
+	printf("\t-o <output directory. It Is Mandatory>\n");
+	printf("\t-R <the file path of the reference sequence. It is Mandatory for CRAM files>\n\n");
 
 	printf("The Followings Are Optional:\n");
 	printf("\t-b <minimal base quality: to filter out any bases with base quality  less than b. Default 0>\n");
@@ -513,7 +514,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 	//When getopt returns -1, no more options available
 	//
 	//while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
-	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:st:T:u:U:VwWy:h")) != -1) {
+	while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
 			case 'a':
@@ -633,6 +634,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 				user_inputs->chromosome_bed_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
 				strcpy(user_inputs->chromosome_bed_file, optarg);
 				break;
+            case 'R':
+                user_inputs->reference_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
+                strcpy(user_inputs->reference_file, optarg);
+                break;
 			case 's': user_inputs->remove_supplementary_alignments = true; break;
             case 't':
 				TARGET_FILE_PROVIDED = true;
@@ -934,6 +939,9 @@ void outputUserInputOptions(User_Input *user_inputs) {
     if (user_inputs->chromosome_bed_file)
         fprintf(stderr, "\tThe file that contains the chromosome IDs and regions to be processed: %s\n", user_inputs->chromosome_bed_file);
 
+    if (user_inputs->reference_file)
+        fprintf(stderr, "\tThe reference sequence file is: %s\n", user_inputs->reference_file);
+
 	if (USER_DEFINED_DATABASE) {
 		fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_file);
 		fprintf(stderr, "\t\tAll annotations will be based on this file!\n");
@@ -1049,6 +1057,7 @@ User_Input * userInputInit() {
 	user_inputs->bam_file = NULL;
 	user_inputs->output_dir = NULL;
 	user_inputs->target_file = NULL;
+    user_inputs->reference_file = NULL;
 	user_inputs->chromosome_bed_file = NULL;
 	user_inputs->user_defined_database_file = NULL;
 
@@ -1128,6 +1137,9 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	if (user_inputs->chromosome_bed_file)
 		free(user_inputs->chromosome_bed_file);
+
+    if (user_inputs->reference_file)
+        free(user_inputs->reference_file);
 
 	// For User-Defined Database output files clean-up
 	//
@@ -2236,6 +2248,50 @@ void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs) 
     }
 }
 
+char* getReferenceFaiPath(const char *fn_ref) {
+    char *fn_fai = 0;
+    if (fn_ref == 0) return 0;
+
+    fn_fai = calloc(strlen(fn_ref) + 5, sizeof(char));
+    strcat(strcpy(fn_fai, fn_ref), ".fai");
+
+    if (access(fn_fai, R_OK) == -1) { // fn_fai is unreadable
+        if (access(fn_ref, R_OK) == -1) {
+            fprintf(stderr, "fail to read file %s. in getReferenceFaiPath() \n", fn_ref);
+        }
+        fprintf(stderr, "fail to read file %s. in getReferenceFaiPath() \n", fn_fai);
+        free(fn_fai); fn_fai = 0;
+    }
+
+    return fn_fai;
+}
+
+void checkChromosomeID(User_Input *user_inputs, char* chrom_id) {
+    // make a copy and convert CHR in tmp_chrom_id to lowercase
+    //
+    char * tmp_chrom_id = calloc(strlen(chrom_id) + 1, sizeof(char));
+    strcpy(tmp_chrom_id, chrom_id);
+
+    int i=0;
+    for (i=0; tmp_chrom_id[i]; i++) {
+        if (tmp_chrom_id[i] == 'C' || tmp_chrom_id[i] == 'H' || tmp_chrom_id[i] == 'R')
+            tmp_chrom_id[i] = tolower(tmp_chrom_id[i]);
+    }
+
+    if (strcmp(user_inputs->database_version, "hg37") == 0 ||
+        strcmp(user_inputs->database_version, "hg19") == 0) {
+        if (strstr(tmp_chrom_id, "chr") != NULL) {
+            fprintf(stderr, "The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (strcmp(user_inputs->database_version, "hg38") == 0 && strstr(tmp_chrom_id, "chr") == NULL) { 
+        fprintf(stderr, "The chromosome ID for Human Genome hg38 should begin with 'chr'!");
+        exit(EXIT_FAILURE);
+    }
+}
+
 void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist) {
 	// open WGS coverage summary report file handle
 	//
@@ -2257,7 +2313,8 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 	FILE * fp = fopen(user_inputs->chromosome_bed_file, "r");
 	size_t len = 0;
 	ssize_t read;
-	char *line = NULL, *tokPtr=NULL, *chrom_id=NULL;
+	char *line = NULL, *tokPtr=NULL;
+    char *chrom_id = calloc(50, sizeof(char));
 
 	while ((read = getline(&line, &len, fp)) != -1) {
 		if (*line == '\n') continue;				// handle empty lines
@@ -2283,7 +2340,7 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 				kh_value(wanted_chromosome_hash, iter) = 1;
 
 				if (chrom_id == NULL) {
-					chrom_id = calloc(strlen(tokPtr)+1, sizeof(char));
+                    strcpy(chrom_id, tokPtr);
 				}
 			}
 
@@ -2314,7 +2371,7 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 	//
 	if ( (strcasecmp(user_inputs->database_version, "hg38") != 0) && (strstr(chrom_id, "chr") != NULL) ) {
 		fprintf(stderr, "The reference version isn't set correctly\n");
-		fprintf(stderr, "The previous reference version was %s\n", user_inputs->database_version);
+		fprintf(stderr, "The current reference version was %s\n", user_inputs->database_version);
 		strcpy(user_inputs->database_version, "hg38");
 		fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
 	}

@@ -36,7 +36,7 @@
 #include "htslib/sam.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v1.4.1"
+#define VERSION_ "##Scandium v1.4.2"
 
 #define PRIMER_SIZE			1000	//upstream or downstream of a target
 
@@ -64,6 +64,7 @@ typedef struct {
 	char * n_file;					// provide the regions with Ns in the reference genome in bed format
 	char * output_dir;				// output directory (mandatory)
 	char * target_file;
+	char * reference_file;          // reference file name for cram input file
 	char * chromosome_bed_file;		// a file contains chromosome ids and regions need to be processed in bed format
 	char * user_defined_database_file;
 	char * database_version;		// either hg19 (hg37) or hg38

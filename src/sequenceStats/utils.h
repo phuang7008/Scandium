@@ -390,6 +390,21 @@ void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist
 void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs);
 
 /*
+ * The method is added for cram file input as cram file processing needs reference sequence
+ * @param fn_ref: the file path to the reference sequences
+ * @return the file path to the reference sequence's fai file
+ */
+char* getReferenceFaiPath(const char *fn_ref);
+
+/*
+ * since hg37 and hg38 used different chromosome nameing convention, 
+ * we need to ensure that the input files follow this convention
+ * @param user_inputs: variable that stores the user inputs
+ * @param chrom_id: chromosome id to be checked
+ */
+void checkChromosomeID(User_Input *user_inputs, char* chrom_id);
+
+/*
  * it is a help function that is used to load all chromosomes need to be processed
  * @param primary_chromosome_hash: a hash table that is used to store the primary chromosomes for quick lookup
  * @param user_inputs: different version of human genomes define chromosome id differently. For other genomes, users will have to make the adjustment

@@ -75,8 +75,26 @@ int main(int argc, char *argv[]) {
 	//
     samFile *sfd = sam_open(user_inputs->bam_file, "r");
     if (sfd == 0) {
-        fprintf(stderr, "Cannot open file %s\n", argv[1]);
+        fprintf(stderr, "Cannot open file %s\n", user_inputs->bam_file);
         return -1;
+    }
+
+    // Set the reference if it is the cram file
+    //
+    char * fn_ref = 0;
+    if (user_inputs->reference_file) {
+        fn_ref = getReferenceFaiPath(user_inputs->reference_file);
+
+        if (hts_set_fai_filename(sfd, fn_ref) != 0) {
+            fprintf(stderr, "Failed to use reference at hts_set_fai_filename() \"%s\".\n", fn_ref);
+            if (fn_ref) free(fn_ref);
+            return -1;
+        }
+    } else {
+        if ( sfd->is_cram || strcmp((char*) sfd->format.format, "cram") == 0 ) {
+            fprintf(stderr, "Please provide the reference sequences for the input CRAM file \"%s\".\n", user_inputs->bam_file);
+            return -1;
+        }
     }
 
     // use sam_hdr_read to process both bam and cram header
@@ -576,6 +594,8 @@ int main(int argc, char *argv[]) {
 
 	if (cds_counts) 
 		cleanKhashStrInt(cds_counts);
+
+    if (fn_ref) free(fn_ref);
 
 	if (user_defined_targets) 
 		cleanKhashStrInt(user_defined_targets);

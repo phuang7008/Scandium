@@ -34,11 +34,12 @@ uint32_t getLineCount(char *bed_file);
 /**
  * open the input bed-formated file and then load the coordinate regions into memory and leave them there
  * Note: the input file should be in .bed format
- * @param bed_file: file whose format is bed (such as target file or Ns regions of the reference sequences)
+ * @param user_inputs: variable that stores all the user provided inputs
  * @param coords: the Bed_Coords structure to store coordinates of each bed section
+ * @param type: type of bedfile input, either capture bedfile or N region bedfile
  * @return the total number of bases covered in the target/N-regions bed file
  */
-uint32_t loadBedFiles(char * bed_file, Bed_Coords * coords);
+uint32_t loadBedFiles(User_Input *user_inputs, Bed_Coords * coords, short type);
 
 /**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup

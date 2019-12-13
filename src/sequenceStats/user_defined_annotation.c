@@ -58,17 +58,7 @@ void checkAnnotationFormat(User_Input *user_inputs) {
 			j++;
 		}
 
-		if (strcmp(user_inputs->database_version, "hg37") == 0 || strcmp(user_inputs->database_version, "hg19") == 0) {
-			if (strstr(chrom_id, "chr") != NULL) {
-				fprintf(stderr, "The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");                                           
-				exit(EXIT_FAILURE);
-			}
-		}
-
-		if (strcmp(user_inputs->database_version, "hg38") == 0 && strstr(chrom_id, "chr") == NULL) {
-			fprintf(stderr, "The chromosome ID for Human Genome hg38 should contain 'chr'!");
-			exit(EXIT_FAILURE);
-		}
+        checkChromosomeID(user_inputs, chrom_id);       // check chromosome id for versioning
 		
 		if (start >= end) {
 			fprintf(stderr, "The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!", start, end);
