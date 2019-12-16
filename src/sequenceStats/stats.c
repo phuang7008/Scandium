@@ -57,7 +57,7 @@ uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
 	return record_idx;
 }
 
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash, Chromosome_Tracking *chrom_tracking) {
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
 	uint32_t i = 0;

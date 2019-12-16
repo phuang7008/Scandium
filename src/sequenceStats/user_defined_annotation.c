@@ -877,18 +877,6 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 			}
 		}
 
-		// In the original java code, the following is used for the pc and pc2 definition
-		// short pc[101], pc2[101];
-		// After discussion with Divya and Qiaoyan, here is what we understand.
-		// pc and pc2 is used to setup the 'target_coverage' variable which is defined as an array of 101 in the origain java code
-		// here I will use percentage_bin and percentage_count_per_bin
-		//
-		uint32_t percentage_bin[101], percentage_count_per_bin[101];
-		for(j=0; j<101; j++) {
-			percentage_bin[j] = 0;
-			percentage_count_per_bin[j] = 0;
-		}
-
 		bool target_hit = false;
 
 		for(j = 0; j < length; j++) {                                                                     

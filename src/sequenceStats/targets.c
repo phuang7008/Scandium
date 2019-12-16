@@ -329,13 +329,13 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 		   	// update the target/buffer stats here
 			//
 			if (type == 1) {
-	        	if (target_buffer_status[i].status_array[j] == 1 || target_buffer_status[i].status_array[j] == 4)
-		        	stats_info->cov_stats->total_targeted_bases += 1;
+                if (target_buffer_status[i].status_array[j] == 1 || target_buffer_status[i].status_array[j] == 4)
+                    stats_info->cov_stats->total_targeted_bases += 1;
 	
-				if (target_buffer_status[i].status_array[j] == 2 || target_buffer_status[i].status_array[j] == 5)
-		        	stats_info->cov_stats->total_buffer_bases += 1;
-			}
-    	}
+                if (target_buffer_status[i].status_array[j] == 2 || target_buffer_status[i].status_array[j] == 5)
+                    stats_info->cov_stats->total_buffer_bases += 1;
+            }
+        }
 	}
 }
 

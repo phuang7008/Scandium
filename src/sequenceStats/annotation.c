@@ -167,8 +167,8 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
     if (dbs->mysql_results == NULL)
         finish_with_error(dbs->con);
 
-	regions_in->chrom_list_size = mysql_num_rows(dbs->mysql_results);
-	regions_in->chromosome_ids = calloc(regions_in->chrom_list_size, sizeof(char*));
+    regions_in->chrom_list_size = mysql_num_rows(dbs->mysql_results);
+    regions_in->chromosome_ids = calloc(regions_in->chrom_list_size, sizeof(char*));
 
 	uint16_t chrom_idx=0;
     MYSQL_ROW row;

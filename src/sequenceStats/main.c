@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
         if (num_records > 0) {
           printf("Reading: %"PRIu32" records\t\tTotal: %"PRIu64"\t\tThread id: %d.\n", num_records, total_reads, thread_id);
 
-          processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id, wanted_chromosome_hash, chrom_tracking);
+          processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id, wanted_chromosome_hash);
 
 		}
 

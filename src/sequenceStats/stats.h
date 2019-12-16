@@ -60,7 +60,7 @@ uint32_t readBam(samFile *sffh, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
  * @param thread_id: the current thread id
  * @param primary_chromosome_hash: handle primary chromosomes only if it is not NULL
  */
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt) * primary_chromosome_hash, Chromosome_Tracking *chrom_tracking);
+void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt) * primary_chromosome_hash);
 
 /**
  * This function is used to process individual aligned read and put the results into a hash table where the key is the chromosome location

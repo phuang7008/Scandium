@@ -942,9 +942,9 @@ void outputUserInputOptions(User_Input *user_inputs) {
     if (user_inputs->reference_file)
         fprintf(stderr, "\tThe reference sequence file is: %s\n", user_inputs->reference_file);
 
-	if (USER_DEFINED_DATABASE) {
-		fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_file);
-		fprintf(stderr, "\t\tAll annotations will be based on this file!\n");
+    if (USER_DEFINED_DATABASE) {
+        fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_file);
+        fprintf(stderr, "\t\tAll annotations will be based on this file!\n");
 	}
 
 	fprintf(stderr, "\tThe minimum mapping quality is: %d\n", user_inputs->min_map_quality);
@@ -1143,11 +1143,11 @@ void userInputDestroy(User_Input *user_inputs) {
 
 	// For User-Defined Database output files clean-up
 	//
-	if (user_inputs->user_defined_database_file)
-		free(user_inputs->user_defined_database_file);
+    if (user_inputs->user_defined_database_file)
+        free(user_inputs->user_defined_database_file);
 
-	if (user_inputs)
-		free(user_inputs);
+    if (user_inputs)
+        free(user_inputs);
 }
 
 void loadGenomeInfoFromBamHeader(khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs) {
