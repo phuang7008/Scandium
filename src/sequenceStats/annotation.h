@@ -72,7 +72,7 @@ char* combinedEachAnnotation(khash_t(str) *hash_in);
  * @param chrom_id: only fetch those on current chromosome
  * @param user_inputs: it contains the database version used
  */
-uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id, User_Input *user_inputs);
+uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id);
 
 /*
  * if we query MySQL db for every region, it will be too slow.
@@ -82,7 +82,7 @@ uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id, User_Inpu
  * @param user_inputs: it contains the database version used
  * @param type: type of regions to fetch. 1 => intergenic, 2 => intron, 3 => exon
  */
-void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_Input *user_inputs, uint8_t type);
+void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, uint8_t type);
 
 /*
  * a helper function that is used to clean-up all fetched regions from MySQL db
@@ -97,10 +97,9 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type);
  * @param dbs: a Databases variable that contains all the database connection information
  * @param chrom_id: current chromosome id to be handled
  * @param index: the array index on the regions_in
- * @param user_inputs: it contains the database version used
  * @param type: type of regions to fetch. 1 => intergenic, 2 => intron, 3 => exon
  */
-void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databases *dbs, char *chrom_id, uint32_t index, User_Input *user_inputs, uint8_t type);
+void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databases *dbs, char *chrom_id, uint32_t index, uint8_t type);
 
 /*
  * this is used to check if the region (start -- end) is overlapped with intronic regions
@@ -170,7 +169,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
  * @param user_inputs, contains all the original user's inputs
  * @param gene_transcripts: a hash variable that is to be initialized
  */
-void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, User_Input *user_inputs, khash_t(khStrStrArray) *gene_transcripts);
+void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, khash_t(khStrStrArray) *gene_transcripts);
 
 /**
  * This is used to clean up the Low_Coverage_Genes variables
@@ -194,15 +193,14 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
  * @param chrom_id: the chromosome id we are going to handle
  * @param low_cov_gene_hash: a khash_t(khStrLCG) variable that is used to store all the low coverage information
  */
-void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, khash_t(khStrLCG) *low_cov_gene_hash);
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, khash_t(khStrLCG) *low_cov_gene_hash);
 
 /*
  * it is used to initialized the transcript_hash variable
- * @param chrom_id: the chromosome id we are going to handle
  * @param transcript_hash: a khash_t(khStrLCG) variable to be initialized
  * @param low_cov_gene_hash: a low_cov_gene_hash variable that contains all the low coverage information
  */
-void transcriptPercentageCoverageInit(char* chrom_id, khash_t(khStrLCG) *transcript_hash, khash_t(khStrLCG) *low_cov_gene_hash);
+void transcriptPercentageCoverageInit(khash_t(khStrLCG) *transcript_hash, khash_t(khStrLCG) *low_cov_gene_hash);
 
 /**
  * record the intersected regions between the target bed regions and the official refseq CDS regions

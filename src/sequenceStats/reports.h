@@ -87,18 +87,16 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
  */
 void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
-void writeAnnotations(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void writeAnnotations(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
 /**
  * This is a wrapper function to help generate the coverage range info using writeCoverageRanges()
  * This will not generate annotation information for the speed reason
  * @param chrom_id: the chromosome id to be handed
- * @param target_info: detailed targets in bed format
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param user_inputs: contains all the user_inputs options
- * @param stats_info: contains all the summary stats info
  */
-void coverageRangeInfoForGraphing(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info);
+void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs);
 
 /**
  * This is used to generate average coverage information for a range of position based on different binning strategies
@@ -144,10 +142,9 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
  * @param target_info: detailed targets in bed format
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param user_inputs: contains all the user_inputs options
- * @param stats_info: contains all the summary stats info
  * @param low_cov_gene_hash: a khash_t(khStrLCG) variable that contains all the low coverage information
  */
-void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, khash_t(khStrLCG) *low_cov_gene_hash);
+void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, khash_t(khStrLCG) *low_cov_gene_hash);
 
 /*
  * write the gene/transcript coverage percentage to a file
@@ -159,7 +156,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
  * @param hgmd_genes: a lookup hash table that contains all HGMD genes
  * @param hgmd_transcripts: a lookup hash table that contains all HGMD transcripts
  */
-void storeGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts, khash_t(khStrGTP) *gene_transcript_percentage_hash);
+void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_transcripts, khash_t(khStrGTP) *gene_transcript_percentage_hash);
 
 /* it is used to store percentage for current gene's transcripts for later usage
  * @param hgmd_transcripts_hash: a lookup hash table that contains all HGMD transcripts

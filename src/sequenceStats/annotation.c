@@ -105,7 +105,7 @@ void databaseCleanUp(Databases *dbs) {
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
 //
-uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id, User_Input *user_inputs) {
+uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id) {
 	char *pre_sql = calloc(100, sizeof(char));
 
 	if (type == 1) {
@@ -142,7 +142,7 @@ uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id, User_Inpu
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
 // this is used for general gene annotation, but not for the percentage coverage annotation
 //
-void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_Input *user_inputs, uint8_t type) {
+void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, uint8_t type) {
 	// here we need to find out how many chromosomes we are dealing with
 	char *sql = calloc(250, sizeof(char));
 		
@@ -223,7 +223,7 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 
 	uint32_t i, j;
 	for (i=0; i<regions_in->chrom_list_size; i++) {
-		regions_in->size_r[i] = fetchTotalCount(type, dbs, regions_in->chromosome_ids[i], user_inputs);
+		regions_in->size_r[i] = fetchTotalCount(type, dbs, regions_in->chromosome_ids[i]);
 		regions_in->starts[i] = calloc(regions_in->size_r[i], sizeof(uint32_t));
 
 		if (!regions_in->starts[i]) {
@@ -262,7 +262,7 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, User_I
 
 		// now populate these regions with gene annotation
 		//
-		populateStaticRegionsForOneChromOnly(regions_in, dbs, regions_in->chromosome_ids[i], i, user_inputs, type); 
+		populateStaticRegionsForOneChromOnly(regions_in, dbs, regions_in->chromosome_ids[i], i, type); 
 	}
 }
 
@@ -321,7 +321,7 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions
 // This is for the general gene annotation, not for the gene/transcript/CDS coverage percentage calculation
 //
-void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databases *dbs, char *chrom_id, uint32_t chrom_idx, User_Input *user_inputs, uint8_t type) {
+void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databases *dbs, char *chrom_id, uint32_t chrom_idx, uint8_t type) {
 	char *sql = calloc(250, sizeof(char));
 
 	if (type == 1) {
@@ -874,7 +874,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 //									 -> [1] transcript_name
 //									 ......
 //
-void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, User_Input *user_inputs, khash_t(khStrStrArray) *gene_transcripts) {
+void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, khash_t(khStrStrArray) *gene_transcripts) {
 	// mysql to obtain total number of distinct transcript_name for this specific chromosome
 	//
 	char *sql = calloc(350, sizeof(char));
@@ -1120,7 +1120,7 @@ void intersectTargetsAndRefSeqCDS(char *chrom_id, Bed_Info *target_info, Chromos
 //			NM_000016 => cds2
 //			...
 //
-void transcriptPercentageCoverageInit(char* chrom_id, khash_t(khStrLCG) *transcript_hash, khash_t(khStrLCG) *low_cov_gene_hash) {
+void transcriptPercentageCoverageInit(khash_t(khStrLCG) *transcript_hash, khash_t(khStrLCG) *low_cov_gene_hash) {
 	uint32_t i;
 	khiter_t iter_ts, iter_lcg;
 
@@ -1160,7 +1160,7 @@ void transcriptPercentageCoverageInit(char* chrom_id, khash_t(khStrLCG) *transcr
 
 // Here we are not going to go through the database, instead, we are going to use the Low_Coverage_Genes stored on the heap!!!
 //
-void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, char *chrom_id, khash_t(khStrLCG) *low_cov_gene_hash) {
+void produceGenePercentageCoverageInfo(uint32_t start_in, uint32_t stop_in, khash_t(khStrLCG) *low_cov_gene_hash) {
 	khiter_t iter;
 	uint32_t current_key = getHashKey(start_in);
 

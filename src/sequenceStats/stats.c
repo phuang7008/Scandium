@@ -378,7 +378,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 					if (chrom_tracking->chromosome_status[i] == 0) {
 						// Process the current chromosome for the first time!
 						//
-						chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_ids[i], chrom_tracking->chromosome_lengths[i], i);
+						chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_lengths[i], i);
 
 						// if it goes to the next chromosome, the previous chromosome should be done processing
 				        // Thus, we need to update the previous chromosome status

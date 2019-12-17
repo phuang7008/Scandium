@@ -161,7 +161,7 @@ uint32_t loadBedFiles(User_Input *user_inputs, Bed_Coords * coords, short type) 
 	return total_size;
 }
 
-void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status,  bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
 	// First, let's get the total number of lines(items or count) within the target file
 	//
 	if (type == 1) {
@@ -183,7 +183,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
 	//
-	generateBedBufferStats(bed_info, stats_info, target_buffer_status, header, user_inputs, wanted_chromosome_hash, type);
+	generateBedBufferStats(bed_info, stats_info, target_buffer_status, user_inputs, wanted_chromosome_hash, type);
 
 	// Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
 	//
@@ -216,7 +216,7 @@ void outputForDebugging(Bed_Info *bed_info) {
 // For values stored in the status_array:
 // 1: target		2: buffer		3: Ns		4: 1+3 (target+Ns overlaps)		5: 2+3 (buffer+Ns overlaps)
 //
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, bam_hdr_t *header, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, short type) {
 	uint32_t i=0, j=0, k=0, chrom_len=0;
 	int idx = -1;
 	char cur_chrom_id[50];

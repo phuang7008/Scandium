@@ -41,7 +41,7 @@ uint64_t check_file_size(const char *filename);
  * @param hgmd_genes: a variable that is used to store all the HGMD genes
  * @param hgmd_transcripts: a variable that is used to store all the HGMD transcripts
  */
-void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts);
+void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts);
 
 /* 
  * Split a string to a word hash
@@ -232,7 +232,7 @@ uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chro
  * @param chrom_len: the length of current chromosome
  * @param index: the members in Chromosome_Tracking variable are stored in arrays, using index will help locate the chromosome info
  */
-void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index);
+void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, uint32_t chrom_len, int index);
 
 /**
  * To clean up the allocated memory for chromosome tracking

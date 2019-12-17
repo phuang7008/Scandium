@@ -53,7 +53,7 @@ uint64_t check_file_size(const char *filename) {
 	exit(EXIT_FAILURE);
 }
 
-void recordHGMD(Databases *dbs, User_Input *user_inputs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts) {
+void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts) {
 	// query from the MySQL database
 	//
 	char *sql = calloc(100, sizeof(char));
@@ -1368,7 +1368,7 @@ uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chro
 	return num_of_chroms;
 }
 
-void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, char *chrom_id, uint32_t chrom_len, int index) {
+void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, uint32_t chrom_len, int index) {
 	// As the 0 position will be empty as the position will be 1-based
 	// So I used it to store the index information for quick access
 	// Also, I need to add 1 to the size to align with the 1-based position

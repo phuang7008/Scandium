@@ -148,13 +148,13 @@ int main(int argc, char *argv[]) {
 
 	if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, header, wanted_chromosome_hash, 2);
+        processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, wanted_chromosome_hash, 2);
 		fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
     }
 
 	if (TARGET_FILE_PROVIDED) {
         target_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs, target_bed_info, stats_info, target_buffer_status, header, wanted_chromosome_hash, 1);
+        processBedFiles(user_inputs, target_bed_info, stats_info, target_buffer_status, wanted_chromosome_hash, 1);
     }
 
 	// there are two types of annotations available, MySQL or User_Defined_Database
@@ -219,8 +219,8 @@ int main(int argc, char *argv[]) {
 
 			intronic_regions    = calloc(1, sizeof(Regions_Skip_MySQL));
 
-			regionsSkipMySQLInit(dbs, intronic_regions, user_inputs, 2);
-			regionsSkipMySQLInit(dbs, exon_regions, user_inputs, 3);
+			regionsSkipMySQLInit(dbs, intronic_regions, 2);
+			regionsSkipMySQLInit(dbs, exon_regions, 3);
 		}
 
 		if (HGMD_PROVIDED && hgmd_genes == NULL) {
@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
 
 			hgmd_genes = kh_init(khStrInt);
 			hgmd_transcripts = kh_init(khStrInt);
-			recordHGMD(dbs, user_inputs, hgmd_genes, hgmd_transcripts);
+			recordHGMD(dbs, hgmd_genes, hgmd_transcripts);
 		}
 	}
 
@@ -388,12 +388,12 @@ int main(int argc, char *argv[]) {
 				//
                 if (user_inputs->wgs_coverage) {
                   printf("Thread %d is now writing WGS annotation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                  writeAnnotations(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, intronic_regions, exon_regions);
+                  writeAnnotations(chrom_tracking->chromosome_ids[i], chrom_tracking, user_inputs, intronic_regions, exon_regions);
 
 				  // if user specifies the range information (usually for graphing purpose), need to handle it here
 				  //
 				  printf("Thread %d is now writing coverage uniformity data for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-				  coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info);
+				  coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[i], chrom_tracking, user_inputs);
                 }
               }
             }
@@ -412,9 +412,9 @@ int main(int argc, char *argv[]) {
 					khash_t(khStrLCG) *user_defined_cds_gene_hash = kh_init(khStrLCG);
 
 					userDefinedGeneCoverageInit(user_defined_cds_gene_hash, chrom_tracking->chromosome_ids[i], raw_user_defined_database, gene_transcripts);
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, user_defined_cds_gene_hash);
-					transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_hash, user_defined_cds_gene_hash);
-					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts, gene_transcript_percentage_hash);
+					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, user_defined_cds_gene_hash);
+					transcriptPercentageCoverageInit(transcript_hash, user_defined_cds_gene_hash);
+					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash);
 
 					// clean-up
 					//
@@ -427,13 +427,13 @@ int main(int argc, char *argv[]) {
 					//
 					khash_t(khStrLCG) *low_cov_gene_hash = kh_init(khStrLCG);
 
-				    genePercentageCoverageInit(low_cov_gene_hash, chrom_tracking->chromosome_ids[i], dbs, user_inputs, gene_transcripts);
+				    genePercentageCoverageInit(low_cov_gene_hash, chrom_tracking->chromosome_ids[i], dbs, gene_transcripts);
 					intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, low_cov_gene_hash);
 
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, stats_info, low_cov_gene_hash);
-				    transcriptPercentageCoverageInit(chrom_tracking->chromosome_ids[i], transcript_hash, low_cov_gene_hash);
+					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, low_cov_gene_hash);
+				    transcriptPercentageCoverageInit(transcript_hash, low_cov_gene_hash);
 
-					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, transcript_hash, gene_transcripts, hgmd_genes, hgmd_transcripts, gene_transcript_percentage_hash);
+					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash);
 
 				    // clean-up the memory space
 				    //
