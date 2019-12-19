@@ -95,7 +95,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			if (collect_target_cov) {
 				for(j = 0; j < PRIMER_SIZE; j++) {
 					int32_t k = start - j;		// k could go negative, so it is a signed integer
-					if ( k < 0 || (end + j) >= chrom_tracking->chromosome_lengths[idx])
+					if ( k < 0 || (uint32_t) (end + j) >= chrom_tracking->chromosome_lengths[idx])
 						continue;
 
 					stats_info->five_prime[j]  += chrom_tracking->coverage[idx][k];
@@ -123,7 +123,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 			if(end - start > 10000) space_it = true;
 
 			for(j = 0; j < length; j++) {
-				if (j+start >= chrom_tracking->chromosome_lengths[idx])
+				if ((uint32_t) j+start >= chrom_tracking->chromosome_lengths[idx])
 					continue;
 
 				if (user_inputs->Write_Capture_cov_fasta && space_it && j%100 == 0) fputc('\n', capture_cov_fp);    // enter a new line after every 100 bases
@@ -178,7 +178,7 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
 				//fprintf(missed_target_fp, "%s\t%"PRIu32"\t%"PRIu32"\n", chrom_id, start, end);
 				bool hit = false;
 				for (j = start - user_inputs->target_buffer_size; j < start && !hit; j++) {
-					if (j >= chrom_tracking->chromosome_lengths[idx])
+					if ((uint32_t) j >= chrom_tracking->chromosome_lengths[idx])
 						continue;
 
 					if ( chrom_tracking->coverage[idx][j] > 0 )
@@ -409,7 +409,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 		// First check exon_region
 		//
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, exon_regions);
-		if (chrom_idr == exon_regions->prev_search_chrom_index && exon_regions->prev_search_loc_index > 0) {
+		if (chrom_idr >= 0 && (uint32_t) chrom_idr == exon_regions->prev_search_chrom_index && exon_regions->prev_search_loc_index > 0) {
 			tmp_loc_idx = exon_regions->prev_search_loc_index;
 
 			if (verifyIndex(exon_regions, start, end, chrom_idr, tmp_loc_idx)) {
@@ -428,7 +428,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 		}
 
 		chrom_idr = locateChromosomeIndexForRegionSkipMySQL(chrom_id, intronic_regions);
-		if (chrom_idr == intronic_regions->prev_search_chrom_index && intronic_regions->prev_search_loc_index > 0) {
+		if (chrom_idr >= 0 && (uint32_t) chrom_idr == intronic_regions->prev_search_chrom_index && intronic_regions->prev_search_loc_index > 0) {
 			tmp_loc_idx = intronic_regions->prev_search_loc_index;
 
 			if (verifyIndex(intronic_regions, start, end, chrom_idr, tmp_loc_idx)) {
@@ -636,10 +636,6 @@ void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint
 			stats_info->cov_stats->base_with_target_max_coverage += 1;
 		}
 	}
-
-	if (cov_val < 0) {
-        fprintf(stderr, "Coverage less than 0!!!!!!!\n");
-    }
 
 	// for histogram only
 	uint32_t tmp_val = cov_val;
@@ -1034,14 +1030,14 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 	FILE *wp = fopen(user_inputs->wgs_wig_file, "a");
 	fprintf(wp, "track type=wiggle_0 name=%s\n", user_inputs->bam_file);
 
-	for(i=0; i<target_bed_info->size; i++) {
+	for(i=0; (uint32_t) i<target_bed_info->size; i++) {
 
 		// here we are going to erase everything that is on-target and in-buffer and set them to 0
 		if (strcmp(chrom_id, target_bed_info->coords[i].chrom_id) == 0) {
 			uint32_t start = target_bed_info->coords[i].start;
 			uint32_t stop  = target_bed_info->coords[i].end;
-			for(j=start-500; j<=stop+500; j++) {
-				if (j < 0 || j >= chrom_tracking->chromosome_lengths[idx])
+			for(j=start-500; (uint32_t) j<=stop+500; j++) {
+				if (j < 0 || (uint32_t) j >= chrom_tracking->chromosome_lengths[idx])
 					continue;
 
 				chrom_tracking->coverage[idx][j] = 0;
@@ -1050,13 +1046,13 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 	}
 
 	// once captured area + BUFFER is initialized to 0, we want to check if there is any coverage > 20 in off-target regions
-	for(i=0; i<chrom_tracking->chromosome_lengths[idx]; i++) {
+	for(i=0; (uint32_t) i<chrom_tracking->chromosome_lengths[idx]; i++) {
 		if (chrom_tracking->coverage[idx][i] > 20) {
 			j = i;
 			stats_info->cov_stats->non_target_good_hits += 1;
 
 			// right side 
-			while(i < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][i] > 0)
+			while((uint32_t) i < chrom_tracking->chromosome_lengths[idx] && chrom_tracking->coverage[idx][i] > 0)
 				i++;
 
 			// left side
@@ -1066,7 +1062,7 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 			// now write to the off target wig file
 			fprintf(wp, "fixedStep chrom_id=%s start=%"PRId32" step=1\n", chrom_id, j);
 			uint32_t h = j;
-			for(h=j; h<i; h++)
+			for(h=j; h<(uint32_t)i; h++)
 				fprintf(wp,"%"PRIu32"\n", chrom_tracking->coverage[idx][h]);
 		}
 	}

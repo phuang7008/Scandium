@@ -291,7 +291,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 			// for the buffer positions at the left-hand side
 			//
 			for (j=bed_info->coords[i].start-user_inputs->target_buffer_size; j < bed_info->coords[i].start; j++) {
-				if (j < 0) continue;
+				//if (j < 0) continue;      // Removed! As it is always False!
 				if (j >= chrom_len) continue;
 
 				if (target_buffer_status[idx].status_array[j] == 0) {
@@ -348,7 +348,7 @@ void cleanBedInfo(Bed_Info *bed_info) {
 }
 
 void TargetBufferStatusInit(Target_Buffer_Status *target_buffer_status, bam_hdr_t *header) {
-	uint32_t i=0;
+	int32_t i=0;
 	for(i=0; i<header->n_targets; i++) {
 		strcpy(target_buffer_status[i].chrom_id, header->target_name[i]);
 		target_buffer_status[i].size = header->target_len[i];

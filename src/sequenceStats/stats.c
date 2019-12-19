@@ -190,7 +190,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 }
 
 void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out) {
-	uint32_t i=0, j=0, chrom_len=0;
+	uint32_t i=0, chrom_len=0;
 	bool on_target=false, in_buffer=false;
 
 	// get the target_buffer_status index,
@@ -253,6 +253,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	for (i=0; i<rec->core.n_cigar; ++i) {
         int cop = cigar[i] & BAM_CIGAR_MASK;    // operation
         int cln = cigar[i] >> BAM_CIGAR_SHIFT;  // length
+        int j=0;    // need to make it signed as the comparison with unsigned will generated warnings
 
 		/*
 			The “M” CIGAR op (BAM_CMATCH) is forbidden in PacBio BAM files. 
@@ -266,7 +267,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			//
 			for (j=0; j<cln; ++j) {
 
-				if (pos_r < 0) continue;
+				//if (pos_r < 0) continue;      // removed! As it is always false
 				if (pos_r >= chrom_len) break;
 
 				if (TARGET_FILE_PROVIDED && (idx >=0)) {
@@ -315,7 +316,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			//
 			//cov_stats->total_uniquely_aligned_bases += cln;
 			for (j=0; j<cln; ++j) {
-				if (pos_r < 0) continue;                                                                        
+				//if (pos_r < 0) continue;      // Removed! As it is always false!
 				if (pos_r >= chrom_len) break; 
 
 				// insertion bases will be counted as aligned bases
@@ -356,7 +357,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 //
 void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *coverage_hash) {
 	khiter_t outer_iter;		// Note: khint_t and khiter_t are the same thing!
-	int32_t i=0, j=0;
+	uint32_t i=0;
 
 	/**
 		First we need to loop through the coverage_hash to find out how many chromosomes it tracks
@@ -383,6 +384,8 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 						// if it goes to the next chromosome, the previous chromosome should be done processing
 				        // Thus, we need to update the previous chromosome status
 						// Here we will have to make sure that j is signed. Otherwise, you won't get negative value
+                        //
+                        int32_t j=0;
 						for(j=i-1; j >= 0; j--) {
 							if (chrom_tracking->chromosome_status[j] == 1)
 								chrom_tracking->chromosome_status[j] = 2;
@@ -391,9 +394,11 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 					}
 
 					// update the coverage information for each position at current chromosome
-					//
-					for(j=0; j<kh_value(coverage_hash, outer_iter)->size; j++) {
-						chrom_tracking->coverage[i][j] += kh_value(coverage_hash, outer_iter)->cov_array[j];
+					// used unsigned variable uj as size is unsigned
+                    //
+                    uint32_t uj = 0;
+					for(uj=0; uj<kh_value(coverage_hash, outer_iter)->size; uj++) {
+						chrom_tracking->coverage[i][uj] += kh_value(coverage_hash, outer_iter)->cov_array[uj];
 					}
 				}
 			}

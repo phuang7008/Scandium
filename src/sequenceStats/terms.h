@@ -95,11 +95,11 @@ typedef struct {
 	int8_t min_base_quality;
 	uint16_t low_coverage_to_report;	// default 20, users are allowed to change it as an input option
 	uint32_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
-	int16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the uniformity output
-	int16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the uniformity output
+	uint16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the uniformity output
+	uint16_t upper_bound;				// default 150. Used with -l option (lower_bound) for the uniformity output
 	uint16_t gVCF_percentage;			// default 5 for 500%. For gVCF formula: BLOCKAVE_Xp, where X=gVCF_percentage
 	uint16_t target_buffer_size;		// default 100. For regions immediate adjacent to any target regions
-	short num_of_threads;
+	unsigned short num_of_threads;
 	float percentage;					// percentage (fraction) of total bam reads will be used for analysis
 	uint8_t size_of_peak_area;			// the points around peak area to pick for uniformity calculation
 	bool user_set_peak_size_on;

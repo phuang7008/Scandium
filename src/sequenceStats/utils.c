@@ -267,7 +267,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 
 		*output[0] = '\0';	// set to the null terminator, so we could use strcat() all the way
 
-		for (i=0; i<size_L; i++) {
+		for (i=0; (unsigned int) i<size_L; i++) {
 			if (i > 0) 
 				strcat(*output, ";");
 
@@ -1313,7 +1313,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 	}
 
 	int j=0;
-	for(i=0; i<header->n_targets; i++) {                                                                      
+	for(i=0; i<(uint32_t) header->n_targets; i++) {                                                                      
 		// initialize the id here based on the chromosome ids need to be processed
 		//
 		khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, header->target_name[i]); 
@@ -1335,7 +1335,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 		}
 	}
 
-	if (j > num_of_chroms) {
+	if ((unsigned int) j > num_of_chroms) {
 		fprintf(stderr, "Number of chromosomes needs to be processed %d is larger than required %d!\n", j, num_of_chroms);
 		exit(EXIT_FAILURE);
 	}
@@ -1443,7 +1443,7 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
 }
 
 int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Tracking *chrom_tracking) {
-    int32_t i=0;
+    uint32_t i=0;
     for (i = 0; i < chrom_tracking->number_tracked; i++) {
         if (chrom_tracking->chromosome_ids[i]) {
             if (strcmp(chrom_id, chrom_tracking->chromosome_ids[i]) == 0) {
@@ -2435,7 +2435,7 @@ void print_string_array(char** strings_in, size_t length_in) {
 
 void checkNamingConvention(bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash) {
 	bool match=false;
-	uint32_t i=0;
+	int32_t i=0;
 	for(i=0; i<header->n_targets; i++) {
 		khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, header->target_name[i]);
 		if (iter != kh_end(wanted_chromosome_hash)) {

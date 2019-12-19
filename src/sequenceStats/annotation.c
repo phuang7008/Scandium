@@ -127,7 +127,7 @@ uint32_t fetchTotalCount(uint8_t type, Databases *dbs, char *chrom_id) {
     MYSQL_ROW row;
 	uint32_t count=0;
     while ((row = mysql_fetch_row(dbs->mysql_results))) {
-		if (row[0] > 0)
+		if (row[0] != 0)    // row[0] is char*, a pointer, need to use pointer comparison
 			count = (uint32_t) atol(row[0]);
 	}
 
@@ -486,10 +486,10 @@ int32_t checkExonRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t
 		// The checking criteria is the same as the schema used the above
 		//
 		j=0;
-		for (i=found+1; i<regions_in->size_r[chrom_idx]; i++) {
+		for (i=found+1; (uint32_t) i<regions_in->size_r[chrom_idx]; i++) {
 			// the following is added to prevent annotation getting too long and out of control!
 			//
-			if (i>200) break;
+			if (j>200) break;
 
 			if ( (start <= regions_in->starts[chrom_idx][i] && regions_in->starts[chrom_idx][i] <= end) ||
 				   (start <= regions_in->ends[chrom_idx][i] && regions_in->ends[chrom_idx][i] <= end) ) {

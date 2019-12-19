@@ -865,6 +865,8 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 		int32_t end = target_info->coords[i].end;
 		int length = end - start + 1;
 		bool collect_target_cov = length > 99 ? true : false ;  // TODO: is it the min length of the exon? Check.
+        if (length < 0)
+            fprintf(stderr, "The input target region start:%"PRIu32"\tend:%"PRIu32" is not in the correct order!\n", start, end);
 
 		if (collect_target_cov) {
 			for(j = 0; j < PRIMER_SIZE; j++) {
@@ -879,7 +881,7 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 
 		bool target_hit = false;
 
-		for(j = 0; j < length; j++) {                                                                     
+		for(j = 0; j < (uint32_t) length; j++) {                                                                     
 			// check if it passes the end of the chromosome
 			//
 			if (j+start >= chrom_tracking->chromosome_lengths[idx])                                       
