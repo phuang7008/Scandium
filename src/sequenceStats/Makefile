@@ -1,6 +1,6 @@
 IDIR=/usr/lib/gcc/x86_64-redhat-linux/4.4.7/include
-CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/dev/sequenceStats
-HTSDIR=$(CODEDIR)/htslib
+CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/repo/scandium/src/sequenceStats
+HTSDIR=/stornext/snfs5/next-gen/scratch/phuang/htslib/v1.10.2/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 CC=/hgsc_software/gcc/gcc-7.3.0/bin/gcc
@@ -16,7 +16,7 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 
 # define any libraries to be link into executables:
 #LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
-LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl
+LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 
 # define dependent header files
 _DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h
