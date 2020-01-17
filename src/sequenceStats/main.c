@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
     } else {
-        if ( sfd->is_cram || strcmp((char*) sfd->format.format, "cram") == 0 ) {
+        if ( sfd->is_cram || sfd->format.format == cram ) {
             fprintf(stderr, "Please provide the reference sequences for the input CRAM file \"%s\".\n", user_inputs->bam_file);
             return -1;
         }
