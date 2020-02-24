@@ -46,8 +46,8 @@ void checkAnnotationFormat(User_Input *user_inputs) {
 		// chr7    87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
 		//
 		uint32_t j=0;
-		char *gene_info = calloc(100, sizeof(char));
-		char *chrom_id  = calloc(100, sizeof(char));
+		char *gene_info = calloc(1000, sizeof(char));
+		char *chrom_id  = calloc(500, sizeof(char));
 		uint32_t start=0, end=0;
 
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
@@ -102,10 +102,10 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 
 	// variables used for reading file
 	//
-	char *gene_symbol = calloc(50,  sizeof(char));
-	char *transcript_name   = calloc(70,  sizeof(char));
-	char *gene_info   = calloc(100, sizeof(char));
-	char *target_line = calloc(100, sizeof(char));
+	char *gene_symbol = calloc(500,  sizeof(char));
+	char *transcript_name   = calloc(1000,  sizeof(char));
+	char *gene_info   = calloc(1000, sizeof(char));
+	char *target_line = calloc(1000, sizeof(char));
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
@@ -183,8 +183,8 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
 		//
 		char *gene_token;
 		savePtr = gene_info;
-		char *tmp_id = calloc(30, sizeof(char));
-		char *tmp_type = calloc(30, sizeof(char));
+		char *tmp_id = calloc(300, sizeof(char));
+		char *tmp_type = calloc(300, sizeof(char));
 
 		j=0;
 		while ((gene_token = strtok_r(savePtr, "|", &savePtr))) {
@@ -367,11 +367,11 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		exit(EXIT_FAILURE);
 	}
 
-	char *gene = calloc(100, sizeof(char));				// store tmp gene/transcript name info
-	char *buf_cds_length = calloc(50, sizeof(char));	// store tmp cds length to a string
-	char *buf_cds_count  = calloc(50, sizeof(char));	// store tmp cds count  to a string
-	char *orig_line  = calloc(300, sizeof(char));		// deep copy of a line read as strtok will destroy the string
-	char *annotation = calloc(200, sizeof(char));		// store the last part of the annotation for the future usage
+	char *gene = calloc(1000, sizeof(char));				// store tmp gene/transcript name info
+	char *buf_cds_length = calloc(1000, sizeof(char));	// store tmp cds length to a string
+	char *buf_cds_count  = calloc(1000, sizeof(char));	// store tmp cds count  to a string
+	char *orig_line  = calloc(1000, sizeof(char));		// deep copy of a line read as strtok will destroy the string
+	char *annotation = calloc(1000, sizeof(char));		// store the last part of the annotation for the future usage
 	char *line = NULL;
 
 	// store unique gene symbol and transcripts
@@ -458,7 +458,7 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		//
 		savePtr = annotation;
 		char *token;
-		char *transcript_name = calloc(50, sizeof(char));
+		char *transcript_name = calloc(1000, sizeof(char));
 		j=0;
 
 		while ((token = strtok_r(savePtr, "|", &savePtr))) {
@@ -803,7 +803,7 @@ void recordUserDefinedTargets(khash_t(khStrInt) *user_defined_targets, Bed_Info 
 
 	// now load all the user defined target into the bed_info
 	//
-	char *line = calloc(100, sizeof(char));
+	char *line = calloc(1000, sizeof(char));
 	char *tokPtr, *savePtr;
 	for (iter = kh_begin(user_defined_targets); iter != kh_end(user_defined_targets); ++iter) {
 		if (kh_exist(user_defined_targets, iter)) {
