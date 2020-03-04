@@ -375,7 +375,8 @@ int main(int argc, char *argv[]) {
 
                 // now write the off target regions with high coverage into a wig file if the Write_WIG flag is set
 				//
-                if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
+                //if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG)
+                if (TARGET_FILE_PROVIDED)
                   produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[i], target_bed_info, user_inputs, stats_info);
               }
             }

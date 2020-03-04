@@ -855,8 +855,7 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
         fprintf(trt_fp, "Number_of_Targets_without_Coverage_but_Buffers_have_Coverage_Hit\t%"PRIu32"\n", stats_info->cov_stats->hit_target_buffer_only_count);
         fprintf(trt_fp, "PCT_of_Number_of_Targets_without_Coverage_but_Buffers_have_Coverage_Hit\t%.2f%%\n", percent);
 
-		if (user_inputs->Write_WIG)
-			fprintf(trt_fp, "Non_target_regions_with_high_coverage\t%"PRIu32"\n", stats_info->cov_stats->non_target_good_hits);
+		fprintf(trt_fp, "Non_target_regions_with_high_coverage\t%"PRIu32"\n", stats_info->cov_stats->non_target_good_hits);
 
         fprintf(trt_fp, "#Base_Stats\n");
         fprintf(trt_fp, "Bases_Targeted\t%"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
@@ -912,15 +911,14 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
     fprintf(fp, "Sequenced_Read_Length\t%d\n", stats_info->cov_stats->read_length);
     fprintf(fp, "Total_Yield\t%"PRIu64"\n", yield);
 
-    yield = stats_info->cov_stats->read_length * (uint64_t) (stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads);
-    //fprintf(fp, "Uniquely_Aligned_Yield\t%"PRIu64"\n", yield);
-
     float percent = calculatePercentage64(stats_info->cov_stats->total_reads_aligned,stats_info->cov_stats->total_reads_produced);
     fprintf(fp, "Aligned_Reads(AR)\t%"PRIu64"\n", stats_info->cov_stats->total_reads_aligned);
     fprintf(fp, "PCT_Reads_Aligned\t%.2f%%\n", percent);
 
+    yield = stats_info->cov_stats->read_length * (uint64_t) (stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads);
     uint64_t uniquely_aligned = stats_info->cov_stats->total_reads_aligned - stats_info->cov_stats->total_duplicate_reads;
 	percent = calculatePercentage64(uniquely_aligned, stats_info->cov_stats->total_reads_produced);
+    fprintf(fp, "Uniquely_Aligned_Yield\t%"PRIu64"\n", yield);
 	fprintf(fp, "Unique_Aligned_Reads\t%"PRIu64"\n", uniquely_aligned); 
 	fprintf(fp, "PCT_of_Unique_Aligned_Reads_(agst_TR)\t%.2f%%\n", percent); 
 
@@ -1027,8 +1025,12 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 	int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 	if (idx == -1) return;
 
-	FILE *wp = fopen(user_inputs->wgs_wig_file, "a");
-	fprintf(wp, "track type=wiggle_0 name=%s\n", user_inputs->bam_file);
+	FILE *wp = NULL;
+
+    if (user_inputs->Write_WIG) {
+	    wp = fopen(user_inputs->wgs_wig_file, "a");
+	    fprintf(wp, "track type=wiggle_0 name=%s\n", user_inputs->bam_file);
+    }
 
 	for(i=0; (uint32_t) i<target_bed_info->size; i++) {
 
@@ -1060,13 +1062,15 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
 				j--;
 
 			// now write to the off target wig file
-			fprintf(wp, "fixedStep chrom_id=%s start=%"PRId32" step=1\n", chrom_id, j);
-			uint32_t h = j;
-			for(h=j; h<(uint32_t)i; h++)
-				fprintf(wp,"%"PRIu32"\n", chrom_tracking->coverage[idx][h]);
+            if (user_inputs->Write_WIG) {
+			    fprintf(wp, "fixedStep chrom_id=%s start=%"PRId32" step=1\n", chrom_id, j);
+		    	uint32_t h = j;
+			    for(h=j; h<(uint32_t)i; h++)
+				    fprintf(wp,"%"PRIu32"\n", chrom_tracking->coverage[idx][h]);
+            }
 		}
 	}
-	fclose(wp);
+    if (wp != NULL) fclose(wp);
 }
 
 // Note: type 1 is for capture target, while type 2 is for user-defined-database
