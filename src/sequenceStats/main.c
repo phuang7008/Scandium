@@ -97,6 +97,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // check if bam file named as .cram and cram file named as .bam
+    //
+    checkFileExtension(user_inputs, sfd);
+
     // use sam_hdr_read to process both bam and cram header
 	//
     bam_hdr_t *header=NULL;

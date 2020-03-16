@@ -1403,22 +1403,18 @@ void chromosomeTrackingDestroy(Chromosome_Tracking *chrom_tracking) {
 // This function is used to dynamically allocate the memory and then copy everything in
 //
 void dynamicStringAllocation(char *str_in, char **storage_str) {
-	if (!str_in) { printf("String is null\n"); }
+    if (str_in == NULL) return;     // nothing to add
 
 	if (*storage_str) {
 		if (strlen(str_in) > strlen(*storage_str)) {
-			*storage_str = realloc(*storage_str, (strlen(str_in) + 2)*sizeof(char));
+			*storage_str = realloc(*storage_str, (strlen(*storage_str) + strlen(str_in) + 2)*sizeof(char));
 			if (*storage_str == NULL) {
 				fprintf(stderr, "Dynamic Memory allocation failed\n");
 				exit(EXIT_FAILURE);
 			}
 		}
 	} else {
-		if (str_in == NULL || strlen(str_in) == 0) {
-			*storage_str = calloc(5, sizeof(char));
-		} else {
-			*storage_str = calloc(strlen(str_in) + 2, sizeof(char));
-		}
+		*storage_str = calloc(strlen(str_in) + 1, sizeof(char));
 	}
 
 	if (str_in == NULL || strlen(str_in) == 0) {
@@ -1426,6 +1422,62 @@ void dynamicStringAllocation(char *str_in, char **storage_str) {
 	} else {
 		strcpy(*storage_str, str_in);
 	}
+}
+
+void dynamicStringExpansion(char *str_in, char **storage_str) {
+    if (str_in == NULL) return;     // nothing to add
+
+    int original_str_is_null = 1;   // the original *storage_str is NULL? 1 yes, 0 no
+
+    if (*storage_str) {
+        *storage_str = realloc(*storage_str, (strlen(*storage_str) + strlen(str_in) + 2)*sizeof(char));
+        original_str_is_null = 0;
+    } else {
+        *storage_str = calloc(strlen(str_in) + 1, sizeof(char));
+    }
+
+    if (*storage_str == NULL) {
+        fprintf(stderr, "Dynamic Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (original_str_is_null == 0) {
+        strcat(*storage_str, str_in);
+    } else {
+        strcpy(*storage_str, str_in);
+    }
+}
+
+const char* get_file_extension(const char* filename) {
+    const char* dot = strrchr(filename, '.');
+    if (!dot || dot == filename) return "";
+    return dot;
+}
+
+void checkFileExtension(User_Input *user_inputs, samFile* sfd) {
+    switch (sfd->format.format) {
+        case bam:
+            if (stristr(".bam", get_file_extension(user_inputs->bam_file)) == NULL) {
+                fprintf(stderr, "\nERROR: The input file  %s is in bam format\n\n", user_inputs->bam_file);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case cram:
+            if (stristr(".cram", get_file_extension(user_inputs->bam_file)) == NULL) {
+                fprintf(stderr, "\nERROR: The input file %s is in cram format\n\n", user_inputs->bam_file);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case sam:
+            if (stristr(".sam", get_file_extension(user_inputs->bam_file)) == NULL) {
+                fprintf(stderr, "\nERROR: The input file %s is in sam format\n\n", user_inputs->bam_file);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        default:
+            fprintf(stderr, "\nERROR: Unknown input file format %s\n\n", user_inputs->bam_file);
+            exit(EXIT_FAILURE);
+    }
 }
 
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {

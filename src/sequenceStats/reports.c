@@ -390,13 +390,13 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 // type 1 mean doing speed up seearch (as we need to remember the previous search index), while type 2 won't 
 //
 char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type) {
-	char *annotation = calloc(50, sizeof(char));
-	strcpy(annotation, ".");
+	char *annotation = NULL;
+    //dynamicStringAllocation(".", &annotation);
 
 	// just return ".\t.\t.\t.\t.\t.\t." if exon_regions is NULL
 	//
 	if (exon_regions == NULL) {
-		strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
+        dynamicStringExpansion(".\t.\t.\t.\t.\t.\t.\t.\n", &annotation);
 		return annotation;
 	}
 
@@ -462,7 +462,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 					exon_regions->prev_search_chrom_index = chrom_idr;
 				}
 
-				strcat(annotation, "\n");
+                dynamicStringExpansion("\n", &annotation);
 				return annotation;
 			}
         }
@@ -472,7 +472,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 	//
 	if (index_exon_location == -1) {
 		if (intronic_regions == NULL) {
-			strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
+            dynamicStringExpansion(".\t.\t.\t.\t.\t.\t.\t.\n", &annotation);
 			return annotation;
 		}
 
@@ -491,14 +491,14 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 					intronic_regions->prev_search_chrom_index = chrom_idr;
 				}
 
-				strcat(annotation, "\t.\t.\t.\t.\t.\n");
+                dynamicStringExpansion("\t.\t.\t.\t.\t.\n", &annotation);
                 return annotation;
             }
         }
     }
 
 	// if the search comes here, it has to be inter-genic region. And there is not need to go further!
-    strcpy(annotation, ".\t.\t.\t.\t.\t.\t.\t.\n");
+    dynamicStringExpansion(".\t.\t.\t.\t.\t.\t.\t.\n", &annotation);
 	return annotation;
 }
 
@@ -789,13 +789,13 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs) {
 	    fprintf(out_fp, "Total_Overlapped_Aligned_Bases\t%"PRIu32"\n", stats_info->cov_stats->total_overlapped_bases);
         fprintf(out_fp, "PCT_Overlapped_Aligned_Bases\t%0.2f%%\n", percent);
 
-		percent = calculatePercentage64(stats_info->cov_stats->base_quality_20, stats_info->cov_stats->total_uniquely_aligned_bases);
-	    fprintf(out_fp, "Total_Bases_w_Qual_>=20\t%"PRIu64"\n", stats_info->cov_stats->base_quality_20);
-	    fprintf(out_fp, "PCT_Bases_w_Qual_>=20\t%0.2f%%\n", percent);
+		percent = calculatePercentage64(stats_info->cov_stats->base_quality_20, stats_info->cov_stats->total_mapped_bases);
+	    fprintf(out_fp, "Aligned_Q20_Bases\t%"PRIu64"\n", stats_info->cov_stats->base_quality_20);
+	    fprintf(out_fp, "PCT_Aligned_Q20_Bases\t%0.2f%%\n", percent);
 
-		percent = calculatePercentage64(stats_info->cov_stats->base_quality_30, stats_info->cov_stats->total_uniquely_aligned_bases);
-	    fprintf(out_fp, "Total_Bases_w_Qual_>=30\t%"PRIu64"\n", stats_info->cov_stats->base_quality_30);
-	    fprintf(out_fp, "PCT_Bases_w_Qual_>=30\t%0.2f%%\n", percent);
+		percent = calculatePercentage64(stats_info->cov_stats->base_quality_30, stats_info->cov_stats->total_mapped_bases);
+	    fprintf(out_fp, "Aligned_Q30_Bases\t%"PRIu64"\n", stats_info->cov_stats->base_quality_30);
+	    fprintf(out_fp, "PCT_Aligned_Q30_Bases\t%0.2f%%\n", percent);
 
 		for(i=0; i<16; i++) {
 			uint32_t val = getValueFromKhash32(stats_info->genome_base_with_N_coverage, bins[i]);
@@ -1198,7 +1198,7 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
 					// one transcript at a time
 					// check if current transcript name exists in transcript_hash table
 					//
-					char transcript_name[35];
+					char *transcript_name = calloc(strlen(kh_value(gene_transcripts, iter_gt)->theArray[i])+1, sizeof(char));
 					strcpy(transcript_name, kh_value(gene_transcripts, iter_gt)->theArray[i]);
 					khiter_t iter_tsh = kh_get(khStrLCG, transcript_hash, transcript_name);
 

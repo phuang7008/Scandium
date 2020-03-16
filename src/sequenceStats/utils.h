@@ -204,11 +204,32 @@ void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage_hash);
 
 /**
+ * This function is used to dynamically allocate string and copy value accordingly
+ * @param str_in, the string to be copied
+ * @param storage_str, the string to be dynamically allocated/expanded
+ */
+void dynamicStringAllocation(char *str_in, char **storage_str);
+
+/**
  * This function is used to dynamically allocate string and grow it accordingly
  * @param str_in, the string to be added
  * @param storage_str, the string to be dynamically allocated/expanded
  */
-void dynamicStringAllocation(char *str_in, char **storage_str);
+void dynamicStringExpansion(char *str_in, char **storage_str);
+
+/**
+ * This function is used to check if the input bam file named as .cram; or the input cram file named as .bam
+ * @param user_inputs: it store the file name information
+ * @param std: a samFile open file hand pointer
+ */ 
+void checkFileExtension(User_Input *user_inputs, samFile* sfd);
+
+/**
+ * This function is used to obtain the input filename extension
+ * @param filename: the input filename
+ * @return char*: the file extension
+ */
+const char* get_file_extension(const char* filename);
 
 /**
  * initialize the Chromosome_Tracking variable, this approach will process all chromosomes

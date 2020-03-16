@@ -553,7 +553,8 @@ void copyAnnotationDetails(Annotation_Wrapper *annotation_wrapper, Regions_Skip_
 // To combine all the annotations together
 //
 void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **info_in_and_out) {
-	uint32_t orig_str_len = strlen(*info_in_and_out);
+	uint32_t orig_str_len = 0;
+    if (*info_in_and_out) orig_str_len = strlen(*info_in_and_out);
 	uint32_t str_len_needed = 0;
 
 	if (annotation_wrapper->real_size == 1) {
@@ -732,7 +733,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		// Need to handle the SNP or Pseudo-gene annotations as well!
 		// there are 6 sources of annotations in five categories: 
 		// 0:RefSeq, 1:CCDS, 2:(VEGA for hg37, while Gencode for hg38), 3:miRNA and 4:everything else (including SNP and Pseudo-genes)
-		// But will only have 4 place holders as VEGA is not available in hg38 and Gencode is not availabe for hg37
+		// But will only have 5 place holders as VEGA is not available in hg38 and Gencode is not availabe for hg37
 		// we need to handle them separately
 		//
 		khash_t(khStrInt) **exon_annotations = calloc(5, sizeof(khash_t(khStrInt) *));
