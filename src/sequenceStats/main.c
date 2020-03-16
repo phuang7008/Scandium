@@ -24,13 +24,14 @@
 #include <omp.h>
 #include "htslib/sam.h"
 
-#include "terms.h"
-#include "stats.h"
-#include "utils.h"
-#include "targets.h"
 #include "annotation.h"
 #include "reports.h"
+#include "stats.h"
+#include "targets.h"
+#include "terms.h"
 #include "user_defined_annotation.h"
+#include "user_inputs.h"
+#include "utils.h"
 
 // for khash: key -> string (char*);    value -> string (char*)
 //

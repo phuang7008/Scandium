@@ -19,11 +19,9 @@
 #ifndef ANNOTATION_H
 #define ANNOTATION_H
 
-//#include <my_global.h>
-//#include <mysql.h>
-//#include <stdbool.h>
 #include "htslib/sam.h"
 #include "terms.h"
+#include "user_inputs.h"
 
 /*
  * produce the error message for possible MySQL queries/executions

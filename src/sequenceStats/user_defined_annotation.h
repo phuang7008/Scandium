@@ -20,6 +20,7 @@
 #define USER_DEFINED_ANNOTATION_H
 
 #include "terms.h"
+#include "user_inputs.h"
 #include "utils.h"
 #include "reports.h"
 

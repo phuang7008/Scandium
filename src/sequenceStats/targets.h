@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include "htslib/sam.h"
 #include "terms.h"
+#include "user_inputs.h"
 
 /**
  * open the input file (bed-formatted) and count how many items within the bed (such as target) files

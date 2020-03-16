@@ -19,11 +19,11 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB)
 LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 
 # define dependent header files
-_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h
+_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h user_inputs.h
 DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
 
 # define the C ssource files
-SRCS = main.c stats.c targets.c utils.c annotation.c reports.c user_defined_annotation.c
+SRCS = main.c stats.c targets.c utils.c annotation.c reports.c user_defined_annotation.c user_inputs.c
 
 # define the C object files 
 #

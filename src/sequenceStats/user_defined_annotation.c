@@ -426,9 +426,6 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 			if (j==0) {
 				// need to find the index for current chromosome
 				//
-                if (strcmp(tokPtr, "X") != 0)       // for debugging
-                    skip = 1;
-
 				for (i=0; i<exon_regions->chrom_list_size; i++) {
 					if (strcmp(tokPtr, exon_regions->chromosome_ids[i]) == 0) {
 						chrom_idx = i;
