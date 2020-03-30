@@ -274,7 +274,7 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	for (i=0; i<regions_in->chrom_list_size; i++) {
 		// for exon and intronic regions
 		//
-		if (type > 1) {
+		if (type >= 1) {
 			for (j=0; j<regions_in->size_r[i]; j++) {
 				if (regions_in->gene[i][j] != NULL) free(regions_in->gene[i][j]);
 				if (regions_in->Synonymous[i][j] != NULL) free(regions_in->Synonymous[i][j]);
@@ -305,7 +305,7 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
 	if (regions_in->chromosome_ids)   free(regions_in->chromosome_ids);
 
 	// for exon and intronic regions
-	if (type > 1) {
+	if (type >= 1) {
 		if (regions_in->gene) free(regions_in->gene);
 		if (regions_in->Synonymous) free(regions_in->Synonymous);
 		if (regions_in->prev_genes) free (regions_in->prev_genes);
@@ -410,24 +410,29 @@ int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t en
 // As the array is sorted, I am going to use binary search for find the location
 //
 int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, char **info_in_and_out, uint32_t low_search_index) {
-	int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
+    int32_t found = binarySearch(regions_in, start, end, chrom_idx, low_search_index);
 
-	if (found != -1) {
-		uint32_t orig_str_len = strlen(*info_in_and_out);
-		uint32_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
-		
-		if (str_len_needed > orig_str_len) {
-			char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
-			if (!tmp) {
-				fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
-				exit(EXIT_FAILURE);
-			}
+    if (found != -1) {
+        uint32_t orig_str_len = 0;
+        if (*info_in_and_out != NULL) orig_str_len = strlen(*info_in_and_out);
+        uint32_t str_len_needed = strlen(regions_in->gene[chrom_idx][found]) + strlen(regions_in->Synonymous[chrom_idx][found]) + strlen(regions_in->prev_genes[chrom_idx][found]) + 50;
 
-			*info_in_and_out = tmp;
-		} 
+        if (str_len_needed > orig_str_len) {
+            if (*info_in_and_out == NULL) {
+                *info_in_and_out = calloc(str_len_needed, sizeof(char));
+            } else {
+                char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
+                if (!tmp) {
+                    fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
+                    exit(EXIT_FAILURE);
+                }
+                *info_in_and_out = tmp;
+            }
 
-		sprintf(*info_in_and_out, "%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found]);
-	}
+        }
+
+        sprintf(*info_in_and_out, "%s\t%s\t%s", regions_in->gene[chrom_idx][found], regions_in->prev_genes[chrom_idx][found], regions_in->Synonymous[chrom_idx][found]);
+    }
 
 	return found;
 }

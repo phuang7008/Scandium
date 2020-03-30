@@ -53,9 +53,9 @@ int khStrLCG = 33;
 //
 int khStrGTP = 35;
 
-// for khash: key -> string (char*); value -> Overlapped_Reads
+// for khash: key -> string (char*); value -> Regions_Skip_MySQL
 //
-//int khStrOR = 36;
+//int khStrRSM = 36;
 
 int main(int argc, char *argv[]) {
 	//fprintf(stderr, "Starting ... %ld\n", time(NULL));
@@ -157,94 +157,129 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
     }
 
-	if (TARGET_FILE_PROVIDED) {
+    if (TARGET_FILE_PROVIDED) {
         target_bed_info = calloc(1, sizeof(Bed_Info));
         processBedFiles(user_inputs, target_bed_info, stats_info, target_buffer_status, wanted_chromosome_hash, 1);
     }
 
-	// there are two types of annotations available, MySQL or User_Defined_Database
-	// for MySQL connection
-	//
-	Databases *dbs = NULL;
-	khash_t(khStrInt) *hgmd_genes = NULL;
-	khash_t(khStrInt) *hgmd_transcripts = NULL;
-	
-	// For quick processing, it would be very slow if we query MySQL for every single gene/exon/cds regions
-	// Instead, we will fetch them only once and store them in the regions defined below
-	// Note: We only setup MySQL database connection if TARGET_FILE_PROVIDED is on
-	// For capture targets, we always use MySQL for the annotation and coverage percentage calculation
-	//
-	Regions_Skip_MySQL *intronic_regions    = NULL;
-	Regions_Skip_MySQL *exon_regions        = NULL;
+    // there are two types of annotations available, MySQL or User_Defined_Database
+    // For quick processing, it would be very slow if we query MySQL for every single gene/exon/cds regions
+    // Instead, we will fetch them only once and store them in the regions defined below
+    // Note: We only setup MySQL database connection if WGS annotation_on is true
+    // For capture targets (-t is on), we always use user_defined_annotation database files if they are provided.
+    //      However, if user doesn't provide user_defined_annotatioin files, we will useMySQL for the annotation
+    //
+    Regions_Skip_MySQL **exon_regions    = NULL;
 
-	// for user-defined database
-	//
-	User_Defined_Database_Wrapper *udd_wrapper = NULL;
+    // We use Raw_User_Defined_Database to store everything from user_defined_database
+    // so that we don't have to process the file over and over
+    //
+    Raw_User_Defined_Database **raw_user_defined_databases = NULL;
 
-	// We use Raw_User_Defined_Database to store everything from user_defined_database
-	// so that we don't have to process the file over and over
-	//
-	Raw_User_Defined_Database * raw_user_defined_database = NULL;
+    // If user provides user-defined-database, we need to record them here
+    // Note, as there are many duplicates, we need to move all duplicates
+    //
+    khash_t(khStrInt) *user_defined_targets=NULL;
+    Bed_Info *user_defined_bed_info=NULL;
 
-	// If user provides user-defined-database, we need to record them here
-	// Note, as there are many duplicates, we need to move all duplicates
-	//
-	khash_t(khStrInt) *user_defined_targets=NULL;
-	Bed_Info *user_defined_bed_info=NULL;
+    if (TARGET_FILE_PROVIDED) {
 
-	// Store cds length and cds count informtion from user-defined-database
-	//
-	khash_t(khStrInt) *cds_lengths=NULL;
-	khash_t(khStrInt) *cds_counts =NULL;
+        if (USER_DEFINED_DATABASE) {
+            exon_regions = calloc(user_inputs->num_of_annotation_files, sizeof(Regions_Skip_MySQL*));
+            raw_user_defined_databases = calloc(user_inputs->num_of_annotation_files, sizeof(Raw_User_Defined_Database*));
 
-	if (user_inputs->annotation_on && TARGET_FILE_PROVIDED) {
-		exon_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+            for (i=0; i<user_inputs->num_of_annotation_files; i++) {
+                // for user-defined database
+                //
+                User_Defined_Database_Wrapper *udd_wrapper = NULL;
 
-		if (USER_DEFINED_DATABASE) {
-			// need to check if the annotation format is correct!
-			// Stop is the format is wrong!
-			//
-			checkAnnotationFormat(user_inputs);
+                // Store cds length and cds count informtion from user-defined-database
+                //
+                khash_t(khStrInt) *cds_lengths=NULL;
+                khash_t(khStrInt) *cds_counts =NULL;
 
-			udd_wrapper = calloc(1, sizeof(User_Defined_Database_Wrapper));
-			raw_user_defined_database = calloc(1, sizeof(Raw_User_Defined_Database));
+                // need to check if the annotation format is correct!
+                // Stop is the format is wrong!
+                //
+                checkAnnotationFormat(user_inputs);
 
-			user_defined_targets = kh_init(khStrInt);
-			cds_lengths = kh_init(khStrInt);
-			cds_counts  = kh_init(khStrInt);
+                udd_wrapper = calloc(1, sizeof(User_Defined_Database_Wrapper));
 
-			getUserDefinedDatabaseInfo(user_inputs, udd_wrapper, cds_lengths, cds_counts, user_defined_targets);
-			processUserDefinedDatabase(user_inputs, exon_regions, udd_wrapper, raw_user_defined_database, cds_lengths, cds_counts);
+                user_defined_targets = kh_init(khStrInt);
+                cds_lengths = kh_init(khStrInt);
+                cds_counts  = kh_init(khStrInt);
 
-		} else {
-			// Initialize all annotation related variables
-			//
-			dbs = calloc(1, sizeof(Databases));
-			databaseSetup(dbs, user_inputs);
+                getUserDefinedDatabaseInfo(user_inputs, udd_wrapper, cds_lengths, cds_counts, user_defined_targets, i);
 
-			intronic_regions    = calloc(1, sizeof(Regions_Skip_MySQL));
+                exon_regions[i] = calloc(1, sizeof(Regions_Skip_MySQL));
+                raw_user_defined_databases[i] = calloc(1, sizeof(Raw_User_Defined_Database));
+                processUserDefinedDatabase(user_inputs, exon_regions[i], udd_wrapper, raw_user_defined_databases[i], cds_lengths, cds_counts, i);
 
-			regionsSkipMySQLInit(dbs, intronic_regions, 2);
-			regionsSkipMySQLInit(dbs, exon_regions, 3);
-		}
+                if (udd_wrapper)
+                    cleanUserDefinedDatabase(udd_wrapper);
 
-		if (HGMD_PROVIDED && hgmd_genes == NULL) {
-			if (dbs == NULL) {
-				dbs = calloc(1, sizeof(Databases));
-				databaseSetup(dbs, user_inputs);
-			}
+                if (cds_lengths)
+                    cleanKhashStrInt(cds_lengths);
 
-			hgmd_genes = kh_init(khStrInt);
-			hgmd_transcripts = kh_init(khStrInt);
-			recordHGMD(dbs, hgmd_genes, hgmd_transcripts);
-		}
-	}
+                if (cds_counts)
+                    cleanKhashStrInt(cds_counts);
 
-	// initialize the Gene_Transcript_Percentage variable
-	//
-	khash_t(khStrGTP) *gene_transcript_percentage_hash = NULL;
-	if (TARGET_FILE_PROVIDED)
-		gene_transcript_percentage_hash = kh_init(khStrGTP);
+                if (user_defined_targets)
+                    cleanKhashStrInt(user_defined_targets);
+            }
+        }
+    }
+
+    // for MySQL connection
+    //
+    Databases *dbs = NULL;
+    khash_t(khStrInt) *hgmd_genes = NULL;
+    khash_t(khStrInt) *hgmd_transcripts  = NULL;
+    Regions_Skip_MySQL *intronic_regions = NULL;
+    Regions_Skip_MySQL* db_exon_regions  = NULL;
+
+    if (user_inputs->wgs_annotation_on) {
+        // Initialize all annotation related variables
+        //
+        if (dbs == NULL) setupMySQLDB(&dbs, user_inputs);
+
+        intronic_regions = calloc(1, sizeof(Regions_Skip_MySQL));
+        db_exon_regions  = calloc(1, sizeof(Regions_Skip_MySQL));
+
+        regionsSkipMySQLInit(dbs, intronic_regions, 2);
+        regionsSkipMySQLInit(dbs, db_exon_regions, 3);
+    }
+
+    if (HGMD_PROVIDED && hgmd_genes == NULL) {
+        if (dbs == NULL) setupMySQLDB(&dbs, user_inputs);
+
+        hgmd_genes = kh_init(khStrInt);
+        hgmd_transcripts = kh_init(khStrInt);
+        recordHGMD(dbs, hgmd_genes, hgmd_transcripts);
+    }
+
+    // initialize the Gene_Transcript_Percentage variable
+    //
+    khash_t(khStrGTP) **gene_transcript_percentage_hash = NULL;
+    if (TARGET_FILE_PROVIDED) {
+        gene_transcript_percentage_hash = calloc(user_inputs->num_of_annotation_files, sizeof(khash_t(khStrGTP)*));
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+            gene_transcript_percentage_hash[i] = kh_init(khStrGTP);
+        
+        if (!USER_DEFINED_DATABASE) {
+            user_inputs->num_of_annotation_files = 1;
+            exon_regions = calloc(user_inputs->num_of_annotation_files, sizeof(Regions_Skip_MySQL*));
+            intronic_regions = calloc(user_inputs->num_of_annotation_files, sizeof(Regions_Skip_MySQL*));
+
+            if (db_exon_regions == NULL) {
+                if (dbs == NULL) setupMySQLDB(&dbs, user_inputs);
+                regionsSkipMySQLInit(dbs, exon_regions[0], 3);
+                regionsSkipMySQLInit(dbs, intronic_regions, 3);
+            } else {
+                exon_regions[0] = db_exon_regions;
+            }
+        }
+    }
 
 	// can't set to be static as openmp won't be able to handle it
 	// check the bam/cram file size first
@@ -282,9 +317,9 @@ int main(int argc, char *argv[]) {
     while(chrom_tracking->more_to_read) {
 #pragma omp parallel shared(read_buff, chrom_tracking) num_threads(user_inputs->num_of_threads)
       {
-        //int num_of_threads = omp_get_num_threads();	
+        //int num_of_threads = omp_get_num_threads();
         int thread_id = omp_get_thread_num();
-        readBufferInit(&read_buff[thread_id]);		// third level of memory at created through bam_init1()
+        readBufferInit(&read_buff[thread_id]);      // third level of memory at created through bam_init1()
         uint32_t num_records = 0;
         //printf("Before File Reading: number of threads is %d and current thread id is %d\n", num_of_threads, thread_id);
 
@@ -293,31 +328,31 @@ int main(int argc, char *argv[]) {
           // this part of the code need to run atomically, that is only one thread should allow access to read
           num_records = readBam(sfd, header, chrom_tracking, &read_buff[thread_id]);
           read_buff[thread_id].size = num_records;
-		  total_reads += num_records;
+          total_reads += num_records;
         }
 
         Coverage_Stats *cov_stats = calloc(1, sizeof(Coverage_Stats)); 
-		coverageStatsInit(cov_stats);
-        khash_t(str) *coverage_hash = kh_init(str);		// hash_table using string as key
+        coverageStatsInit(cov_stats);
+        khash_t(str) *coverage_hash = kh_init(str);     // hash_table using string as key
 
         // can not use the else {} with the previous if {} block, otherwise the barrier will wait forever!
-		//
+        //
         if (num_records > 0) {
           printf("Reading: %"PRIu32" records\t\tTotal: %"PRIu64"\t\tThread id: %d.\n", num_records, total_reads, thread_id);
 
           processBamChunk(user_inputs, cov_stats, coverage_hash, header, &read_buff[thread_id], target_buffer_status, thread_id, wanted_chromosome_hash);
 
-		}
+        }
 
-		// release the allocated chunk of buffer for aligned reads after they have been processed!
-		//
+        // release the allocated chunk of buffer for aligned reads after they have been processed!
+        //
         //printf("cleaning the read buffer hash for thread %d...\n\n", thread_id);
-        readBufferDestroy(&read_buff[thread_id]);		// third level of memory allocation is destroyed and freed here
+        readBufferDestroy(&read_buff[thread_id]);       // third level of memory allocation is destroyed and freed here
 
         if (num_records == 0) {
           printf("No more to read for thread %d !!!!!!!!!!!!\n", thread_id);
           if (chrom_tracking->more_to_read) chrom_tracking->more_to_read = false;
-		}
+        }
 
 #pragma omp critical
         {
@@ -325,8 +360,8 @@ int main(int argc, char *argv[]) {
             combineThreadResults(chrom_tracking, coverage_hash);
             combineCoverageStats(stats_info, cov_stats);
 
-			// if all reads have been processed for the entire file, we need to set the status to 2 for all
-			// 
+            // if all reads have been processed for the entire file, we need to set the status to 2 for all
+            // 
             if (!chrom_tracking->more_to_read) {
               for(i=0; i<num_of_chroms; i++) {
                 if (chrom_tracking->chromosome_status[i] == 1)
@@ -338,7 +373,7 @@ int main(int argc, char *argv[]) {
 
         cleanKhashStr(coverage_hash, 1);
         free(cov_stats);
-		cov_stats = NULL;	// to eleminate dangling pointer
+        cov_stats = NULL;   // to eleminate dangling pointer
 
 // setup a barrier here and wait for every one of them to reach this point!
 #pragma omp barrier 
@@ -351,18 +386,18 @@ int main(int argc, char *argv[]) {
                 // check to see if any of the chromosomes has finished. If so, write the results out
                 // for the whole genome, we need to use the file that contains regions of all Ns in the reference
                 // As they will be not used, so we are going to set the count info in these regions to 0
-				//
+                //
                 if (N_FILE_PROVIDED)
                   zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking, target_buffer_status);
               }
             }
           }
-		}
+        }
 
 #pragma omp barrier
 
-		i = 0;
-		while (i<num_of_chroms) {
+        i = 0;
+        while (i<num_of_chroms) {
 
 #pragma omp sections
           {
@@ -394,7 +429,7 @@ int main(int argc, char *argv[]) {
 				//
                 if (user_inputs->wgs_coverage) {
                   printf("Thread %d is now writing WGS annotation for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
-                  writeAnnotations(chrom_tracking->chromosome_ids[i], chrom_tracking, user_inputs, intronic_regions, exon_regions);
+                  writeAnnotations(chrom_tracking->chromosome_ids[i], chrom_tracking, user_inputs, intronic_regions, db_exon_regions);
 
 				  // if user specifies the range information (usually for graphing purpose), need to handle it here
 				  //
@@ -408,51 +443,53 @@ int main(int argc, char *argv[]) {
 			{
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
 
-                if (user_inputs->annotation_on && TARGET_FILE_PROVIDED) {
+                if (TARGET_FILE_PROVIDED) {
                   printf("Thread %d is now calculating gene/transcript/cds coverage percentage for chromosome %s\n", thread_id, chrom_tracking->chromosome_ids[i]);
 
-                  khash_t(khStrLCG) *transcript_hash = kh_init(khStrLCG);
-                  khash_t(khStrStrArray) *gene_transcripts = kh_init(khStrStrArray);
+                  // process one annotation file at a time
+                  //
+                  int x;
+                  for (x=0; x<user_inputs->num_of_annotation_files; x++) {
+                    khash_t(khStrLCG) *transcript_hash = kh_init(khStrLCG);
+                    khash_t(khStrStrArray) *gene_transcripts = kh_init(khStrStrArray);
 
-				  if (USER_DEFINED_DATABASE) {
-					khash_t(khStrLCG) *user_defined_cds_gene_hash = kh_init(khStrLCG);
+                    if (USER_DEFINED_DATABASE) {
+                        khash_t(khStrLCG) *user_defined_cds_gene_hash = kh_init(khStrLCG);
 
-					userDefinedGeneCoverageInit(user_defined_cds_gene_hash, chrom_tracking->chromosome_ids[i], raw_user_defined_database, gene_transcripts);
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, user_defined_cds_gene_hash);
-					transcriptPercentageCoverageInit(transcript_hash, user_defined_cds_gene_hash);
-					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash);
+                        userDefinedGeneCoverageInit(user_defined_cds_gene_hash, chrom_tracking->chromosome_ids[i], raw_user_defined_databases[x], gene_transcripts);
+                        calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, user_defined_cds_gene_hash);
+                        transcriptPercentageCoverageInit(transcript_hash, user_defined_cds_gene_hash);
+                        storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash, x);
 
-					// clean-up
-					//
-					genePercentageCoverageDestroy(user_defined_cds_gene_hash);
-					user_defined_cds_gene_hash=NULL;
-				  } else {
-				    // Allocate memories for the low_cov_gene_hash, which get all its content from the MySQL database (official RefSeq DB)
-				    // For calculating the percentage of gene bases with low coverge for capture only
-				    // and use the intersect regions between refseq_cds_genes for official annotation and low_cov_genes for targets
-					//
-					khash_t(khStrLCG) *low_cov_gene_hash = kh_init(khStrLCG);
+                        // clean-up
+                        genePercentageCoverageDestroy(user_defined_cds_gene_hash);
+                        user_defined_cds_gene_hash=NULL;
+                    } else {
+                        // Allocate memories for the low_cov_gene_hash, which get all its content from the MySQL database (official RefSeq DB)
+                        // For calculating the percentage of gene bases with low coverge for capture only
+                        // and use the intersect regions between refseq_cds_genes for official annotation and low_cov_genes for targets
+                        //
+                        khash_t(khStrLCG) *low_cov_gene_hash = kh_init(khStrLCG);
 
-				    genePercentageCoverageInit(low_cov_gene_hash, chrom_tracking->chromosome_ids[i], dbs, gene_transcripts);
-					intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, low_cov_gene_hash);
+                        genePercentageCoverageInit(low_cov_gene_hash, chrom_tracking->chromosome_ids[i], dbs, gene_transcripts);
+                        intersectTargetsAndRefSeqCDS(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, low_cov_gene_hash);
 
-					calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, low_cov_gene_hash);
-				    transcriptPercentageCoverageInit(transcript_hash, low_cov_gene_hash);
+                        calculateGenePercentageCoverage(chrom_tracking->chromosome_ids[i], target_bed_info, chrom_tracking, user_inputs, low_cov_gene_hash);
+                        transcriptPercentageCoverageInit(transcript_hash, low_cov_gene_hash);
 
-					storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash);
+                        storeGenePercentageCoverage(chrom_tracking->chromosome_ids[i], user_inputs, transcript_hash, gene_transcripts, hgmd_transcripts, gene_transcript_percentage_hash, x);
 
-				    // clean-up the memory space
-				    //
-				    genePercentageCoverageDestroy(low_cov_gene_hash);
-					low_cov_gene_hash=NULL;
+                        // clean-up the memory space
+                        genePercentageCoverageDestroy(low_cov_gene_hash);
+                        low_cov_gene_hash=NULL;
+                    }
+
+                    // More clean-ups
+                    genePercentageCoverageDestroy(transcript_hash);
+                    cleanKhashStrStrArray(gene_transcripts);
+                    transcript_hash=NULL;
+                    gene_transcripts=NULL;
                   }
-
-                  // More clean-ups
-				  //
-                  genePercentageCoverageDestroy(transcript_hash);
-				  cleanKhashStrStrArray(gene_transcripts);
-				  transcript_hash=NULL;
-				  gene_transcripts=NULL;
                 }
               }
 			}
@@ -463,35 +500,35 @@ int main(int argc, char *argv[]) {
 #pragma omp single
           {
             if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
-		      printf("\n");
+                printf("\n");
 
               // clean up the array allocated
-			  //
+              //
               if (chrom_tracking->coverage[i]) {
                 free(chrom_tracking->coverage[i]);
                 chrom_tracking->coverage[i] = NULL;
               }
               chrom_tracking->chromosome_status[i] = 3;
             }
-		    i++;
+            i++;
           }
-		}
+        }
 
 #pragma omp barrier 
-	  }		// End of while loop before flush for thread
+      }     // End of while loop before flush for thread
 
-	  //printf("\n");
+      //printf("\n");
       fflush(stdout);
     }
 
-	sam_close(sfd);
+    sam_close(sfd);
 
 	/* calculate the uniformity metric*/
 	khash_t(m32) *cov_freq_dist = kh_init(m32);
 	if (user_inputs->wgs_coverage) {
 		// Autosomes only including alt decoys, but without X and Y chromosomes
 		//
-		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 1, 0);		
+		//calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 1, 0);
 
 		// Primary autosomes only without X, Y, alt and decoys!
 		//
@@ -518,8 +555,10 @@ int main(int argc, char *argv[]) {
 
 	// output gene converage
 	//
-	if (TARGET_FILE_PROVIDED)
-		outputGeneCoverage(gene_transcript_percentage_hash, user_inputs);
+	if (TARGET_FILE_PROVIDED) {
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+		    outputGeneCoverage(gene_transcript_percentage_hash[i], user_inputs, i);
+    }
 
 	/* clean-up everything*/
 
@@ -558,11 +597,6 @@ int main(int argc, char *argv[]) {
     	}
 		free(read_buff);
 	}
-
-	if (intronic_regions != NULL) regionsSkipMySQLDestroy(intronic_regions, 2);
-	if (exon_regions != NULL) regionsSkipMySQLDestroy(exon_regions, 3);
-
-	userInputDestroy(user_inputs);
 	bam_hdr_destroy(header);
 
 	// MYSQL clean-up
@@ -584,27 +618,32 @@ int main(int argc, char *argv[]) {
 	if (hgmd_transcripts != NULL)
 		cleanKhashStrInt(hgmd_transcripts);
 
-	if (gene_transcript_percentage_hash != NULL)
-		cleanGeneTranscriptPercentage(gene_transcript_percentage_hash);
+	if (gene_transcript_percentage_hash != NULL) {
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+		    cleanGeneTranscriptPercentage(gene_transcript_percentage_hash[i]);
+        free(gene_transcript_percentage_hash);
+    }
 
-	if (udd_wrapper) 
-		cleanUserDefinedDatabase(udd_wrapper);
-
-	if (raw_user_defined_database) 
-		cleanRawUserDefinedDatabase(raw_user_defined_database);
+	if (raw_user_defined_databases) {
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+		    cleanRawUserDefinedDatabase(raw_user_defined_databases[i]);
+        free(raw_user_defined_databases);
+    }
 
 	// now need to clean-up the khash_t variables                                                     
 	//
-	if (cds_lengths) 
-		cleanKhashStrInt(cds_lengths);                                                                    
+	if (exon_regions != NULL) {
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+            regionsSkipMySQLDestroy(exon_regions[i], 3);
+        free(exon_regions);
+    }
 
-	if (cds_counts) 
-		cleanKhashStrInt(cds_counts);
+	if (intronic_regions != NULL) regionsSkipMySQLDestroy(intronic_regions, 2);
+    if (db_exon_regions != NULL) regionsSkipMySQLDestroy(db_exon_regions, 3);
 
     if (fn_ref) free(fn_ref);
 
-	if (user_defined_targets) 
-		cleanKhashStrInt(user_defined_targets);
+	userInputDestroy(user_inputs);
 
 	printf("Program Finished Successfully!\n\n");
 

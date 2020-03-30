@@ -39,7 +39,7 @@ void checkAnnotationFormat(User_Input *user_inputs);
  * @param user_defined_targets: a khash_t(khStrInt) variable that is used to store all targets from a target bed file
  *
  */
-void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets);
+void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets, uint8_t file_index);
 
 /*
  * if user specifies his/her own database, we will use this database only
@@ -50,7 +50,7 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
  * @param cds_lengths: a khash_t(khStrInt) variable that is used to store total cds length info for a transcript
  * @param cds_counts:  a khash_t(khStrInt) variable that is used to store number of used cds info for a transcript
  */
-void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exon_regions, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts);
+void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exon_regions, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, uint8_t file_index);
 
 /*
  * Initialize the coverage regions to be analyzed
@@ -68,7 +68,7 @@ void userDefinedGeneCoverageInit(khash_t(khStrLCG) *user_cds_gene_hash, char *ch
  */
 void recordUserDefinedTargets(khash_t(khStrInt) *user_defined_targets, Bed_Info *user_defined_bed_info);
 
-void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *intron_regions);
+void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *intron_regions, uint8_t file_index);
 
 /*
  * A helper function used to clean-up user defined database

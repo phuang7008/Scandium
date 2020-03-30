@@ -19,289 +19,294 @@
 #include "user_defined_annotation.h"
 
 void checkAnnotationFormat(User_Input *user_inputs) {
-	// open user-defined-database for read
-	//
-	FILE *fp = fopen(user_inputs->user_defined_database_file, "r");
+    // open user-defined-database for read
+    //
+    int x;
+    for (x=0; x<user_inputs->num_of_annotation_files; x++) {
+        FILE *fp = fopen(user_inputs->user_defined_database_files[x], "r");
 
-	if (fp == NULL) {
-		fprintf(stderr, "\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_file);
-		exit(EXIT_FAILURE);
-	}
+        if (fp == NULL) {
+            fprintf(stderr, "\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[x]);
+            exit(EXIT_FAILURE);
+        }
 
-	char *line = NULL;
-	size_t len = 0;
-	ssize_t read;
-	char *tokPtr;
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read;
+        char *tokPtr;
 
-	while ((read = getline(&line, &len, fp)) != -1) {
-		if (*line == '\n')
-			continue;
+        while ((read = getline(&line, &len, fp)) != -1) {
+            if (*line == '\n')
+                continue;
 
-		char *savePtr = line;
+            char *savePtr = line;
 
-		// hg19/hg37:
-		// 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
-		//
-		// hg38:
-		// chr7    87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
-		//
-		uint32_t j=0;
-		char *gene_info = NULL;
-		char *chrom_id  = NULL;
-		uint32_t start=0, end=0;
+            // hg19/hg37:
+            // 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+            //
+            // hg38:
+            // chr7    87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+            //
+            uint32_t j=0;
+            char *gene_info = NULL;
+            char *chrom_id  = NULL;
+            uint32_t start=0, end=0;
 
-		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
-			if (j==0) {
-                dynamicStringExpansion(tokPtr, &chrom_id);
-            }
-			if (j==1) start = (uint32_t) strtol(tokPtr, NULL, 10);
-			if (j==2) end   = (uint32_t) strtol(tokPtr, NULL, 10);
-			if (j==3) {
-                // check if the annotation contains space
-                //
-                if (strstr(tokPtr, " ") != NULL) {
-                    fprintf(stderr, "\nERROR: Gene/SNP/miRNA annotation should NOT contain spaces!\n");
-                    fprintf(stderr, "\tPlease correct it before submit runs again. Thank You!\n");
-                    exit(EXIT_FAILURE);
+            while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+                if (j==0) {
+                    dynamicStringExpansion(tokPtr, &chrom_id);
                 }
+                if (j==1) start = (uint32_t) strtol(tokPtr, NULL, 10);
+                if (j==2) end   = (uint32_t) strtol(tokPtr, NULL, 10);
+                if (j==3) {
+                    // check if the annotation contains space
+                    //
+                    if (strstr(tokPtr, " ") != NULL) {
+                        fprintf(stderr, "\nERROR: Gene/SNP/miRNA annotation should NOT contain spaces!\n");
+                        fprintf(stderr, "\tPlease correct it before submit runs again. Thank You!\n");
+                        exit(EXIT_FAILURE);
+                    }
 
-                dynamicStringExpansion(tokPtr, &gene_info);
+                    dynamicStringExpansion(tokPtr, &gene_info);
+                }
+                j++;
             }
-			j++;
-		}
 
-        checkChromosomeID(user_inputs, chrom_id);       // check chromosome id for reference version
-		
-		if (start >= end) {
-			fprintf(stderr, "\nERROR: The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!\n", start, end);
-			fprintf(stderr, "\tPlease use 0-based bed file format. Thank You!\n");
-			exit(EXIT_FAILURE);
-		}
+            checkChromosomeID(user_inputs, chrom_id);       // check chromosome id for reference version
 
-		j=0;
-		char *tmpPtr = gene_info;
-		while ((tokPtr = strtok_r(tmpPtr, "|", &tmpPtr))) {
-			j++;
-		}
+            if (start >= end) {
+                fprintf(stderr, "\nERROR: The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!\n", start, end);
+                fprintf(stderr, "\tPlease use 0-based bed file format. Thank You!\n");
+                exit(EXIT_FAILURE);
+            }
 
-		if (j < 3) {
-			fprintf(stderr, "\nERROR: The gene annotation format is wrong: it should be ABCB1|ENST00000265724|cds_18|gene\n");
-			exit(EXIT_FAILURE);
-		}
+            j=0;
+            char *tmpPtr = gene_info;
+            while ((tokPtr = strtok_r(tmpPtr, "|", &tmpPtr))) {
+                j++;
+            }
 
-		if (gene_info != NULL) free(gene_info);
-		if (chrom_id  != NULL) free(chrom_id);
-	}
+            if (j < 3) {
+                fprintf(stderr, "\nERROR: The gene annotation format is wrong: it should be ABCB1|ENST00000265724|cds_18|gene\n");
+                exit(EXIT_FAILURE);
+            }
+
+            if (gene_info != NULL) free(gene_info);
+            if (chrom_id  != NULL) free(chrom_id);
+        }
+
+        if (line != NULL) free(line);
+        fclose(fp);
+    }
 }
 
-void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets) {
-	// open user-defined-database for read
-	//
-	FILE *fp = fopen(user_inputs->user_defined_database_file, "r");
+void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets, uint8_t file_index) {
+    // open user-defined-database for read
+    //
+    FILE *fp = fopen(user_inputs->user_defined_database_files[file_index], "r");
 
-	if (fp == NULL) {
-		printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_file);
-		exit(EXIT_FAILURE);
-	}
+    if (fp == NULL) {
+        printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[file_index]);
+        exit(EXIT_FAILURE);
+    }
 
-	// variables related to User_Defined_Database_Wrapper
-	//
-	uint64_t total_line_count = 0; 
+    // variables related to User_Defined_Database_Wrapper
+    //
+    uint64_t total_line_count = 0; 
 
-	// Store number of CDSs for a chromosome into the chromosome_info hash (a KHASH_MAP) with string as key and uint32_t as value
-	//
-	khash_t(khStrInt) *chromosome_info = kh_init(khStrInt);
+    // Store number of CDSs for a chromosome into the chromosome_info hash (a KHASH_MAP) with string as key and uint32_t as value
+    //
+    khash_t(khStrInt) *chromosome_info = kh_init(khStrInt);
 
-	// variables used for reading file
-	//
-	char *line = NULL;
-	size_t len = 0;
-	ssize_t read;
-	char *tokPtr;
+    // variables used for reading file
+    //
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    char *tokPtr;
 
-	while ((read = getline(&line, &len, fp)) != -1) {
+    while ((read = getline(&line, &len, fp)) != -1) {
         char *gene_symbol = NULL;
         char *gene_info   = NULL;
         char *target_line = NULL;
         char *transcript_name = NULL;
 
-		// printf("%s", line);
-		// here we need to handle the case where it is an empty line
-		// here we compare char not string (char*), so I need to de-reference it
-		//
-		if (*line == '\n')
-			continue;
+        // printf("%s", line);
+        // here we need to handle the case where it is an empty line
+        // here we compare char not string (char*), so I need to de-reference it
+        //
+        if (*line == '\n')
+            continue;
 
-		char *savePtr = line;
-		int absent = 0;
-		khiter_t iter;
+        char *savePtr = line;
+        int absent = 0;
+        khiter_t iter;
 
-		// now need to get cds length and count information
-		// 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
-		// 7       87173445        87173591        ABCB1|ENST00000265724|18|gene
-		//
-		uint32_t j=0, start=0, end=0;
+        // now need to get cds length and count information
+        // 7       87173445        87173591        ABCB1|ENST00000265724|cds_18|gene
+        // 7       87173445        87173591        ABCB1|ENST00000265724|18|gene
+        //
+        uint32_t j=0, start=0, end=0;
 
-		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
-			if (j==0) {
+        while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+            if (j==0) {
                 dynamicStringExpansion(tokPtr, &target_line);
-				
-				// check to see if the hashkey exists for current chromosome id
-				//
-				iter = kh_put(khStrInt, chromosome_info, tokPtr, &absent);
-				if (absent) {
-					kh_key(chromosome_info, iter) = strdup(tokPtr);
-					kh_value(chromosome_info, iter) = 0;
-				}
-				kh_value(chromosome_info, iter)++;	// update the value
-			}
+                 
+                // check to see if the hashkey exists for current chromosome id
+                //
+                iter = kh_put(khStrInt, chromosome_info, tokPtr, &absent);
+                if (absent) {
+                    kh_key(chromosome_info, iter) = strdup(tokPtr);
+                    kh_value(chromosome_info, iter) = 0;
+                }
+                kh_value(chromosome_info, iter)++;      // update the value
+            }
 
-			if (j==1) {
-				start = (uint32_t) strtol(tokPtr, NULL, 10);
+            if (j==1) {
+                start = (uint32_t) strtol(tokPtr, NULL, 10);
                 dynamicStringExpansion(":", &target_line);
                 dynamicStringExpansion(tokPtr, &target_line);
-			}
-	
-			if (j==2) {
-				end = (uint32_t) strtol(tokPtr, NULL, 10);
+            }
+
+            if (j==2) {
+                end = (uint32_t) strtol(tokPtr, NULL, 10);
                 dynamicStringExpansion(":", &target_line);
                 dynamicStringExpansion(tokPtr, &target_line);
 
-				// need to handle the case where start = end (convert 1-based annotation to 0-based annotation)
-				//
-				if (start == end)
-					start--;
-			}
+                // need to handle the case where start = end (convert 1-based annotation to 0-based annotation)
+                //
+                if (start == end)
+                    start--;
+            }
 
-			if (j==3) {
+            if (j==3) {
                 dynamicStringExpansion(tokPtr, &gene_info);
-			}
+            }
 
-			j++;
-		}
+            j++;
+        }
 
-		// Now record the target_line here
-		//
-		iter = kh_put(khStrInt, user_defined_targets, target_line, &absent);    // get key iterator for target_line
-		if (absent) {
-			kh_key(user_defined_targets, iter)   = strdup(target_line);
-			kh_value(user_defined_targets, iter) = 0;
-		}
+        // Now record the target_line here
+        //
+        iter = kh_put(khStrInt, user_defined_targets, target_line, &absent);    // get key iterator for target_line
+        if (absent) {
+            kh_key(user_defined_targets, iter)   = strdup(target_line);
+            kh_value(user_defined_targets, iter) = 0;
+        }
 
-		kh_value(user_defined_targets, iter)++;
+        kh_value(user_defined_targets, iter)++;
 
-		// now process gene_info to extract gene_symbol and transcript_name
-		// ABCB1|ENST00000265724|cds_18|gene	or
-		// ABCB1|ENST00000265724|18|gene
-		//
-		char *gene_token;
-		savePtr = gene_info;
-		char *tmp_id = NULL;
-		char *tmp_type = NULL;
+        // now process gene_info to extract gene_symbol and transcript_name
+        // ABCB1|ENST00000265724|cds_18|gene        or
+        // ABCB1|ENST00000265724|18|gene
+        //
+        char *gene_token;
+        savePtr = gene_info;
+        char *tmp_id = NULL;
+        char *tmp_type = NULL;
 
-		j=0;
-		while ((gene_token = strtok_r(savePtr, "|", &savePtr))) {
-			if (j==0)
+        j=0;
+        while ((gene_token = strtok_r(savePtr, "|", &savePtr))) {
+            if (j==0)
                 dynamicStringExpansion(gene_token, &gene_symbol);
 
-			if (j==1)
+            if (j==1)
                 dynamicStringExpansion(gene_token, &transcript_name);
 
-			if (j==2)
+            if (j==2)
                 dynamicStringExpansion(gene_token, &tmp_id);
 
-			if (j==3)
+            if (j==3)
                 dynamicStringExpansion(gene_token, &tmp_type);
 
-			j++;
-		}
+            j++;
+        }
 
-		// now process tmp_id: cds_18 or 18
-		//
-		//savePtr = tmp_id;
+        // now process tmp_id: cds_18 or 18
+        //
+        //savePtr = tmp_id;
 
-
-		// Now combine both gene_symbol and transcript_name together to form a unique gene ID
-		//
-		char *gene = NULL;      
+        // Now combine both gene_symbol and transcript_name together to form a unique gene ID
+        //
+        char *gene = NULL;      
         dynamicStringExpansion(gene_symbol, &gene);
         dynamicStringExpansion("-", &gene);
         dynamicStringExpansion(transcript_name, &gene);
 
-		iter = kh_put(khStrInt, cds_lengths, gene, &absent);
-		if (absent) {
-			kh_key(cds_lengths, iter)   = strdup(gene);
-			kh_value(cds_lengths, iter) = 0;
-		}
-		
-		// need to handle the case where start == end (convert 1-based to 0-based)
-		// and use it as the key to store total cds length and cds count
-		//
-		if (start == end)
-			start--;
-		kh_value(cds_lengths, iter) += end - start;
+        iter = kh_put(khStrInt, cds_lengths, gene, &absent);
+        if (absent) {
+            kh_key(cds_lengths, iter)   = strdup(gene);
+            kh_value(cds_lengths, iter) = 0;
+        }
 
-		iter = kh_put(khStrInt, cds_counts, gene, &absent);
-		if (absent) {
-			kh_key(cds_counts, iter)   = strdup(gene);
-			kh_value(cds_counts, iter) = 0;
-		}
-		kh_value(cds_counts, iter)++;
+        // need to handle the case where start == end (convert 1-based to 0-based)
+        // and use it as the key to store total cds length and cds count
+        //
+        if (start == end)
+            start--;
+        kh_value(cds_lengths, iter) += end - start;
 
-		if (gene != NULL) free(gene);
-		if (tmp_id != NULL) free(tmp_id);
-		if (tmp_type != NULL) free(tmp_type);
+        iter = kh_put(khStrInt, cds_counts, gene, &absent);
+        if (absent) {
+            kh_key(cds_counts, iter)   = strdup(gene);
+            kh_value(cds_counts, iter) = 0;
+        }
+        kh_value(cds_counts, iter)++;
 
-		total_line_count++;
+        if (gene != NULL) free(gene);
+        if (tmp_id != NULL) free(tmp_id);
+        if (tmp_type != NULL) free(tmp_type);
 
-	    if (transcript_name != NULL) free(transcript_name);
-    	if (gene_info != NULL) free(gene_info);
-	    if (gene_symbol != NULL) free(gene_symbol);
-    	if (target_line != NULL) free(target_line);
+        total_line_count++;
+
+        if (transcript_name != NULL) free(transcript_name);
+        if (gene_info != NULL) free(gene_info);
+        if (gene_symbol != NULL) free(gene_symbol);
+        if (target_line != NULL) free(target_line);
     }
     if (line != NULL) free(line);
 
-	udd_wrapper->num_of_lines = total_line_count;
+    udd_wrapper->num_of_lines = total_line_count;
 
-	// Now process hash map to update the udd_wrapper->udd_database (User_Defined_Database)
-	//
-	uint32_t num_of_chrom = 0;
-	khiter_t iter;
-	for (iter = kh_begin(chromosome_info); iter != kh_end(chromosome_info); ++iter) {
-		if (kh_exist(chromosome_info, iter)) {
-			//printf("Key is %s\t", kh_key(chromosome_info, iter));
-			//printf("Value is %d\n", kh_value(chromosome_info, iter));
-			num_of_chrom++;
-		}
-	}
+    // Now process hash map to update the udd_wrapper->udd_database (User_Defined_Database)
+    //
+    uint32_t num_of_chrom = 0;
+    khiter_t iter;
+    for (iter = kh_begin(chromosome_info); iter != kh_end(chromosome_info); ++iter) {
+        if (kh_exist(chromosome_info, iter)) {
+            //printf("Key is %s\t", kh_key(chromosome_info, iter));
+            //printf("Value is %d\n", kh_value(chromosome_info, iter));
+            num_of_chrom++;
+        }
+    }
+    
+    //printf("total number of chromosome is %"PRIu32"\n", num_of_chrom);
+    //printf("total number of lines is %"PRIu64"\n", total_line_count);
 
-	//printf("total number of chromosome is %"PRIu32"\n", num_of_chrom);
-	//printf("total number of lines is %"PRIu64"\n", total_line_count);
-	
-	// Allocate the memory and store the cds count information for each chromosome
-	//
-	udd_wrapper->num_of_chroms = num_of_chrom;
-	udd_wrapper->ud_database_per_chrom = calloc(num_of_chrom, sizeof(User_Defined_Database));
+    // Allocate the memory and store the cds count information for each chromosome
+    //
+    udd_wrapper->num_of_chroms = num_of_chrom;
+    udd_wrapper->ud_database_per_chrom = calloc(num_of_chrom, sizeof(User_Defined_Database));
 
-	uint32_t chrom_idx=0;
-	for (iter = kh_begin(chromosome_info); iter != kh_end(chromosome_info); ++iter) {
-		if (kh_exist(chromosome_info, iter)) {
-			udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds = kh_value(chromosome_info, iter);
-			udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id = calloc(strlen(kh_key(chromosome_info, iter))+1, sizeof(char));
+    uint32_t chrom_idx=0;
+    for (iter = kh_begin(chromosome_info); iter != kh_end(chromosome_info); ++iter) {
+        if (kh_exist(chromosome_info, iter)) {
+            udd_wrapper->ud_database_per_chrom[chrom_idx].num_of_cds = kh_value(chromosome_info, iter);
+            udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id = calloc(strlen(kh_key(chromosome_info, iter))+1, sizeof(char));
 
-			strcpy(udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id, kh_key(chromosome_info, iter));
-			chrom_idx++;
-		}
-	}
+            strcpy(udd_wrapper->ud_database_per_chrom[chrom_idx].chrom_id, kh_key(chromosome_info, iter));
+            chrom_idx++;
+        }
+    }
 
-	// clean-up
-	//
-	cleanKhashStrInt(chromosome_info);
-
-	fclose(fp);
+    // clean-up
+    //
+    cleanKhashStrInt(chromosome_info);
+    
+    fclose(fp);
 }
 
-void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exon_regions, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts) {
+void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exon_regions, User_Defined_Database_Wrapper *udd_wrapper, Raw_User_Defined_Database * raw_user_defined_database, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, uint8_t file_index) {
 	// As we already know the total number of line and the cds count for each chromosome
 	// we will just need to create the story memory here
 	// Note: since the chrom_ids on the User_Defined_Database_Wrapper is not in order, 
@@ -373,10 +378,10 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 
 	// open user-defined-database file for read again and populate the exon_regions
 	//
-	FILE *fp = fopen(user_inputs->user_defined_database_file, "r");
+	FILE *fp = fopen(user_inputs->user_defined_database_files[file_index], "r");
 
 	if (fp == NULL) {
-		printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_file);
+		printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[file_index]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -580,7 +585,8 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 		    }
         }
 
-		if (transcript_name) free(transcript_name);
+		if (transcript_name != NULL) free(transcript_name);
+        if (annotation_type != NULL) free(annotation_type);
 
 		// get cds_lengths for current gene/transcript from the cds_lengths and cds_counts khash tables
 		//
@@ -873,18 +879,18 @@ void recordUserDefinedTargets(khash_t(khStrInt) *user_defined_targets, Bed_Info 
 
 // for the low coverage gene annotations
 //
-void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *intron_regions) {
+void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *exon_regions, Regions_Skip_MySQL *intron_regions, uint8_t file_index) {
 	// First, we need to find the index that is used to track current chromosome chrom_id
 	//
 	int32_t idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
 	if (idx == -1) return;
 
-	// Need to write information to the following files
-	//
-	//FILE *missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
-	FILE *low_x_fp    = fopen(user_inputs->capture_low_cov_file, "a");                            
-	FILE *all_site_fp = fopen(user_inputs->capture_all_site_file, "a");
-	
+    // Need to write information to the following files
+    //
+    //FILE *missed_target_fp = fopen(user_inputs->missed_targets_file, "a");
+    FILE *low_x_fp    = fopen(user_inputs->capture_low_cov_files[file_index], "a");
+    FILE *all_site_fp = fopen(user_inputs->capture_all_site_files[file_index], "a");
+
 	uint32_t i, j;
 	for(i = 0; i < target_info->size; i++) {
 		// skip if chromosome id doesn't match
@@ -933,11 +939,11 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 		// For All Sites Report. Note: the end position is not included based on the bed format
 		// Here we don't have to worry about the NULL pointers passed in as it will be handled 
 		//
-		produceCaptureAllSitesReport(start, length-1, chrom_tracking, chrom_id, user_inputs, all_site_fp, intron_regions, exon_regions);
+		produceCaptureAllSitesReport(start, length-1, chrom_tracking, chrom_id, &all_site_fp, intron_regions, exon_regions);
 
 		// For low coverage and high coverage Report
 		//
-		writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, low_x_fp, NULL, intron_regions, exon_regions);
+		writeLow_HighCoverageReport(start, length, chrom_tracking, chrom_id, user_inputs, low_x_fp, NULL, intron_regions, exon_regions, 2);
 	}
 
 	fclose(low_x_fp);

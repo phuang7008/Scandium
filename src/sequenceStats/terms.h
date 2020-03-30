@@ -66,7 +66,8 @@ typedef struct {
 	char * target_file;
 	char * reference_file;          // reference file name for cram input file
 	char * chromosome_bed_file;		// a file contains chromosome ids and regions need to be processed in bed format
-	char * user_defined_database_file;
+	char ** user_defined_database_files;    // users can provide multiple annotation database files
+	char ** annotation_file_basenames;      // the basename w/o extension of user defined annotation files
 	char * database_version;		// either hg19 (hg37) or hg38
 	char * user_name;				// user name for the database
 	char * passwd;					// password for the user
@@ -83,16 +84,17 @@ typedef struct {
 	//char * missed_targets_file;		// for target regions that have no coverage at all
 	char * capture_cov_file;		// output the capture target regions coverage count information
 	char * capture_cov_report;		// output the capture target regions coverage summary report
-	char * capture_low_cov_file;	// for target regions with lower coverage and their detailed annotation
-	char * capture_high_cov_file;	// for target regions with high overage without detailed annotation
-	char * capture_all_site_file;	// for all target regions with average coverage and the detailed annotation
-	char * low_cov_gene_pct_file;	// for percentage of a gene with low coverage bases
-	char * low_cov_exon_pct_file;	// for percentage of an exon with low coverage bases
-	char * low_cov_transcript_file;	// for low cov percentage of every gene in capture file with all different transcripts
+	char ** capture_low_cov_files;	// for target regions with lower coverage and their detailed annotation
+	char ** capture_high_cov_files;	// for target regions with high overage without detailed annotation
+	char ** capture_all_site_files;	// for all target regions with average coverage and the detailed annotation
+	char ** low_cov_gene_pct_files;	// for percentage of a gene with low coverage bases
+	char ** low_cov_exon_pct_files;	// for percentage of an exon with low coverage bases
+	char ** low_cov_transcript_files;	// for low cov percentage of every gene in capture file with all different transcripts
 
 	//misc
 	int8_t min_map_quality;
 	int8_t min_base_quality;
+    uint16_t num_of_annotation_files;
 	uint16_t low_coverage_to_report;	// default 20, users are allowed to change it as an input option
 	uint32_t high_coverage_to_report;	// default 10000, to report regions with higher coverage as users specified
 	uint16_t lower_bound;				// default 1. Used with -u option (upper_bound) for the uniformity output
@@ -105,7 +107,7 @@ typedef struct {
 	bool user_set_peak_size_on;
 	bool remove_duplicate;
 	bool remove_supplementary_alignments;
-	bool annotation_on;
+	bool wgs_annotation_on;
 	bool above_10000_on;				// output bases/regions with coverage > 10000
     bool excluding_overlapping_bases;   // to exclude overlapping reads/bases for double counting
 	bool wgs_coverage;
@@ -263,7 +265,8 @@ typedef struct {
 	char *exon_info;
 } Annotation;
 
-/** define an annotation array structure to hold the annotation array
+/* define an annotation array structure to hold the annotation array
+ * n_regions, iter)
  */
 typedef struct {
 	Annotation *annotations;
@@ -348,7 +351,7 @@ KHASH_MAP_INIT_STR(khStrLCG, Low_Coverage_Genes*)
 
 KHASH_MAP_INIT_STR(khStrGTP, Gene_Transcript_Percentage*)
 
-//KHASH_MAP_INIT_STR(khSTROR, Overlapped_Reads*)
+//KHASH_MAP_INIT_STR(khStrRSM, Regions_Skip_MySQL*)
 
 /**
  * define a coverage statistics structure

@@ -69,6 +69,13 @@ bool isNumber(const char *inStr);
 bool isFloat(const char *str, float *dest);
 
 /**
+ * Handle an input with multiple user defined annotation files
+ * @param optarg: the annotation files at the command line separated by comma ','
+ * @param user_inputs: a variable to store all of the user provided inputs
+ */
+void formAnnotationFileArray(char* optarg, User_Input *user_inputs);
+
+/**
  * process user input options and ensure they are correct!
  * @param argv[]: an array of strings that are used to decide user input options
  */
@@ -127,7 +134,20 @@ void checkFileExtension(User_Input *user_inputs, samFile* sfd);
  * @param filename: the input filename
  * @return char*: the file extension
  */
-const char* get_file_extension(const char* filename);
+const char* getFileExtension(const char* filename);
+
+/**
+ * Get the base name of the file including the extension, but without the full path
+ * @param filepath: a full file path
+ * @return char*: the basename from the file path
+ */
+const char* baseFilename(char const *filepath);
+
+/**
+ * Obtain the base file name without the extension from a filepath
+ * @param user_inputs: variable that stores the user inputs related information
+ */
+void getBaseFilenameWithoutExtension(User_Input *user_inputs);
 
 /*
  * The method is added for cram file input as cram file processing needs reference sequence
@@ -135,6 +155,8 @@ const char* get_file_extension(const char* filename);
  * @return the file path to the reference sequence's fai file
  */
 char* getReferenceFaiPath(const char *fn_ref);
+
+void setupMySQLDB(Databases **dbs, User_Input *user_inputs);
 
 /*
  * since hg37 and hg38 used different chromosome nameing convention, 

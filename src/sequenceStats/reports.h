@@ -33,7 +33,7 @@
  * @param intronic_regions: the official intronic regions fetched from MySQL to be checked against
  * @param exon_regions: the official exonic regions fetched from MySQL to be checked against
  */
-void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions);
 
 /**
  * To compile base related statistics
@@ -61,6 +61,10 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
  */
 void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage, User_Input *user_inputs, uint8_t type);
 
+void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, int32_t chrom_idx);
+
+void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions);
+
 /**
  * Write off target wig file for off target statistics
  * This method is destructive to the data structure, no further work can be done after this method has ran.  
@@ -80,12 +84,11 @@ void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id
  * @param length: the length of the regions to be inspected
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param chrom_id: the chromosome id to be handed
- * @param user_inputs: contains all the user_inputs options
  * @maram fh_all_sites: the opened file handle for all capture sites annotation report file
  * @param intronic_regions: the official intronic regions fetched from MySQL to be checked against            
  * @param exon_regions: the official exonic regions fetched from MySQL to be checked against 
  */
-void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, User_Input *user_inputs, FILE *fh_all_sites, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+void produceCaptureAllSitesReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char * chrom_id, FILE **fh_all_sites, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
 void writeAnnotations(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
@@ -120,9 +123,14 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
  * @param fh_high: the opend file handle for higher coverage report file
  * @param intronic_regions: the official intronic regions fetched from MySQL to be checked against            
  * @param exon_regions: the official exonic regions fetched from MySQL to be checked against
+ * @param type: mode of processing => 1 for WGS, 2 for Capture
  * @return the end position of the region with lower or higher base coverage
  */
-uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs, FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, char *chrom_id, User_Input *user_inputs, FILE *fh_low, FILE *fh_high, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions, uint8_t type);
+
+void produceAnnotation(uint8_t type, int32_t chrom_idr, char *chrom_id, uint32_t start, uint32_t end, User_Input *user_inputs, FILE *out_fh, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
+
+bool fetchAnnotation(char *chrom_id, uint32_t start, uint32_t end, FILE *out_fh, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL *exon_regions);
 
 /*
  * this is the real function that is used to fetch the detailed gene annotations
@@ -156,7 +164,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
  * @param hgmd_genes: a lookup hash table that contains all HGMD genes
  * @param hgmd_transcripts: a lookup hash table that contains all HGMD transcripts
  */
-void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_transcripts, khash_t(khStrGTP) *gene_transcript_percentage_hash);
+void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_t(khStrLCG) *transcript_hash, khash_t(khStrStrArray) *gene_transcripts, khash_t(khStrInt) *hgmd_transcripts, khash_t(khStrGTP) **gene_transcript_percentage_hash, uint8_t file_index);
 
 /* it is used to store percentage for current gene's transcripts for later usage
  * @param hgmd_transcripts_hash: a lookup hash table that contains all HGMD transcripts
@@ -165,6 +173,6 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
  */
 void storeHGMD_TranscriptPercentageInfo(khash_t(khStrGTP) *gene_transcript_percentage_hash, char *gene_symbol, char* transcript_name, float percentage, bool HGMD_on);
 
-void outputGeneCoverage(khash_t(khStrGTP) *gene_transcript_percentage_hash, User_Input *user_inputs);
+void outputGeneCoverage(khash_t(khStrGTP) *gene_transcript_percentage_hash, User_Input *user_inputs, uint8_t file_index);
 
 #endif // REPORTS_H
