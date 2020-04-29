@@ -144,14 +144,14 @@ void usage() {
 
     printf("The Followings Are Optional:\n");
     printf("\t-b <minimal base quality: to filter out any bases with base quality  less than b. Default 0>\n");
-    printf("\t-f <file names that contain user defined annotation databases (for multiple files, please use comma ',' to separate each annotation file) >\n");
+    printf("\t-f <file names that contain user defined annotation databases (for multiple files, please use comma ',' to separate each annotation file. Note, the order should be the same as the input capture bed files) >\n");
     printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
     printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Dynamically Selected Based on Average Coverage of the Sample>\n");
     printf("\t-m <minimal mapping quality score: to filter out any reads with mapping quality less than m. Default 0>\n");
     printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
     printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
     printf("\t-r <file name that contains chromosomes and their regions need to be processed. Default: Not Provided>\n");
-    printf("\t-t <target file. If this is specified, all of the output file names related to this will contain '.Capture_'>\n");
+    printf("\t-t <capture target files. If specified, all related output filenames will contain '.Capture_'. (for multiple capture input file, please use comma ',' to separate each capture bed file. Note: the order should be the same as the input annotation files)>\n");
 
     printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
     printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default: hg19/hg37>\n");
@@ -214,13 +214,12 @@ bool isFloat(const char *str, float *dest) {
 // Get command line arguments in and check the sanity of user inputs 
 //
 void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
-    int arg;
+    int arg, i;
     bool input_error_flag=false;
     bool flag_float=true;
 
     //When getopt returns -1, no more options available
     //
-    //while ((arg = getopt(argc, argv, "ab:B:c:dD:f:g:GH:i:k:L:l:m:Mn:o:p:Pst:T:u:wWy:h")) != -1) {
     while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h")) != -1) {
         //printf("User options for %c is %s\n", arg, optarg);
         switch(arg) {
@@ -243,7 +242,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->database_version, optarg); 
 
                 // change all to lower case
-                int i;
                 for(i = 0; user_inputs->database_version[i]; i++){
                     user_inputs->database_version[i] = tolower(user_inputs->database_version[i]);
                 }
@@ -254,7 +252,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 break;
             case 'f':
                 USER_DEFINED_DATABASE = true;
-                formAnnotationFileArray(optarg, user_inputs);
+                formTargetAnnotationFileArray(optarg, user_inputs, 2);
                 break;
             case 'g': user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10); break;
             case 'G': user_inputs->Write_WIG = true; break;
@@ -341,8 +339,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 's': user_inputs->remove_supplementary_alignments = true; break;
             case 't':
                 TARGET_FILE_PROVIDED = true;
-                user_inputs->target_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
-                strcpy(user_inputs->target_file, optarg);
+                formTargetAnnotationFileArray(optarg, user_inputs, 1);
                 break;
             case 'T':
                 if (!isNumber(optarg)) {
@@ -431,7 +428,12 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     // Need to check out that all files user provided exist before proceeding
     if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) input_error_flag=true; //exit(EXIT_FAILURE);
     if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) input_error_flag=true; //exit(EXIT_FAILURE);
-    if (TARGET_FILE_PROVIDED && !checkFile(user_inputs->target_file)) input_error_flag=true; //exit(EXIT_FAILURE);
+    if (TARGET_FILE_PROVIDED) {
+        for (i=0; i<user_inputs->num_of_target_files; i++) {
+            if (!checkFile(user_inputs->target_files[i])) 
+                input_error_flag=true; //exit(EXIT_FAILURE);
+        }
+    }
 
     // need to get the basename from BAM/CRAM filename
     //char *tmp_basename = basename(strdup(user_inputs->bam_file));
@@ -455,38 +457,48 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     if (TARGET_FILE_PROVIDED) {
         // produce the base filename information
         //
-        getBaseFilenameWithoutExtension(user_inputs);
+        getBaseFilenameWithoutExtension(user_inputs, 1);
 
-        user_inputs->capture_all_site_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            sprintf(string_to_add, ".%s.Capture_AllSites_REPORT.txt", user_inputs->annotation_file_basenames[p]);
+        user_inputs->capture_all_site_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+        for (p=0; p<user_inputs->num_of_target_files; p++) {
+            sprintf(string_to_add, ".%s.Capture_AllSites_REPORT.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_all_site_files[p], string_to_add);
             writeHeaderLine(user_inputs->capture_all_site_files[p], 1);
         }
 
         // For capture coverage summary report
-        sprintf(string_to_add, ".Capture_Coverage_Summary_Report.txt");
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_report, string_to_add);
+        //
+        user_inputs->capture_cov_reports = calloc(user_inputs->num_of_target_files, sizeof(char*));
+        for (p=0; p<user_inputs->num_of_target_files; p++) {
+            sprintf(string_to_add, ".%s.Capture_Coverage_Summary_Report.txt", user_inputs->target_file_basenames[p]);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_reports[p], string_to_add);
+        }
 
         // for cov.fasta file name
         //
         if (user_inputs->Write_Capture_cov_fasta) {
-            sprintf(string_to_add, ".Capture_cov.fasta");
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_file, string_to_add);
+            user_inputs->capture_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+            for (p=0; p<user_inputs->num_of_target_files; p++) {
+                sprintf(string_to_add, "%s.Capture_cov.fasta", user_inputs->target_file_basenames[p]);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_files[p], string_to_add);
+            }
         }
 
         // for off target good hit wig.fasta file name
         //
         if (user_inputs->Write_WIG) {
-            sprintf(string_to_add, ".Capture_off_target_good_hits.wig.fasta");
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_wig_file, string_to_add);
+            user_inputs->capture_wig_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+            for (p=0; p<user_inputs->num_of_target_files; p++) {
+                sprintf(string_to_add, "%s.Capture_off_target_good_hits.wig.fasta", user_inputs->target_file_basenames[p]);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_wig_files[p], string_to_add);
+            }
         }
 
         // output low coverage regions for target (capture)
         //
-        user_inputs->capture_low_cov_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+        user_inputs->capture_low_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
         for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            sprintf(string_to_add, ".%s.Capture_below%dx_REPORT.txt", user_inputs->annotation_file_basenames[p], user_inputs->low_coverage_to_report);
+            sprintf(string_to_add, ".%s.Capture_below%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->low_coverage_to_report);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_low_cov_files[p], string_to_add);
             writeHeaderLine(user_inputs->capture_low_cov_files[p], 1);
         }
@@ -494,9 +506,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         // output too high coverage regions for target (capture)
         //
         if (user_inputs->above_10000_on) {
-            user_inputs->capture_high_cov_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+            user_inputs->capture_high_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-                sprintf(string_to_add, ".%s.Capture_above%dx_REPORT.txt", user_inputs->annotation_file_basenames[p], user_inputs->high_coverage_to_report);
+                sprintf(string_to_add, ".%s.Capture_above%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->high_coverage_to_report);
                 createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_files[p], string_to_add);
                 writeHeaderLine(user_inputs->capture_high_cov_files[p], 1);
             }
@@ -505,20 +517,20 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         // for low coverage gene/exon/transcript reports
         // allocate the memory
         //
-        user_inputs->low_cov_gene_pct_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-        user_inputs->low_cov_exon_pct_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-        user_inputs->low_cov_transcript_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+        user_inputs->low_cov_gene_pct_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+        user_inputs->low_cov_exon_pct_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+        user_inputs->low_cov_transcript_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
 
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            sprintf(string_to_add, ".%s.Capture_Gene_pct.txt", user_inputs->annotation_file_basenames[p]);
+        for (p=0; p<user_inputs->num_of_target_files; p++) {
+            sprintf(string_to_add, ".%s.Capture_Gene_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_files[p], string_to_add);
             writeHeaderLine(user_inputs->low_cov_gene_pct_files[p], 3);
 
-            sprintf(string_to_add, ".%s.Capture_CDS_pct.txt", user_inputs->annotation_file_basenames[p]);
+            sprintf(string_to_add, ".%s.Capture_CDS_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_files[p], string_to_add);
             writeHeaderLine(user_inputs->low_cov_exon_pct_files[p], 4);
 
-            sprintf(string_to_add, ".%s.Capture_Transcript_pct.txt", user_inputs->annotation_file_basenames[p]);
+            sprintf(string_to_add, ".%s.Capture_Transcript_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_files[p], string_to_add);
             writeHeaderLine(user_inputs->low_cov_transcript_files[p], 5);
         }
@@ -568,9 +580,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     // string_to_add is declared at the stack, so no need to free it!
 }
 
-// for handling multiple user defined database annotation files
+// for handling multiple user defined database annotation files and multiple capture target bed files
+// type 1: target files     2: annotation files
 //
-void formAnnotationFileArray(char* optarg, User_Input *user_inputs) {
+void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type) {
     // make a deep copy
     //
     char * saved_str = calloc(strlen(optarg)+1, sizeof(char));
@@ -578,7 +591,11 @@ void formAnnotationFileArray(char* optarg, User_Input *user_inputs) {
 
     // let's check out how many annotation files a user provides
     //
-    user_inputs->num_of_annotation_files = 0;
+    if (type == 1) {
+        user_inputs->num_of_target_files = 0;
+    } else {
+        user_inputs->num_of_annotation_files = 0;
+    }
 
     char *tokPtr;
     char *savePtr = optarg;
@@ -589,15 +606,29 @@ void formAnnotationFileArray(char* optarg, User_Input *user_inputs) {
             exit(EXIT_FAILURE);
         }
 
-        user_inputs->num_of_annotation_files++;
+        if (type == 1) { 
+            user_inputs->num_of_target_files++;
+        } else {
+            user_inputs->num_of_annotation_files++;
+        }
     }
 
-    user_inputs->user_defined_database_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    if (type == 1) {
+        user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+    } else {
+        user_inputs->user_defined_database_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    }
+
     uint8_t counter = 0;
     char *savePtr2 = saved_str;
     while ((tokPtr = strtok_r(savePtr2, ",", &savePtr2))) {
-        user_inputs->user_defined_database_files[counter] = (char*) malloc((strlen(tokPtr)+1) * sizeof(char));
-        strcpy(user_inputs->user_defined_database_files[counter], tokPtr);
+        if (type == 1) {
+            user_inputs->target_files[counter] = (char*) malloc((strlen(tokPtr)+1) * sizeof(char));
+            strcpy(user_inputs->target_files[counter], tokPtr);
+        } else {
+            user_inputs->user_defined_database_files[counter] = (char*) malloc((strlen(tokPtr)+1) * sizeof(char));
+            strcpy(user_inputs->user_defined_database_files[counter], tokPtr);
+        }
         counter++;
     }
 
@@ -660,8 +691,10 @@ void outputUserInputOptions(User_Input *user_inputs) {
     fprintf(stderr, "\tOutput directory is: %s\n", user_inputs->output_dir);
     fprintf(stderr, "\tThe version of official gene annotation is: %s\n", user_inputs->database_version);
 
-    if (user_inputs->target_file)
-        fprintf(stderr, "\tThe capture/target bed file is: %s\n", user_inputs->target_file);
+    uint8_t j;
+    for (j=0; j<user_inputs->num_of_target_files; j++) {
+        fprintf(stderr, "\tCurrent capture/target bed file is: %s\n", user_inputs->target_files[j]);
+    }
 
     if (user_inputs->n_file)
         fprintf(stderr, "\tThe file that contains all Ns regions is: %s\n", user_inputs->n_file);
@@ -774,6 +807,7 @@ User_Input * userInputInit() {
     user_inputs->num_of_threads   = 3;
     user_inputs->percentage = 1.0;
     user_inputs->size_of_peak_area = 0;
+    user_inputs->num_of_target_files = 0;
     user_inputs->num_of_annotation_files = 0;
     user_inputs->user_set_peak_size_on = false;
     user_inputs->wgs_annotation_on = false;
@@ -789,7 +823,7 @@ User_Input * userInputInit() {
     user_inputs->n_file = NULL;
     user_inputs->bam_file = NULL;
     user_inputs->output_dir = NULL;
-    user_inputs->target_file = NULL;
+    user_inputs->target_files = NULL;
     user_inputs->reference_file = NULL;
     user_inputs->chromosome_bed_file = NULL;
     user_inputs->annotation_file_basenames = NULL;
@@ -797,7 +831,6 @@ User_Input * userInputInit() {
 
     // WGS output file
     //
-    user_inputs->wgs_wig_file = NULL;
     user_inputs->wgs_cov_file  = NULL;
     user_inputs->wgs_cov_report = NULL;
     user_inputs->wgs_low_cov_file = NULL;
@@ -806,8 +839,9 @@ User_Input * userInputInit() {
 
     // Capture output files
     //
-    user_inputs->capture_cov_file = NULL;
-    user_inputs->capture_cov_report = NULL;
+    user_inputs->capture_wig_files = NULL;
+    user_inputs->capture_cov_files = NULL;
+    user_inputs->capture_cov_reports = NULL;
     user_inputs->capture_low_cov_files = NULL;
     user_inputs->capture_high_cov_files = NULL;
     user_inputs->capture_all_site_files = NULL;
@@ -845,9 +879,6 @@ void userInputDestroy(User_Input *user_inputs) {
 
     // whole genome output files clean-up
     //
-    if (user_inputs->wgs_wig_file)
-        free(user_inputs->wgs_wig_file);
-
     if (user_inputs->wgs_cov_file)
         free(user_inputs->wgs_cov_file);
 
@@ -864,72 +895,19 @@ void userInputDestroy(User_Input *user_inputs) {
         free(user_inputs->wgs_uniformity_file);
 
     // Capture (target) output files clean-up
+    // cleanCreatedFileArray(user_inputs->num_of_target_files, );
     //
-    if (user_inputs->target_file)
-        free(user_inputs->target_file);
-
-    if (user_inputs->capture_cov_file) 
-        free(user_inputs->capture_cov_file);
-
-    if (user_inputs->capture_cov_report)
-        free(user_inputs->capture_cov_report);
-
-    uint8_t p;
-    if (user_inputs->capture_all_site_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->capture_all_site_files[p])
-                free(user_inputs->capture_all_site_files[p]);
-        }
-        free(user_inputs->capture_all_site_files);
-    }
-
-    if (user_inputs->capture_low_cov_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->capture_low_cov_files[p])
-                free(user_inputs->capture_low_cov_files[p]);
-        }
-        free(user_inputs->capture_low_cov_files);
-    }
-
-    if (user_inputs->capture_high_cov_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->capture_high_cov_files[p])
-                free(user_inputs->capture_high_cov_files[p]);
-        }
-        free(user_inputs->capture_high_cov_files);
-    }
-
-    if (user_inputs->low_cov_gene_pct_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->low_cov_gene_pct_files[p])
-                free(user_inputs->low_cov_gene_pct_files[p]);
-        }
-        free(user_inputs->low_cov_gene_pct_files);
-    }
-
-    if (user_inputs->low_cov_exon_pct_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->low_cov_exon_pct_files[p])
-                free(user_inputs->low_cov_exon_pct_files[p]);
-        }
-        free(user_inputs->low_cov_exon_pct_files);
-    }
-
-    if (user_inputs->low_cov_transcript_files) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->low_cov_transcript_files[p])
-                free(user_inputs->low_cov_transcript_files[p]);
-        }
-        free(user_inputs->low_cov_transcript_files);
-    }
-
-    if (user_inputs->annotation_file_basenames) {
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            if (user_inputs->annotation_file_basenames[p])
-                free(user_inputs->annotation_file_basenames[p]);
-        }
-        free(user_inputs->annotation_file_basenames);
-    }
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->target_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_wig_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_reports);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_all_site_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_low_cov_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_high_cov_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_gene_pct_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_exon_pct_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_transcript_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->annotation_file_basenames);
 
     if (user_inputs->chromosome_bed_file)
         free(user_inputs->chromosome_bed_file);
@@ -939,16 +917,33 @@ void userInputDestroy(User_Input *user_inputs) {
 
     // For User-Defined Database output files clean-up
     //
-    int i;
-    for (i=0; i<user_inputs->num_of_annotation_files; i++) {
-        if (user_inputs->user_defined_database_files[i] != NULL)
-            free(user_inputs->user_defined_database_files[i]);
-    }
-    if (user_inputs->user_defined_database_files != NULL)
-        free(user_inputs->user_defined_database_files);
+    cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->user_defined_database_files);
 
     if (user_inputs)
         free(user_inputs);
+}
+
+void createdFileArray(User_Input *user_inputs, uint8_t f_size, char **file_array, char* description, char* bam_prefix, uint8_t headline_type) {
+    if (file_array == NULL) return;
+
+    uint8_t p;
+    for (p=0; p<f_size; p++) {
+        char* string_to_add = calloc(strlen(user_inputs->target_file_basenames[p]) + strlen(description) + 2, sizeof(char));
+        sprintf(string_to_add, ".%s.%s", user_inputs->target_file_basenames[p], description);
+        createFileName(user_inputs->output_dir, bam_prefix, &file_array[p], string_to_add);
+        writeHeaderLine(file_array[p], headline_type);
+    }
+}
+
+void cleanCreatedFileArray(uint8_t f_size, char **file_array) {
+    if (file_array != NULL) {
+        uint8_t i;
+        for (i=0; i<f_size; i++) {
+            if (file_array[i])
+                free(file_array[i]);
+        }
+        free(file_array);
+    }
 }
 
 void setupMySQLDB(Databases **dbs, User_Input *user_inputs) {
@@ -966,7 +961,7 @@ void loadGenomeInfoFromBamHeader(khash_t(khStrInt) *wanted_chromosome_hash, bam_
             kh_key(wanted_chromosome_hash, iter) = strdup(header->target_name[i]);
             kh_value(wanted_chromosome_hash, iter) = header->target_len[i];
         }
-        stats_info->cov_stats->total_genome_bases += header->target_len[i];
+        stats_info->wgs_cov_stats->total_genome_bases += header->target_len[i];
     }
 
     // Now need to find out the reference version
@@ -996,15 +991,25 @@ const char* baseFilename(char const *path) {
         return strdup(bn+1);
 }
 
-void getBaseFilenameWithoutExtension(User_Input *user_inputs) {
-    // allocate memory for user_inputs->annotation_file_basenames
+// Type: 1 for target; 2 for annotation
+//
+void getBaseFilenameWithoutExtension(User_Input *user_inputs, uint8_t type) {
+    // allocate memory
     //
-    user_inputs->annotation_file_basenames = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    if (type == 1) {
+        user_inputs->target_file_basenames = calloc(user_inputs->num_of_target_files, sizeof(char*));
+    } else {
+        user_inputs->annotation_file_basenames = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    }
 
-    uint8_t p = 0;
-    for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-        const char* bn  = baseFilename(user_inputs->user_defined_database_files[p]);
-        const char* ext = getFileExtension(user_inputs->user_defined_database_files[p]);
+    uint8_t p, num_of_items;
+    type == 1 ? num_of_items = user_inputs->num_of_target_files : user_inputs->num_of_annotation_files;
+    for (p=0; p<num_of_items; p++) {
+        const char *bn = (type == 1) ? baseFilename(user_inputs->target_files[p]) 
+            : baseFilename(user_inputs->user_defined_database_files[p]);
+        const char* ext = (type == 1) ? getFileExtension(user_inputs->target_files[p]) 
+            : getFileExtension(user_inputs->user_defined_database_files[p]);
+
         int ext_len = strlen(ext);
         int bn_len  = strlen(bn);
 
@@ -1013,8 +1018,13 @@ void getBaseFilenameWithoutExtension(User_Input *user_inputs) {
         memcpy(substring, &bn[0], len);
         substring[len] = '\0';
 
-        user_inputs->annotation_file_basenames[p] = calloc(len+1, sizeof(char));
-        strcpy(user_inputs->annotation_file_basenames[p], substring);
+        if (type == 1) { 
+            user_inputs->target_file_basenames[p] = calloc(len+1, sizeof(char));
+            strcpy(user_inputs->target_file_basenames[p], substring);
+        } else {
+            user_inputs->annotation_file_basenames[p] = calloc(len+1, sizeof(char));
+            strcpy(user_inputs->annotation_file_basenames[p], substring);
+        }
 
         if (bn) free((char*)bn);
         if (ext) free((char*)ext);
@@ -1143,8 +1153,8 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
 
                 // update the total genome size info
                 //
-                stats_info->cov_stats->total_genome_bases += end - start;
-                //printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->cov_stats->total_genome_bases);
+                stats_info->wgs_cov_stats->total_genome_bases += end - start;
+                //printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->wgs_cov_stats->total_genome_bases);
             }
 
             j++;

@@ -33,7 +33,7 @@
  * @param intronic_regions: the official intronic regions fetched from MySQL to be checked against
  * @param exon_regions: the official exonic regions fetched from MySQL to be checked against
  */
-void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions);
+void writeCoverage(char *chrom_id, Bed_Info **target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions);
 
 /**
  * To compile base related statistics
@@ -41,16 +41,17 @@ void writeCoverage(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *c
  * @param cov_val: the coverage count 
  * @param target: 1 means we need to add target related statistics
  * @param wgs: 1 means we need to add whole genome statistics
+ * @param target_file_index: for multiple capture bed inputs, this will tell us which one it is
  */
-void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint8_t wgs);
+void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint8_t wgs, uint8_t target_file_index);
 
 /**
  * Writes all the statistical information to an output file.
  * @param stats_info, the statistical information to be outputted
  * @param user_inputs: the flag info to indicated if users have specify to output both WGS or Capture(targets) only
  */
-void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
-
+void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs);
+void writeCaptureReports(Stats_Info *stats_info, User_Input *user_inputs);
 /**
  * Write the general information out
  * @param fp: opened file handle for writing
@@ -59,11 +60,11 @@ void writeReport(Stats_Info *stats_info, User_Input *user_inputs);
  * @param user_inputs: contains all the user_inputs including target_buffer_size
  * @param type: type of output, 1 for the whole genome, 2 for the target only
  */
-void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage, User_Input *user_inputs, uint8_t type);
+void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage);
 
-void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, int32_t chrom_idx);
+void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, int32_t chrom_idx, uint8_t target_file_index);
 
-void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions);
+void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions, uint8_t target_file_index);
 
 /**
  * Write off target wig file for off target statistics
@@ -76,7 +77,7 @@ void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosom
  * @param user_input: the base file name needed to produce the name of the off-target wig file name
  * @param stats_info: the function will increment a non_traget_good_hits member
  */
-void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info);
+void produceOffTargetWigFile(Chromosome_Tracking *chrom_tracking, char *chrom_id, Bed_Info *target_bed_info, User_Input *user_inputs, Stats_Info *stats_info, uint8_t target_file_index);
 
 /**
  * Write all Capture Regions out with detailed annotation including the average coverage

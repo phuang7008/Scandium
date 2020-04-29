@@ -76,12 +76,6 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 uint32_t processLowCovRegionFromStrArray(stringArray *low_cov_regions, char **output);
 
 /**
- * for Coverage_Stats variable initialization
- * @param cov_stats: an instance of Coverage_Stats to store the coverage statistics for current chrom
- */
-void coverageStatsInit(Coverage_Stats * cov_stats);
-
-/**
  * This function is used to clean the khash_t (uint32_t key) hash table used by the users
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories
  */
@@ -169,13 +163,21 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
  * Initialize the member of the Stats_Info variable
  * @param stats_info: an instance of Stats_Info to store the whole genome coverage stat info
  */
-void statsInfoInit(Stats_Info *stats_info);
+void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs);
+
+/**
+ * for XXX_Coverage_Stats variable initialization
+ * @param xxx_cov_stats: an instance of XXX_Coverage_Stats to store the coverage statistics for current chrom
+ */
+void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats);
+void readCoverageStatsInit(Read_Coverage_Stats * read_cov_stats);
+void captureCoverageStatsInit(Capture_Coverage_Stats * capture_cov_stats);
 
 /**
  * to destroy everything allocated for stats_info
  * @param stats_info
  */
-void statsInfoDestroy(Stats_Info *stats_info);
+void statsInfoDestroy(Stats_Info *stats_info, User_Input *user_inputs);
 
 /**
  * it will set the coverage for all of the Ns regions in the genome to zero
@@ -219,7 +221,11 @@ float calculatePercentage32_64(uint32_t num, uint64_t dom);
  * @param stats_info: a storage place for all summarized sequencing stats
  * @param cov_stats: detailed coverage stats
  */
-void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats);
+void combineCoverageStats(Stats_Info *stats_info, Stats_Info *tmp_stats_info, User_Input *user_inputs);
+
+void copyReadCoverageStats(Read_Coverage_Stats *read_cov_stats, Read_Coverage_Stats *tmp_read_cov_stats);
+void copyWGSCoverageStats(WGS_Coverage_Stats *wgs_cov_stats, WGS_Coverage_Stats *tmp_wgs_cov_stats);
+void copyCaptureCoverageStats(Capture_Coverage_Stats **capture_cov_stats, Capture_Coverage_Stats **tmp_capture_cov_stats, User_Input *user_inputs);
 
 /* obtain the hash key for the integer value passed in                                                                
  * the keys are defined every 1000 position for quick lookup

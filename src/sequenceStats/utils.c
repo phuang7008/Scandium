@@ -623,102 +623,142 @@ int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Trackin
     return -1;
 }
 
-void statsInfoInit(Stats_Info *stats_info) {
+void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
 	if (!stats_info) {
 		fprintf(stderr, "Memory allocation failed for Stats_Info\n");
 		exit(EXIT_FAILURE);
 	}
 
-	int i;
-	for (i=0; i<=1000; i++) {
-		stats_info->target_cov_histogram[i]=0;
-		stats_info->genome_cov_histogram[i]=0;
-	}
+    stats_info->read_cov_stats = calloc(1, sizeof(Read_Coverage_Stats));
+    stats_info->wgs_cov_stats  = calloc(1, sizeof(WGS_Coverage_Stats));
+    stats_info->capture_cov_stats = calloc(user_inputs->num_of_target_files, sizeof(Capture_Coverage_Stats*));
+    stats_info->num_of_chromosomes = 0;
 
-    stats_info->targeted_base_with_N_coverage = kh_init(m32);
-    stats_info->genome_base_with_N_coverage   = kh_init(m32);
+    int i, j;
+    for (i=0; i<=1000; i++) {
+        stats_info->wgs_cov_stats->genome_cov_histogram[i]=0;
+    }
 
-    stats_info->target_coverage_for_median = kh_init(m32);
-    stats_info->genome_coverage_for_median = kh_init(m32);
+    for (i=0; i<user_inputs->num_of_target_files; i++) {
+        stats_info->capture_cov_stats[i] = calloc(1, sizeof(Capture_Coverage_Stats));
+        stats_info->capture_cov_stats[i]->target_base_with_N_coverage = kh_init(m32);
+        stats_info->capture_cov_stats[i]->target_coverage_for_median = kh_init(m32);
+        captureCoverageStatsInit(stats_info->capture_cov_stats[i]);
 
-	stats_info->cov_stats = calloc(1, sizeof(Coverage_Stats));
-	coverageStatsInit(stats_info->cov_stats);
+        for (j=0;j<=1000; j++) {
+            stats_info->capture_cov_stats[i]->target_cov_histogram[j]=0;
+        }
+    }
 
-	// initializing all numbers to 0
-	for (i=0; i<PRIMER_SIZE; i++) {
-		stats_info->five_prime[i] = 0;
-		stats_info->three_prime[i] = 0;
-	}
+    stats_info->wgs_cov_stats->genome_base_with_N_coverage = kh_init(m32);
+    stats_info->wgs_cov_stats->genome_coverage_for_median  = kh_init(m32);
 
-	for (i=0; i<101; i++)
-		stats_info->target_coverage[i] = 0;
+    readCoverageStatsInit(stats_info->read_cov_stats);
+    WGSCoverageStatsInit(stats_info->wgs_cov_stats);   
 }
 
-void coverageStatsInit(Coverage_Stats * cov_stats) {
-	if (!cov_stats) {
-		fprintf(stderr, "Memory allocation failed for Coverage_Stats\n");
-		exit(EXIT_FAILURE);
-	}
+void readCoverageStatsInit(Read_Coverage_Stats * read_cov_stats) {
+    if (!read_cov_stats) {
+        fprintf(stderr, "Memory allocation failed for Read_Coverage_Stats\n");
+        exit(EXIT_FAILURE);
+    }
 
-	cov_stats->total_genome_bases = 0;
-	cov_stats->total_buffer_bases = 0;
-	cov_stats->total_targeted_bases = 0;
-	cov_stats->total_uniquely_aligned_bases = 0;
-	cov_stats->total_mapped_bases = 0;
-	cov_stats->total_Ns_bases = 0;
-	cov_stats->total_Ns_bases_on_chrX = 0;
-	cov_stats->total_Ns_bases_on_chrY = 0;
-	cov_stats->total_target_coverage = 0;
-	cov_stats->total_genome_coverage = 0;
-	cov_stats->base_quality_20 = 0;
-	cov_stats->base_quality_30 = 0;
-    cov_stats->total_overlapped_bases = 0;
-
-	cov_stats->total_reads_paired = 0;
-	cov_stats->total_reads_proper_paired = 0;
-	cov_stats->total_reads_aligned = 0;
-	cov_stats->total_reads_produced = 0;
-	cov_stats->total_duplicate_reads = 0;
-	cov_stats->total_chimeric_reads = 0;
-	cov_stats->total_supplementary_reads = 0;
-	cov_stats->total_paired_reads_with_mapped_mates = 0;
-
-	cov_stats->on_target_read_hit_count = 0;
-	cov_stats->off_target_read_hit_count = 0;
-	cov_stats->in_buffer_read_hit_count = 0;
-	cov_stats->hit_target_count = 0;
-	cov_stats->hit_target_buffer_only_count = 0;
-	cov_stats->non_target_good_hits = 0;
-
-	cov_stats->total_targets = 0;
-	cov_stats->read_length = 0;
-	cov_stats->wgs_max_coverage = 0;
-	cov_stats->base_with_wgs_max_coverage = 0;
-	cov_stats->target_max_coverage = 0;
-	cov_stats->base_with_target_max_coverage = 0;
-	cov_stats->median_genome_coverage = 0;
-	cov_stats->median_target_coverage = 0;
-
-	cov_stats->mode = 0;
-	cov_stats->uniformity_metric_all = 0.0;
-	cov_stats->uniformity_metric_all_primary = 0.0;
-	cov_stats->uniformity_metric_autosome_only = 0.0;
-	cov_stats->uniformity_metric_primary_autosome_only = 0.0;
+    read_cov_stats->total_reads_produced = 0;
+    read_cov_stats->total_reads_aligned = 0;
+    read_cov_stats->total_reads_paired = 0;
+    read_cov_stats->total_reads_proper_paired = 0;
+    read_cov_stats->total_duplicate_reads = 0;
+    read_cov_stats->total_chimeric_reads = 0;
+    read_cov_stats->total_supplementary_reads = 0;
+    read_cov_stats->total_paired_reads_with_mapped_mates = 0;
+    read_cov_stats->read_length = 0;
 }
 
-void statsInfoDestroy(Stats_Info *stats_info) {
-	//kh_destroy(m32, stats_info->target_cov_histogram);
-	//kh_destroy(m32, stats_info->genome_cov_histogram);
-	kh_destroy(m32, stats_info->targeted_base_with_N_coverage);
-	kh_destroy(m32, stats_info->genome_base_with_N_coverage);
-	kh_destroy(m32, stats_info->target_coverage_for_median);
-	kh_destroy(m32, stats_info->genome_coverage_for_median);
+void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats) {
+    if (!wgs_cov_stats) {
+        fprintf(stderr, "Memory allocation failed for WGS Coverage Stats\n");
+        exit(EXIT_FAILURE);
+    }
 
-	if (stats_info->cov_stats) { 
-		free(stats_info->cov_stats);
-		stats_info->cov_stats = NULL;
-	}
-	if (stats_info) { free(stats_info); stats_info=NULL; }
+    wgs_cov_stats->total_genome_bases = 0;
+    wgs_cov_stats->total_Ns_bases = 0;
+    wgs_cov_stats->total_Ns_bases_on_chrX = 0;
+    wgs_cov_stats->total_Ns_bases_on_chrY = 0;
+    wgs_cov_stats->total_mapped_bases = 0;
+    wgs_cov_stats->total_uniquely_aligned_bases = 0;
+    wgs_cov_stats->total_genome_coverage = 0;
+    wgs_cov_stats->base_quality_20 = 0;
+    wgs_cov_stats->base_quality_30 = 0;
+    wgs_cov_stats->total_overlapped_bases = 0;
+
+    wgs_cov_stats->wgs_max_coverage = 0;
+    wgs_cov_stats->base_with_wgs_max_coverage = 0;
+    wgs_cov_stats->median_genome_coverage = 0;
+
+    wgs_cov_stats->mode = 0;
+    wgs_cov_stats->uniformity_metric_all = 0.0;
+    wgs_cov_stats->uniformity_metric_all_primary = 0.0;
+    wgs_cov_stats->uniformity_metric_autosome_only = 0.0;
+    wgs_cov_stats->uniformity_metric_primary_autosome_only = 0.0;
+}
+
+void captureCoverageStatsInit(Capture_Coverage_Stats * capture_cov_stats) {
+    if (!capture_cov_stats) {
+        fprintf(stderr, "Memory allocation failed for Capture Coverage Stats\n");
+        exit(EXIT_FAILURE);
+    }
+
+    capture_cov_stats->total_targeted_bases = 0;
+    capture_cov_stats->total_target_coverage = 0;
+    capture_cov_stats->total_buffer_bases = 0;
+    capture_cov_stats->on_target_read_hit_count = 0;
+    capture_cov_stats->off_target_read_hit_count = 0;
+    capture_cov_stats->in_buffer_read_hit_count = 0;
+    capture_cov_stats->hit_target_count = 0;
+    capture_cov_stats->hit_target_buffer_only_count = 0;
+    capture_cov_stats->non_target_good_hits = 0;
+
+    capture_cov_stats->total_targets = 0;
+    capture_cov_stats->target_max_coverage = 0;
+    capture_cov_stats->base_with_target_max_coverage = 0;
+    capture_cov_stats->median_target_coverage = 0;
+
+    // initializing all numbers to 0
+    //
+    int i;
+    for (i=0; i<PRIMER_SIZE; i++) {
+        capture_cov_stats->five_prime[i] = 0;
+        capture_cov_stats->three_prime[i] = 0;
+    }
+
+    for (i=0; i<101; i++)
+        capture_cov_stats->target_coverage[i] = 0;
+}
+
+void statsInfoDestroy(Stats_Info *stats_info, User_Input *user_inputs) {
+    if (stats_info->read_cov_stats) {
+        free(stats_info->read_cov_stats);
+        stats_info->read_cov_stats = NULL;
+    }
+
+    if (stats_info->wgs_cov_stats) {
+        //kh_destroy(m32, stats_info->wgs_cov_stats->genome_cov_histogram);
+        kh_destroy(m32, stats_info->wgs_cov_stats->genome_base_with_N_coverage);
+        kh_destroy(m32, stats_info->wgs_cov_stats->genome_coverage_for_median);
+        free(stats_info->wgs_cov_stats);
+        stats_info->wgs_cov_stats = NULL;
+    }
+
+    if (stats_info->capture_cov_stats) {
+        int i;
+        for (i=0; i<user_inputs->num_of_target_files; i++) {
+            kh_destroy(m32, stats_info->capture_cov_stats[i]->target_coverage_for_median);
+        }       
+        free(stats_info->capture_cov_stats);
+        stats_info->capture_cov_stats=NULL;
+    }   
+    
+    if (stats_info) { free(stats_info); stats_info=NULL; }
 }
 
 void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking, Target_Buffer_Status *target_buffer_status) {
@@ -833,36 +873,48 @@ float calculatePercentage64(uint64_t num, uint64_t dom) {
 	return (float)i_val/100.0;
 }
 
-void combineCoverageStats(Stats_Info *stats_info, Coverage_Stats *cov_stats) {
-	// read related stats
-	//
-	stats_info->cov_stats->total_reads_produced  += cov_stats->total_reads_produced;
-	stats_info->cov_stats->total_reads_aligned   += cov_stats->total_reads_aligned;
-	stats_info->cov_stats->total_chimeric_reads  += cov_stats->total_chimeric_reads;
-	stats_info->cov_stats->total_duplicate_reads += cov_stats->total_duplicate_reads;
-	stats_info->cov_stats->total_supplementary_reads += cov_stats->total_supplementary_reads;
-	stats_info->cov_stats->total_reads_paired    += cov_stats->total_reads_paired;
-	stats_info->cov_stats->total_reads_proper_paired += cov_stats->total_reads_proper_paired;
-	stats_info->cov_stats->total_paired_reads_with_mapped_mates += cov_stats->total_paired_reads_with_mapped_mates;
+void combineCoverageStats(Stats_Info *stats_info, Stats_Info *tmp_stats_info, User_Input *user_inputs) {
+	// For read length
+    //
+    if (stats_info->read_cov_stats->read_length == 0)
+        stats_info->read_cov_stats->read_length = tmp_stats_info->read_cov_stats->read_length;
 
+    copyReadCoverageStats(stats_info->read_cov_stats, tmp_stats_info->read_cov_stats);
+    copyWGSCoverageStats(stats_info->wgs_cov_stats, tmp_stats_info->wgs_cov_stats);
+    copyCaptureCoverageStats(stats_info->capture_cov_stats, tmp_stats_info->capture_cov_stats, user_inputs);
+
+}
+
+void copyReadCoverageStats(Read_Coverage_Stats *read_cov_stats, Read_Coverage_Stats *tmp_read_cov_stats) {
+	read_cov_stats->total_reads_produced  += tmp_read_cov_stats->total_reads_produced;
+	read_cov_stats->total_reads_aligned   += tmp_read_cov_stats->total_reads_aligned;
+	read_cov_stats->total_chimeric_reads  += tmp_read_cov_stats->total_chimeric_reads;
+	read_cov_stats->total_duplicate_reads += tmp_read_cov_stats->total_duplicate_reads;
+	read_cov_stats->total_reads_paired    += tmp_read_cov_stats->total_reads_paired;
+	read_cov_stats->total_reads_proper_paired += tmp_read_cov_stats->total_reads_proper_paired;
+	read_cov_stats->total_supplementary_reads += tmp_read_cov_stats->total_supplementary_reads;
+	read_cov_stats->total_paired_reads_with_mapped_mates += tmp_read_cov_stats->total_paired_reads_with_mapped_mates;
+}
+
+void copyWGSCoverageStats(WGS_Coverage_Stats *wgs_cov_stats, WGS_Coverage_Stats *tmp_wgs_cov_stats) {
 	// base related stats
 	//
-	stats_info->cov_stats->total_uniquely_aligned_bases += cov_stats->total_uniquely_aligned_bases;
-	stats_info->cov_stats->total_mapped_bases     += cov_stats->total_mapped_bases;
-	stats_info->cov_stats->base_quality_20        += cov_stats->base_quality_20;
-	stats_info->cov_stats->base_quality_30        += cov_stats->base_quality_30;
-	stats_info->cov_stats->total_overlapped_bases += cov_stats->total_overlapped_bases;
+	wgs_cov_stats->base_quality_20        += tmp_wgs_cov_stats->base_quality_20;
+	wgs_cov_stats->base_quality_30        += tmp_wgs_cov_stats->base_quality_30;
+	wgs_cov_stats->total_mapped_bases     += tmp_wgs_cov_stats->total_mapped_bases;
+	wgs_cov_stats->total_overlapped_bases += tmp_wgs_cov_stats->total_overlapped_bases;
+	wgs_cov_stats->total_uniquely_aligned_bases += tmp_wgs_cov_stats->total_uniquely_aligned_bases;
+}
 
+void copyCaptureCoverageStats(Capture_Coverage_Stats **capture_cov_stats, Capture_Coverage_Stats **tmp_capture_cov_stats, User_Input *user_inputs) {
 	// target (capture) related stats
 	//
-	stats_info->cov_stats->on_target_read_hit_count  += cov_stats->on_target_read_hit_count;
-	stats_info->cov_stats->in_buffer_read_hit_count  += cov_stats->in_buffer_read_hit_count;
-	stats_info->cov_stats->off_target_read_hit_count += cov_stats->off_target_read_hit_count;
-
-
-	if (stats_info->cov_stats->read_length == 0) 
-		stats_info->cov_stats->read_length = cov_stats->read_length;
-
+    int i;
+    for (i=0; i<user_inputs->num_of_target_files; i++) {
+	    capture_cov_stats[i]->on_target_read_hit_count  += tmp_capture_cov_stats[i]->on_target_read_hit_count;
+    	capture_cov_stats[i]->in_buffer_read_hit_count  += tmp_capture_cov_stats[i]->in_buffer_read_hit_count;
+	    capture_cov_stats[i]->off_target_read_hit_count += tmp_capture_cov_stats[i]->off_target_read_hit_count;
+    }
 }
 
 // get the key for hash table for everything 1000 bases
@@ -1238,7 +1290,7 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 	// need to remove Ns_bases, (the number of Ns bases need to be calculated based on the user input)
 	//
-	uniformity_total_bases -= stats_info->cov_stats->total_Ns_bases; 
+	uniformity_total_bases -= stats_info->wgs_cov_stats->total_Ns_bases; 
 
 	// now walk through the hash table, find the mode 
 	//
@@ -1252,17 +1304,17 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 			if (kh_key(cov_freq_dist, iter) == 0) {
 				// remove Ns bases and continue
 				//
-				if (kh_value(cov_freq_dist, iter) > stats_info->cov_stats->total_Ns_bases) {
-					kh_value(cov_freq_dist, iter) -= stats_info->cov_stats->total_Ns_bases;
+				if (kh_value(cov_freq_dist, iter) > stats_info->wgs_cov_stats->total_Ns_bases) {
+					kh_value(cov_freq_dist, iter) -= stats_info->wgs_cov_stats->total_Ns_bases;
 				} else {
-					fprintf(stderr, "The Ns region %"PRIu32" is larger than calculated one %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases, kh_value(cov_freq_dist, iter));
+					fprintf(stderr, "The Ns region %"PRIu32" is larger than calculated one %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases, kh_value(cov_freq_dist, iter));
 				}
 
 				continue;
 			}
 
 			if (kh_value(cov_freq_dist, iter) > count_at_mode) {
-				stats_info->cov_stats->mode = kh_key(cov_freq_dist, iter);
+				stats_info->wgs_cov_stats->mode = kh_key(cov_freq_dist, iter);
 				count_at_mode = kh_value(cov_freq_dist, iter);
 			}
 		}
@@ -1270,34 +1322,34 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 	// remove Ns
 	//
-	total_area_under_histogram -= stats_info->cov_stats->total_Ns_bases;
+	total_area_under_histogram -= stats_info->wgs_cov_stats->total_Ns_bases;
 
 	// calculate the peak area under histogram
 	//
-	uint64_t peak_area_under_hist = dynamicCalculateAreaUnderHistogram(stats_info->cov_stats->mode, cov_freq_dist, user_inputs);
+	uint64_t peak_area_under_hist = dynamicCalculateAreaUnderHistogram(stats_info->wgs_cov_stats->mode, cov_freq_dist, user_inputs);
 	if (autosome == 1) {
 		// Here we need to adjust the total_area_under_histogram as it didn't add Ns for X and Y, but we subtract them anyway
 		// Therefore, we need to add them back to make up the loss
 		//
-		total_area_under_histogram += stats_info->cov_stats->total_Ns_bases_on_chrX;
-		total_area_under_histogram += stats_info->cov_stats->total_Ns_bases_on_chrY;
+		total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrX;
+		total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrY;
 
 		if (primary_chromosomes_only) {
 			printf("\nUniformity for primary autosome ONLY, without alt, decoys etc.\n");
-			stats_info->cov_stats->uniformity_metric_primary_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
+			stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
 		} else {
 			printf("\nUniformity for autosome ONLY (including alt, decoy etc.)\n");
-			stats_info->cov_stats->uniformity_metric_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
+			stats_info->wgs_cov_stats->uniformity_metric_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
 		}
 	} else {
 		// for all chromosome
 		//
 		if (primary_chromosomes_only) {
 			printf("\nUniformity for All Primary Chromosomes, including X and Y chromosomes. But without alt, decoys etc.\n");
-			stats_info->cov_stats->uniformity_metric_all_primary = (double) peak_area_under_hist / (double) total_area_under_histogram;
+			stats_info->wgs_cov_stats->uniformity_metric_all_primary = (double) peak_area_under_hist / (double) total_area_under_histogram;
 		} else {
 			printf("\nUniformity for All (including X, Y chromosomes, alt and decoys etc.\n");
-			stats_info->cov_stats->uniformity_metric_all = (double) peak_area_under_hist / (double) total_area_under_histogram;
+			stats_info->wgs_cov_stats->uniformity_metric_all = (double) peak_area_under_hist / (double) total_area_under_histogram;
 		}
 	}
 
@@ -1381,8 +1433,8 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 }
 
 void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs) {
-	uint64_t total_genome_non_Ns_bases = stats_info->cov_stats->total_genome_bases - stats_info->cov_stats->total_Ns_bases;
-	double average_coverage = (double) stats_info->cov_stats->total_genome_coverage/ (double) total_genome_non_Ns_bases;
+	uint64_t total_genome_non_Ns_bases = stats_info->wgs_cov_stats->total_genome_bases - stats_info->wgs_cov_stats->total_Ns_bases;
+	double average_coverage = (double) stats_info->wgs_cov_stats->total_genome_coverage/ (double) total_genome_non_Ns_bases;
 
 	if (!user_inputs->user_set_peak_size_on) {
 		if (average_coverage <= 20) {

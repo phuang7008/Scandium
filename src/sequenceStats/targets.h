@@ -35,12 +35,12 @@ uint32_t getLineCount(char *bed_file);
 /**
  * open the input bed-formated file and then load the coordinate regions into memory and leave them there
  * Note: the input file should be in .bed format
- * @param user_inputs: variable that stores all the user provided inputs
+ * @param user_inputs: a variable contains all the user inputs including the target or Ns bed file names
+ * @param bed_file: input name for the bed file
  * @param coords: the Bed_Coords structure to store coordinates of each bed section
- * @param type: type of bedfile input, either capture bedfile or N region bedfile
  * @return the total number of bases covered in the target/N-regions bed file
  */
-uint32_t loadBedFiles(User_Input *user_inputs, Bed_Coords * coords, short type);
+uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords);
 
 /**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup
@@ -50,17 +50,23 @@ uint32_t loadBedFiles(User_Input *user_inputs, Bed_Coords * coords, short type);
  * @param user_inputs, contains all the user inputs information, including target_buffer_size
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash,short type);
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, short target_file_index, short type);
 
 /**
  * process bed-formatted file and populate the coordinates and lookup hash table
  * @param user_inputs: contains all the user inputs including the target or Ns bed file names
  * @param bed_info: the storage of bed coordinates and the size of the bed file
  * @param stats_info: a variable that contains various statistical information
- * @param header: it contains all the chromosome id and length information
+ * @param target_buffer_status: a variable to store target/buffer info
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, khash_t(khStrInt)* wanted_chromosome_hash, short type);
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, char* bedfile_name, short target_file_index, short type);
+
+uint8_t getTargetBufferBit(uint8_t target_file_index);
+
+void setTargetBufferStatus(Target_Buffer_Status *target_buffer_status, int chrom_idx, uint32_t pos_idx, uint8_t target_file_index, uint8_t type);
+
+void processBufferRegions(uint32_t start, uint32_t end, int chrom_idx, Target_Buffer_Status *target_buffer_status, short target_file_index);
 
 /**
  * just to output some information for debugging

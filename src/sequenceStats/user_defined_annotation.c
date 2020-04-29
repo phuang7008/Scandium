@@ -898,7 +898,7 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 		if ( strcmp(target_info->coords[i].chrom_id, chrom_id) != 0)
 			continue;
 
-		stats_info->cov_stats->total_targets++;
+		stats_info->capture_cov_stats[file_index]->total_targets++;
 		int32_t start = target_info->coords[i].start;
 		int32_t end = target_info->coords[i].end;
 		int length = end - start + 1;
@@ -912,8 +912,8 @@ void writeCoverageForUserDefinedDB(char *chrom_id, Bed_Info *target_info, Chromo
 				if ( k < 0 || (end + j) >= chrom_tracking->chromosome_lengths[idx])
 					continue;
 
-				stats_info->five_prime[j]  += chrom_tracking->coverage[idx][k];
-				stats_info->three_prime[j] += chrom_tracking->coverage[idx][end+j];
+				stats_info->capture_cov_stats[file_index]->five_prime[j]  += chrom_tracking->coverage[idx][k];
+				stats_info->capture_cov_stats[file_index]->three_prime[j] += chrom_tracking->coverage[idx][end+j];
 			}
 		}
 

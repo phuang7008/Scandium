@@ -72,8 +72,10 @@ bool isFloat(const char *str, float *dest);
  * Handle an input with multiple user defined annotation files
  * @param optarg: the annotation files at the command line separated by comma ','
  * @param user_inputs: a variable to store all of the user provided inputs
+ * @param type: the type of file array: 1 for target file, 2 for annotation file
  */
-void formAnnotationFileArray(char* optarg, User_Input *user_inputs);
+void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type);
+
 
 /**
  * process user input options and ensure they are correct!
@@ -146,8 +148,9 @@ const char* baseFilename(char const *filepath);
 /**
  * Obtain the base file name without the extension from a filepath
  * @param user_inputs: variable that stores the user inputs related information
+ * @param type: the type of files used => 1 for target files, 2 for annotation files
  */
-void getBaseFilenameWithoutExtension(User_Input *user_inputs);
+void getBaseFilenameWithoutExtension(User_Input *user_inputs, uint8_t type);
 
 /*
  * The method is added for cram file input as cram file processing needs reference sequence
@@ -155,6 +158,13 @@ void getBaseFilenameWithoutExtension(User_Input *user_inputs);
  * @return the file path to the reference sequence's fai file
  */
 char* getReferenceFaiPath(const char *fn_ref);
+
+/*
+ * This method will free all the memories allocated for storing file names (array)
+ * @param f_size: the file array size
+ * @param file_array: the input file array
+ */
+void cleanCreatedFileArray(uint8_t f_size, char **file_array);
 
 void setupMySQLDB(Databases **dbs, User_Input *user_inputs);
 

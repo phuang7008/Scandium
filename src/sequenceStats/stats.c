@@ -57,7 +57,7 @@ uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
 	return record_idx;
 }
 
-void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash) {
+void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
 	uint32_t i = 0;
@@ -77,14 +77,14 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			fprintf(stderr, "Random selection (i.e. downsampling) is ON\n");
         }
 
-		//cov_stats->total_reads_produced++;
+		//tmp_stats_info->read_cov_stats->total_reads_produced++;
 
 		// Need to check various 'READ' flags regarding the current read before doing statistics analysis
 		// But the order here is quite important,
 		// mapped vs unmapped first
 		//
         if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FUNMAP)	{			// Read Unmapped
-		    cov_stats->total_reads_produced++;
+		    tmp_stats_info->read_cov_stats->total_reads_produced++;
             continue;
 		}
 
@@ -98,7 +98,7 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 				continue;
 			}
 		}
-		cov_stats->total_reads_produced++;
+		tmp_stats_info->read_cov_stats->total_reads_produced++;
 
 		if(read_buff_in->chunk_of_reads[i]->core.qual < user_inputs->min_map_quality) {
             continue;
@@ -114,30 +114,30 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
         
 		// the total_mapped_bases should contain everything including soft-clipped bases
 		//
-		cov_stats->total_mapped_bases += read_buff_in->chunk_of_reads[i]->core.l_qseq;	
-		cov_stats->total_reads_aligned++;
+		tmp_stats_info->wgs_cov_stats->total_mapped_bases += read_buff_in->chunk_of_reads[i]->core.l_qseq;	
+		tmp_stats_info->read_cov_stats->total_reads_aligned++;
 
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPAIRED) {			// Read is paired
-			cov_stats->total_reads_paired++;
+			tmp_stats_info->read_cov_stats->total_reads_paired++;
             if(!(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FMUNMAP)) {	// Read is Paird with Mapped Mate 
-				cov_stats->total_paired_reads_with_mapped_mates++;
+				tmp_stats_info->read_cov_stats->total_paired_reads_with_mapped_mates++;
             }
         }
 
 		if(read_buff_in->chunk_of_reads[i]->core.flag & BAM_FDUP) {				// Read is a Duplicate (either optical or PCR)
-			cov_stats->total_duplicate_reads++;
+			tmp_stats_info->read_cov_stats->total_duplicate_reads++;
             if(user_inputs->remove_duplicate) continue;
         }
 
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FPROPER_PAIR) {	// Read is properly paired
-			cov_stats->total_reads_proper_paired++;
+			tmp_stats_info->read_cov_stats->total_reads_proper_paired++;
 		} else {
-			cov_stats->total_chimeric_reads++;
+			tmp_stats_info->read_cov_stats->total_chimeric_reads++;
             //continue;       // in hg37, it is also has supplementary flag set
 		}
 
 		if (read_buff_in->chunk_of_reads[i]->core.flag & BAM_FSUPPLEMENTARY) {
-			cov_stats->total_supplementary_reads++;
+			tmp_stats_info->read_cov_stats->total_supplementary_reads++;
 			//if (user_inputs->remove_supplementary_alignments)
 			continue;
 		}
@@ -176,12 +176,12 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
 			not_added = false;
 
 			/////////////////Added on Feb 11, 2015/////////////////////////////
-        	if (cov_stats->read_length <= 0)
-				cov_stats->read_length = read_buff_in->chunk_of_reads[i]->core.l_qseq;
+        	if (tmp_stats_info->read_cov_stats->read_length <= 0)
+				tmp_stats_info->read_cov_stats->read_length = read_buff_in->chunk_of_reads[i]->core.l_qseq;
         	///////////////////////////////////////////////////////////////////
 		}
 
-        processRecord(user_inputs, cov_stats, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status, same_chr, iter_in_out);
+        processRecord(user_inputs, tmp_stats_info, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status, same_chr, iter_in_out);
     }
 
 	if (iter_in_out != NULL) free(iter_in_out);
@@ -189,9 +189,14 @@ void processBamChunk(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t
     //printf("Done read bam for thread %d\n", thread_id);
 }
 
-void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out) {
+void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out) {
 	uint32_t i=0, chrom_len=0;
-	bool on_target=false, in_buffer=false;
+	bool *on_target=calloc(8, sizeof(bool));
+    bool *on_buffer=calloc(8, sizeof(bool));
+    for (i=0; i<8; i++) {
+        on_target[i] = false;
+        on_buffer[i] = false;
+    }
 
 	// get the target_buffer_status index,
 	// need to do the following no matter target file or Ns regions specified or not
@@ -236,7 +241,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
     bool flag_overlap = false;
 
     if ( isize > 0 && user_inputs->excluding_overlapping_bases) {    // check if users turn on the flag to excluding overlapped bases
-        flag_overlap = getOverlapInfo(user_inputs, cov_stats, rec, &m_pos_r_end);
+        flag_overlap = getOverlapInfo(user_inputs, tmp_stats_info, rec, &m_pos_r_end);
 
         if (m_pos_r <= pos_r && pos_r_end <= m_pos_r_end) {
             // complete engulfed by the Reverse read, will skip this Forward read
@@ -261,7 +266,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			PacBio software will abort if BAM_CMATCH is found in a CIGAR field.
 		*/
 		if (cop == BAM_CMATCH || cop == BAM_CEQUAL || cop == BAM_CDIFF) {
-            //cov_stats->total_uniquely_aligned_bases += cln;
+            //tmp_stats_info->wgs_cov_stats->total_uniquely_aligned_bases += cln;
 
 			// For matched/mis-matched bases only. Thus, this portion doesn't contain soft-clipped
 			//
@@ -270,21 +275,13 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 				//if (pos_r < 0) continue;      // removed! As it is always false
 				if (pos_r >= chrom_len) break;
 
-				if (TARGET_FILE_PROVIDED && (idx >=0)) {
-					if (!on_target) {
-						if (target_buffer_status[idx].status_array[pos_r] == 1 || target_buffer_status[idx].status_array[pos_r] == 4)
-							on_target = true;
-					}
-
-					if (!in_buffer) {
-						if (target_buffer_status[idx].status_array[pos_r] == 2 || target_buffer_status[idx].status_array[pos_r] == 5)
-							in_buffer = true;
-					}
+                if (TARGET_FILE_PROVIDED && (idx >=0)) {
+                    setTargetBufferFlags(target_buffer_status, on_target, on_buffer, idx, pos_r);
 				}
 
                 if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {
-				    if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
-				    if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
+				    if (qual[pos_q] >= 20) tmp_stats_info->wgs_cov_stats->base_quality_20++;
+				    if (qual[pos_q] >= 30) tmp_stats_info->wgs_cov_stats->base_quality_30++;
                 }
 
 				if ( (user_inputs->min_base_quality) > 0 && (qual[pos_q] < user_inputs->min_base_quality) ) {	
@@ -297,7 +294,7 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 
                 if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {
 				    kh_value(coverage_hash, *iter_in_out)->cov_array[pos_r]++;
-                    cov_stats->total_uniquely_aligned_bases++;
+                    tmp_stats_info->wgs_cov_stats->total_uniquely_aligned_bases++;
                 }
 				pos_r++;
 				pos_q++;
@@ -314,15 +311,15 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 			// as they are not part of the reference, we will not advance the pos_r
 			// this is confirmed by the web:  https://github.com/lh3/samtools/blob/master/bam_md.c
 			//
-			//cov_stats->total_uniquely_aligned_bases += cln;
+			//tmp_stats_info->wgs_cov_stats->total_uniquely_aligned_bases += cln;
 			for (j=0; j<cln; ++j) {
 				//if (pos_r < 0) continue;      // Removed! As it is always false!
 				if (pos_r >= chrom_len) break; 
 
 				// insertion bases will be counted as aligned bases
 				//
-				if (qual[pos_q] >= 20) cov_stats->base_quality_20++;
-				if (qual[pos_q] >= 30) cov_stats->base_quality_30++;
+				if (qual[pos_q] >= 20) tmp_stats_info->wgs_cov_stats->base_quality_20++;
+				if (qual[pos_q] >= 30) tmp_stats_info->wgs_cov_stats->base_quality_30++;
 				pos_q++;
 			}
 
@@ -343,14 +340,49 @@ void processRecord(User_Input *user_inputs, Coverage_Stats *cov_stats, khash_t(s
 	}
 
 	if (TARGET_FILE_PROVIDED) {
-		if (on_target) {
-			cov_stats->on_target_read_hit_count += 1;
-		} else if (in_buffer) {
-			cov_stats->in_buffer_read_hit_count += 1;
-		} else {
-			cov_stats->off_target_read_hit_count += 1;
-		}
+        for (i=0; i<user_inputs->num_of_target_files; i++) {
+		    if (on_target[i]) {
+			    tmp_stats_info->capture_cov_stats[i]->on_target_read_hit_count += 1;
+                on_target[i] = 0;
+		    } else if (on_buffer[i]) {
+			    tmp_stats_info->capture_cov_stats[i]->in_buffer_read_hit_count += 1;
+                on_buffer[i] = 0;
+		    } else {
+			    tmp_stats_info->capture_cov_stats[i]->off_target_read_hit_count += 1;
+		    }
+        }
 	}
+
+    //if (on_buffer[2]) fprintf(stderr, "flag:%d\tvalue\t%"PRIu32"\n", on_buffer[2], tmp_stats_info->capture_cov_stats[2]->in_buffer_read_hit_count);
+    free(on_target);
+    free(on_buffer);
+    on_target = NULL;
+    on_buffer = NULL;
+}
+
+void setTargetBufferFlags(Target_Buffer_Status *target_buffer_status, bool *on_target, bool *on_buffer, uint32_t chrom_idx, uint32_t pos_idx) {
+
+    if (target_buffer_status[chrom_idx].target_status_array[pos_idx] > 0) {
+        if (!on_target[0] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_1) > 0) { on_target[0]=true; }
+        if (!on_target[1] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_2) > 0) { on_target[1]=true; }
+        if (!on_target[2] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_3) > 0) { on_target[2]=true; }
+        if (!on_target[3] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_4) > 0) { on_target[3]=true; }
+        if (!on_target[4] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_5) > 0) { on_target[4]=true; }
+        if (!on_target[5] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_6) > 0) { on_target[5]=true; }
+        if (!on_target[6] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_7) > 0) { on_target[6]=true; }
+        if (!on_target[7] && (target_buffer_status[chrom_idx].target_status_array[pos_idx] & TRT_BFR_8) > 0) { on_target[7]=true; }
+    }
+
+    if (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] > 0) {
+        if (!on_buffer[0] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_1) > 0) { on_buffer[0]=true; }
+        if (!on_buffer[1] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_2) > 0) { on_buffer[1]=true; }
+        if (!on_buffer[2] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_3) > 0) { on_buffer[2]=true; }
+        if (!on_buffer[3] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_4) > 0) { on_buffer[3]=true; }
+        if (!on_buffer[4] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_5) > 0) { on_buffer[4]=true; }
+        if (!on_buffer[5] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_6) > 0) { on_buffer[5]=true; }
+        if (!on_buffer[6] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_7) > 0) { on_buffer[6]=true; }
+        if (!on_buffer[7] && (target_buffer_status[chrom_idx].buffer_status_array[pos_idx] & TRT_BFR_8) > 0) { on_buffer[7]=true; }
+    }
 }
 
 //Note: this function needs to be run unde the critical condition, that is only one thread will run this function
@@ -408,7 +440,7 @@ void combineThreadResults(Chromosome_Tracking *chrom_tracking, khash_t(str) *cov
 
 // For return value: 0 => No overlapping; 1 => Overlapping Yes; 2 => Completely Overlap (need to skip)
 //
-bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *rec, uint32_t *m_pos_r_end) {
+bool getOverlapInfo(User_Input *user_inputs, Stats_Info *stats_info, bam1_t *rec, uint32_t *m_pos_r_end) {
     if ( user_inputs->excluding_overlapping_bases &&    // check if users turn on the flag to excluding overlapped bases
          (rec->core.tid == rec->core.mtid)              // on the same chromosome
        ) {
@@ -434,14 +466,14 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
                     //  pos_r ----------------- pos_r_end
                     //          m_pos_r --------------------- don't know
                     //
-                    cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
+                    stats_info->wgs_cov_stats->total_overlapped_bases += pos_r_end - m_pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
                     return true;
                 } else if (pos_r > m_pos_r) {
                     // Special cases
                     //          pos_r ---------------- pos_r_end
                     //  m_pos_r ---------------............. don't know
                     //
-                    cov_stats->total_overlapped_bases += pos_r_end - pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
+                    stats_info->wgs_cov_stats->total_overlapped_bases += pos_r_end - pos_r + 1;   // both are 0-based after I changed pos_r_end from 1-based to 0-based
                     return true;
                 } else {
                     // non overlapping on the same chromosome
@@ -519,7 +551,7 @@ bool getOverlapInfo(User_Input *user_inputs, Coverage_Stats *cov_stats, bam1_t *
                 printf ("end < start => Special case to be handled later %s\n", rec->data);
             }
 
-            cov_stats->total_overlapped_bases += end - start + 1;   // should add 1 because endpos is 0-based
+            stats_info->wgs_cov_stats->total_overlapped_bases += end - start + 1;   // should add 1 because endpos is 0-based
 
             return true;
         } else {
