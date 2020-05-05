@@ -134,51 +134,66 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 //
 void usage() {
     printf("Version %s\n\n", VERSION_ );
-    printf("Usage:  scandium -i bam/cram -o output_directory [options ...]\n");
+    printf("Usage:  scandium -input_bam bam/cram -output_dir output_directory [options ...]\n");
     printf("Note:   this is a multi-threading program. Each thread needs 4Gb of memory. So please allocate them accordingly!\n");
     printf("\tfor example: 3 threads would use 12Gb of memory, while 4 threads would need 16Gb of memory, etc.\n\n");
     printf("Mandatory:\n");
-    printf("\t-i <BAM/CRAM alignment file (multiple files are not allowed!). It Is Mandatory >\n");
-    printf("\t-o <output directory. It Is Mandatory>\n");
-    printf("\t-R <the file path of the reference sequence. It is Mandatory for CRAM files>\n\n");
+    printf("--input_bam     -i  BAM/CRAM alignment file (multiple files are not allowed!).\n");
+    printf("                    It Is Mandatory\n");
+    printf("--output_dir    -o  output directory. It Is Mandatory\n");
+    printf("--reference     -R  the file path of the reference sequence. \n");
+    printf("                    It is Mandatory for CRAM files\n\n");
 
     printf("The Followings Are Optional:\n");
-    printf("\t-b <minimal base quality: to filter out any bases with base quality  less than b. Default 0>\n");
-    printf("\t-f <file names that contain user defined annotation databases (for multiple files, please use comma ',' to separate each annotation file. Note, the order should be the same as the input capture bed files) >\n");
-    printf("\t-g <the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
-    printf("\t-k <number of points around peak (eg, Mode) area for the area under histogram calculation (for WGS Uniformity only): Dynamically Selected Based on Average Coverage of the Sample>\n");
-    printf("\t-m <minimal mapping quality score: to filter out any reads with mapping quality less than m. Default 0>\n");
-    printf("\t-n <file name that contains regions of Ns in the reference genome in bed format>\n");
-    printf("\t-p <the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)>\n");
-    printf("\t-r <file name that contains chromosomes and their regions need to be processed. Default: Not Provided>\n");
-    printf("\t-t <capture target files. If specified, all related output filenames will contain '.Capture_'. (for multiple capture input file, please use comma ',' to separate each capture bed file. Note: the order should be the same as the input annotation files)>\n");
+    printf("--min_base_qual -b  minimal base quality\n");
+    printf("                    to filter out any bases with base quality less than b. Default 0\n");
+    printf("--min_map_qual  -m  minimal mapping quality\n");
+    printf("                    to filter out any reads with mapping quality less than m. Default 0\n");
+    printf("--f1 --f2 ... --f8  user defined annotation file (one tag per annotation file).\n");
+    printf("                    Note, the maximum number of annotatioin files allowed is 8\n");
+    printf("--t1 --t2 ... --t8  capture target file. (one tag per capture file)\n");
+    printf("                    Note: the maximum number of capture files allowed is 8\n");
+    printf("--gvcf_block    -g  the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
+    printf("                    The value of gvcf_block should be larger than or equal to 1\n");
+    printf("--peak_size     -k  number of points around peak (eg, Mode) area for the area \n");
+    printf("                    under histogram calculation (for WGS Uniformity only)\n");
+    printf("                    Dynamically Selected Based on Average Coverage of the Sample\n");
+    printf("--Ns_regions    -n  file name that contains regions of Ns in the reference genome in bed format\n");
+    printf("--percentage    -p  the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)\n");
+    printf("--chr_list      -r  file name that contains chromosomes and their regions \n");
+    printf("                    need to be processed in bed format. Default: Not Provided\n");
+    printf("--buffer        -B  the Buffer size immediate adjacent to a target region. Default: 100\n");
+    printf("--DB_version    -D  the version of human genome database (either hg19 [or hg37], or hg38).\n");
+    printf("                    Default: hg19/hg37>\n");
+    printf("--threshold_high -H the high coverage threshold/cutoff value.\n");
+    printf("                    Any coverages larger than or equal to it will be outputted. Default=10000\n");
+    printf("--threshold_low -L  the low coverage threshold/cutoff value.\n");
+    printf("                    Any coverages smaller than it will be outputted. Default: 20\n");
+    printf("--password      -P  the MySQL DB login user's Password\n");
+    printf("--threads       -T  the number of threads \n");
+    printf("                    (Note: when used with HPC's msub, make sure that the number of\n"); 
+    printf("                    processors:ppn matches to number of threads). Default 3\n");
+    printf("--username      -U  the MySQL DB login User name\n");
 
-    printf("\t-B <the Buffer size immediate adjacent to a target region. Default: 100>\n");
-    printf("\t-D <the version of human genome database (either hg19 [or hg37], or hg38). Default: hg19/hg37>\n");
-    printf("\t-H <the high coverage cutoff value. Any coverages larger than or equal to it will be outputted. Default=10000>\n");
-    printf("\t-L <the low coverage cutoff value. Any coverages smaller than it will be outputted. Default: 20>\n");
-    printf("\t-P <the MySQL DB login user's Password>\n");
-    printf("\t-T <the number of threads (Note: when used with HPC's msub, make sure number of processors:ppn matches to number of threads). Default 3>\n");
-    printf("\t-U <the MySQL DB login User name>\n");
-
-    printf("The Followings generate block regions used for data smoothing in Coverage Uniformity Analysis\n");
-    printf("\t-l <the lower bound for the block region output. Default: 1>\n");
-    printf("\t-u <the upper bound for the block region output. Default: 150>\n\n");
+    printf("\nThe Followings generate block regions used for data smoothing in Coverage Uniformity Analysis\n");
+    printf("--lower_bound   -l  the lower bound for the block region output. Default: 1\n");
+    printf("--upper_bound   -u  the upper bound for the block region output. Default: 150\n\n");
 
     printf("The Followings Are Flags\n");
-    printf("\t[-a] Specify this flag only when you want to Turn ON the annotation for WGS only. Default: Annotation is OFF\n");
-    printf("\t[-C] To produce Capture cov.fasta file that contains the detailed coverage count info for each targeted base. Default: OFF\n");
-    printf("\t[-d] Specify this flag only when you want to keep Duplicates reads. Default: Remove Duplicate is ON\n");
-    printf("\t[-s] Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
-    printf("\t[-w] Write whole genome coverage related reports (all of the output file names related to this will have '.WGS_' in them). This flag doesn't produce the WGS Coverage.fasta file, use -W for that. Default: off\n");
-
-    printf("\t[-G] Write/Dump the WIG formatted file. Default: off\n");
-    printf("\t[-M] Use HGMD annotation. Default: off\n");
-    //printf("\t[-N] Developer option for turn non_MC_tag_ON. Default: off\n");
-    printf("\t[-O] Handle Overlapping Reads/Bases to avoid double counting. Default: off\n");
-    printf("\t[-V] Output regions with high coverage (used with -H: default 10000). Default: off\n");
-    printf("\t[-W] Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
-    printf("\t[-h] Print this help/usage message\n");
+    printf("--annotation    -a  Specify this flag only when you want to Turn ON the annotation for WGS only.\n");
+    printf("                    Default: Annotation is OFF>\n");
+    printf("--capture_depth -C  To produce Capture coverage depth (cov.fasta) file that contains \n");
+    printf("                    coverage count info for each targeted base. Default: OFF\n");
+    printf("--duplicate     -d  Specify this flag only when you want to keep Duplicates reads.\n");
+    printf("                    Default: Remove Duplicate is ON\n");
+    printf("--supplemental  -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
+    printf("--wgs           -w  conducting whole genome coverage analysis. Default: off\n");
+    printf("--wig_output    -G  Write/Dump the WIG formatted file. Default: off\n");
+    printf("--hgmd          -M  Use HGMD annotation. Default: off\n");
+    printf("--overlap       -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
+    printf("--high_cov_out  -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
+    printf("--wig_output    -W  Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
+    printf("--help          -h  Print this help/usage message\n");
 }
 
 // This is used to check if a string (ie char *) is an int number
@@ -217,12 +232,160 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     int arg, i;
     bool input_error_flag=false;
     bool flag_float=true;
+    khash_t(khStrStr) *capture_files = kh_init(khStrStr);
+    khash_t(khStrStr) *annotation_files = kh_init(khStrStr);
 
-    //When getopt returns -1, no more options available
-    //
-    while ((arg = getopt(argc, argv, "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h")) != -1) {
+    // Flag set by '--verbose'
+    //static int verbose_flag;
+
+    while (1) {
+        static struct option long_options[] =
+        {
+            /* These options set a flag. */
+            //{"verbose",  no_argument,  &verbose_flag,  9},
+            //{"brief",    no_argument,  &verbose_flag,  0},
+            /* These options don't set a flag. We distinguish them by their indices. */
+            {"f1",      required_argument,  0,  'e'},
+            {"f2",      required_argument,  0,  'j'},
+            {"f3",      required_argument,  0,  'x'},
+            {"f4",      required_argument,  0,  'z'},
+            {"f5",      required_argument,  0,  'E'},
+            {"f6",      required_argument,  0,  'J'},
+            {"f7",      required_argument,  0,  'X'},
+            {"f8",      required_argument,  0,  'Z'},
+            {"t1",      required_argument,  0,  '1'},
+            {"t2",      required_argument,  0,  '2'},
+            {"t3",      required_argument,  0,  '3'},
+            {"t4",      required_argument,  0,  '4'},
+            {"t5",      required_argument,  0,  '5'},
+            {"t6",      required_argument,  0,  '6'},
+            {"t7",      required_argument,  0,  '7'},
+            {"t8",      required_argument,  0,  '8'},
+            {"buffer",          required_argument,  0,  'B'},
+            {"chr_list",        required_argument,  0,  'r'},
+            {"DB_version",      required_argument,  0,  'D'},
+            {"input_bam",       required_argument,  0,  'i'},
+            {"gvcf_block",      required_argument,  0,  'g'},
+            {"threshold_high",  required_argument,  0,  'H'},
+            {"threshold_low",   required_argument,  0,  'L'},
+            {"lower_bound",     required_argument,  0,  'l'},
+            {"upper_bound",     required_argument,  0,  'u'},
+            {"min_base_qual",   required_argument,  0,  'b'},
+            {"min_map_qual",    required_argument,  0,  'm'},
+            {"output_dir",      required_argument,  0,  'o'},
+            {"reference",       required_argument,  0,  'R'},
+            {"percentage",      required_argument,  0,  'p'},
+            {"peak_size",       required_argument,  0,  'k'},
+            {"password",        required_argument,  0,  'P'},
+            {"username",        required_argument,  0,  'U'},
+            {"Ns_regions",      required_argument,  0,  'n'},
+            {"threads",         required_argument,  0,  'T'},
+            {"annotation",          no_argument,  0,  'a'},
+            {"capture_depth",       no_argument,  0,  'C'},
+            {"duplicate",           no_argument,  0,  'd'},
+            {"help",                no_argument,  0,  'h'},
+            {"hgmd",                no_argument,  0,  'M'},
+            {"overlap",             no_argument,  0,  'O'},
+            {"supplemental",        no_argument,  0,  's'},
+            {"high_cov_out",        no_argument,  0,  'V'},
+            {"wig_output",          no_argument,  0,  'G'},
+            {"wgs",                 no_argument,  0,  'w'},
+            {"wgs_dump",            no_argument,  0,  'W'},
+            {0,  0,  0,  0},
+        };
+
+        /* getopt_long stores the option index here. */
+        int option_index = 0;
+
+        arg = getopt_long_only (argc, argv, 
+                    "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
+                    long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (arg == -1) break;
+
         //printf("User options for %c is %s\n", arg, optarg);
         switch(arg) {
+            case '1':
+                addValueToKhashBucketStrStr(capture_files, "1", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '2':
+                addValueToKhashBucketStrStr(capture_files, "2", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '3':
+                addValueToKhashBucketStrStr(capture_files, "3", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '4':
+                addValueToKhashBucketStrStr(capture_files, "4", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '5':
+                addValueToKhashBucketStrStr(capture_files, "5", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '6':
+                addValueToKhashBucketStrStr(capture_files, "6", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '7':
+                addValueToKhashBucketStrStr(capture_files, "7", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case '8':
+                addValueToKhashBucketStrStr(capture_files, "8", optarg);
+                user_inputs->num_of_target_files++;
+                TARGET_FILE_PROVIDED = true;
+                break;
+            case 'e':
+                addValueToKhashBucketStrStr(annotation_files, "1", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'j':
+                addValueToKhashBucketStrStr(annotation_files, "2", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'x':
+                addValueToKhashBucketStrStr(annotation_files, "3", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'z':
+                addValueToKhashBucketStrStr(annotation_files, "4", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'E':
+                addValueToKhashBucketStrStr(annotation_files, "5", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'J':
+                addValueToKhashBucketStrStr(annotation_files, "6", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'X':
+                addValueToKhashBucketStrStr(annotation_files, "7", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'Z':
+                addValueToKhashBucketStrStr(annotation_files, "8", optarg);
+                user_inputs->num_of_annotation_files++;
+                USER_DEFINED_DATABASE = true;
+                break;
             case 'a':
                 user_inputs->wgs_annotation_on = true; break;
             case 'b':
@@ -250,11 +413,13 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                     strcpy(user_inputs->database_version, "hg37");
 
                 break;
-            case 'f':
-                USER_DEFINED_DATABASE = true;
-                formTargetAnnotationFileArray(optarg, user_inputs, 2);
+            case 'g': 
+                user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10);
+                if (user_inputs->gVCF_percentage < 1) {
+                    fprintf(stderr, "===>The gVCF block size %s should be larger than or equal to 1\n", optarg);
+                    input_error_flag=true;
+                }
                 break;
-            case 'g': user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10); break;
             case 'G': user_inputs->Write_WIG = true; break;
             case 'h': usage(); exit(EXIT_FAILURE);
             case 'H':
@@ -337,10 +502,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->reference_file, optarg);
                 break;
             case 's': user_inputs->remove_supplementary_alignments = true; break;
-            case 't':
-                TARGET_FILE_PROVIDED = true;
-                formTargetAnnotationFileArray(optarg, user_inputs, 1);
-                break;
             case 'T':
                 if (!isNumber(optarg)) {
                     fprintf (stderr, "===>Entered number of threads %s is not a number\n", optarg);
@@ -365,11 +526,17 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'w': user_inputs->wgs_coverage = true; break;
             case 'W': user_inputs->Write_WGS_cov_fasta = true; break;
             case '?':
-                if (optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
+                if (   optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
                     || optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
                     || optopt == 'n' || optopt == 'o' || optopt == 'O' || optopt == 'p' || optopt == 'P' 
-                    || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
+                    || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U'
+                    || optopt == '1' || optopt == '2' || optopt == '3' || optopt == '4' || optopt == '5' 
+                    || optopt == '6' || optopt == '7' || optopt == '8' || optopt == '1' || optopt == 'e'
+                    || optopt == 'E' || optopt == 'j' || optopt == 'J' || optopt == 'x' || optopt == 'X' 
+                    || optopt == 'z' || optopt == 'Z' )
                     fprintf(stderr, "===>Option -%c requires an argument.\n", optopt);
+                else if (optopt == 0)
+                    fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
                 else
@@ -379,6 +546,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             default: fprintf(stderr, "===>Non-option argument %c\n", optopt); input_error_flag=true; break;
         }
     }
+
+    checkInputCaptureAndAnnotationFiles(user_inputs);
+    formTargetAnnotationFileArray(capture_files, annotation_files, user_inputs);
 
     // don't proceed if the user doesn't specify either -t or -w or both
     //
@@ -497,7 +667,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         // output low coverage regions for target (capture)
         //
         user_inputs->capture_low_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
+        for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_below%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->low_coverage_to_report);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_low_cov_files[p], string_to_add);
             writeHeaderLine(user_inputs->capture_low_cov_files[p], 1);
@@ -507,7 +677,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         //
         if (user_inputs->above_10000_on) {
             user_inputs->capture_high_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-            for (p=0; p<user_inputs->num_of_annotation_files; p++) {
+            for (p=0; p<user_inputs->num_of_target_files; p++) {
                 sprintf(string_to_add, ".%s.Capture_above%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->high_coverage_to_report);
                 createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_files[p], string_to_add);
                 writeHeaderLine(user_inputs->capture_high_cov_files[p], 1);
@@ -578,61 +748,82 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     //}
 
     // string_to_add is declared at the stack, so no need to free it!
+
+    cleanKhashStrStr(annotation_files);
+    cleanKhashStrStr(capture_files);
+}
+
+void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
+    if (user_inputs->num_of_annotation_files > user_inputs->num_of_target_files) {
+        fprintf(stderr, "You have entered more annotation files than capture files\n");
+        fprintf(stderr, "Please ensure the annotation file number < the capture file number!\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 // for handling multiple user defined database annotation files and multiple capture target bed files
 // type 1: target files     2: annotation files
 //
-void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type) {
-    // make a deep copy
-    //
-    char * saved_str = calloc(strlen(optarg)+1, sizeof(char));
-    strcpy(saved_str, optarg);
+void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs) {
+    user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+    user_inputs->user_defined_database_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
 
-    // let's check out how many annotation files a user provides
-    //
-    if (type == 1) {
-        user_inputs->num_of_target_files = 0;
-    } else {
-        user_inputs->num_of_annotation_files = 0;
-    }
+    const char *keys[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
+    char **capture_only_files = calloc(8, sizeof(char*));
+    int i;
+    uint8_t counter=0;
+    uint8_t capture_only_counter=0;
 
-    char *tokPtr;
-    char *savePtr = optarg;
-    while ((tokPtr = strtok_r(savePtr, ",", &savePtr))) {
-        if (isNumber(tokPtr)) {
-            fprintf (stderr, "Annotation File names needed  %s \n", tokPtr);
-            usage();
-            exit(EXIT_FAILURE);
+    for (i=0; i<8; i++) {
+        khiter_t a_iter = kh_get(khStrStr, annotation_files, keys[i]);
+        khiter_t c_iter = kh_get(khStrStr, capture_files, keys[i]);
+        
+        // no keys for both, just skip
+        //
+        if (a_iter == kh_end(annotation_files) && c_iter == kh_end(capture_files))
+            continue;
+
+        // annotation only without capture file
+        //
+        if (a_iter != kh_end(annotation_files) && c_iter == kh_end(capture_files)) {
+            fprintf(stderr, "ERROR: you have entered an annotation file %s\n", kh_value(annotation_files, a_iter));
+            fprintf(stderr, "without the corresponding capture file\n");
         }
 
-        if (type == 1) { 
-            user_inputs->num_of_target_files++;
-        } else {
-            user_inputs->num_of_annotation_files++;
+        // capture only without annotation file
+        //
+        if (a_iter == kh_end(annotation_files) && c_iter != kh_end(capture_files)) {
+            capture_only_files[capture_only_counter] = 
+                (char*) malloc(strlen(kh_value(capture_files, c_iter))+1 * sizeof(char));
+            strcpy(capture_only_files[capture_only_counter], kh_value(capture_files, c_iter));
+            capture_only_counter++;
+        }
+
+        // both have keys
+        //
+        if (a_iter != kh_end(annotation_files) && c_iter != kh_end(capture_files)) {
+            user_inputs->target_files[counter] = 
+                (char*) malloc(strlen(kh_value(capture_files, c_iter))+1 * sizeof(char));
+            strcpy(user_inputs->target_files[counter], kh_value(capture_files, c_iter));
+
+            user_inputs->user_defined_database_files[counter] = 
+                (char*) malloc(strlen(kh_value(annotation_files, a_iter))+1 * sizeof(char));
+            strcpy(user_inputs->user_defined_database_files[counter], kh_value(annotation_files, a_iter));
+
+            counter++;
         }
     }
 
-    if (type == 1) {
-        user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    } else {
-        user_inputs->user_defined_database_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-    }
-
-    uint8_t counter = 0;
-    char *savePtr2 = saved_str;
-    while ((tokPtr = strtok_r(savePtr2, ",", &savePtr2))) {
-        if (type == 1) {
-            user_inputs->target_files[counter] = (char*) malloc((strlen(tokPtr)+1) * sizeof(char));
-            strcpy(user_inputs->target_files[counter], tokPtr);
-        } else {
-            user_inputs->user_defined_database_files[counter] = (char*) malloc((strlen(tokPtr)+1) * sizeof(char));
-            strcpy(user_inputs->user_defined_database_files[counter], tokPtr);
-        }
+    for (i=0; i<capture_only_counter; i++) {
+        user_inputs->target_files[counter] = (char*) malloc(strlen(capture_only_files[i])+1 * sizeof(char));
+        strcpy(user_inputs->target_files[counter], capture_only_files[i]);
         counter++;
     }
 
-    if (saved_str != NULL) free(saved_str);
+    for (i=0; i<capture_only_counter; i++) {
+        free(capture_only_files[i]);
+    }
+    free(capture_only_files);
 }
 
 //Here I need to pass in file_in name string as reference, otherwise, it will be by value and will get segmentation fault
@@ -898,6 +1089,7 @@ void userInputDestroy(User_Input *user_inputs) {
     // cleanCreatedFileArray(user_inputs->num_of_target_files, );
     //
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->target_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->target_file_basenames);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_wig_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_reports);
@@ -907,7 +1099,7 @@ void userInputDestroy(User_Input *user_inputs) {
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_gene_pct_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_exon_pct_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_transcript_files);
-    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->annotation_file_basenames);
+    cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->annotation_file_basenames);
 
     if (user_inputs->chromosome_bed_file)
         free(user_inputs->chromosome_bed_file);

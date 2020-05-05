@@ -91,6 +91,8 @@ void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_bu
 
 void TargetBufferStatusInit(Target_Buffer_Status *target_buffer_status, bam_hdr_t *header);
 
-void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, uint32_t num_of_chroms);
+void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash);
+
+void TargetBufferStatusDestroy(Target_Buffer_Status *target_buffer_status);
 
 #endif //TARGETS_H

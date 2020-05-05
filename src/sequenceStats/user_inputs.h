@@ -18,9 +18,10 @@
 #ifndef USER_INPUTS_H
 #define USER_INPUTS_H
 
-#include <stdbool.h>	// for bool return type
 #include <ctype.h>		// for isdigit()
 #include <errno.h>
+#include <getopt.h>
+#include <stdbool.h>	// for bool return type
 #include "terms.h"
 
 /**
@@ -74,8 +75,10 @@ bool isFloat(const char *str, float *dest);
  * @param user_inputs: a variable to store all of the user provided inputs
  * @param type: the type of file array: 1 for target file, 2 for annotation file
  */
-void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type);
+//void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type);
+void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs);
 
+void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs);
 
 /**
  * process user input options and ensure they are correct!

@@ -27,6 +27,8 @@
 #include "user_inputs.h"
 #include "annotation.h"
 
+uint32_t NUMBER_OF_CHROMOSOMES = 0;
+
 // split a string into an array of words
 // 0: RefSeq	1:CCDS		2:VEGA/Gencode		3:miRNA		4:everything else (such as SNP, Pseudo gene etc)
 // As the string size varies, it might be a good idea to set them to a pre-defined size
@@ -394,6 +396,25 @@ void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean) {
 	if (hash_to_clean) kh_destroy(khStrStrArray, hash_to_clean);
 }
 
+void cleanKhashStrStr(khash_t(khStrStr) * hash_to_clean) {
+    khint_t k;
+    for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k) {
+        if (kh_exist(hash_to_clean, k)) {
+            // clean key if the key exist
+            //
+            if (kh_key(hash_to_clean, k)) 
+                free((char *) kh_key(hash_to_clean, k));
+
+            // clean value if it exists
+            //
+            if (kh_value(hash_to_clean, k)) 
+                free ((char *) kh_value(hash_to_clean, k));
+        }
+    }
+
+    if (hash_to_clean) kh_destroy(khStrStr, hash_to_clean);
+}
+
 void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage_hash) {
 	khint_t k;
 	for (k = kh_begin(gene_transcript_percentage_hash); k != kh_end(gene_transcript_percentage_hash); ++k) {
@@ -429,10 +450,10 @@ void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage
 // Note: this function should never be used to update any information regarding the Chromosome_Tracking variable
 // It is only used for initialization and dynamically allocate memories!
 //
-void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header) {
+void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header) {
 	uint32_t i=0;
 
-	chrom_tracking->coverage = calloc(num_of_chroms, sizeof(uint32_t*));
+	chrom_tracking->coverage = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t*));
 	if (!chrom_tracking->coverage) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->coverage");
 		exit(EXIT_FAILURE);
@@ -440,12 +461,12 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 
 	//since the thread finishes unevenly, some chromosome might be processed before its predecessor,
 	//hence we need to initialize them here
-	for(i=0; i<num_of_chroms; i++)
+	for(i=0; i<NUMBER_OF_CHROMOSOMES; i++)
 		chrom_tracking->coverage[i] = NULL;
 
 	// the order of the chromosome id need to be in the same order as the bam/cram
 	//
-	chrom_tracking->chromosome_ids = calloc(num_of_chroms, sizeof(char*));
+	chrom_tracking->chromosome_ids = calloc(NUMBER_OF_CHROMOSOMES, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
 	       exit(EXIT_FAILURE);
@@ -453,7 +474,7 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 
 	// Now the chromosome lengths
 	//
-	chrom_tracking->chromosome_lengths = calloc(num_of_chroms, sizeof(uint32_t));
+	chrom_tracking->chromosome_lengths = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
 		exit(EXIT_FAILURE);
@@ -482,37 +503,34 @@ void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_
 		}
 	}
 
-	if ((unsigned int) j > num_of_chroms) {
-		fprintf(stderr, "Number of chromosomes needs to be processed %d is larger than required %d!\n", j, num_of_chroms);
+	if ((unsigned int) j > NUMBER_OF_CHROMOSOMES) {
+		fprintf(stderr, "Number of chromosomes needs to be processed %d is larger than required %d!\n", j, NUMBER_OF_CHROMOSOMES);
 		exit(EXIT_FAILURE);
 	}
 
-	chrom_tracking->chromosome_status = calloc(num_of_chroms, sizeof(uint8_t));
+	chrom_tracking->chromosome_status = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
 		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
 		exit(EXIT_FAILURE);
 	}
-	for(i=0; i<num_of_chroms; i++)
+	for(i=0; i<NUMBER_OF_CHROMOSOMES; i++)
         chrom_tracking->chromosome_status[i] = 0;
 
-	chrom_tracking->number_tracked = num_of_chroms;
+	chrom_tracking->number_tracked = NUMBER_OF_CHROMOSOMES;
 	chrom_tracking->more_to_read = true;
 }
 
-uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header) {
+void chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header) {
 	// find out how many chromosome we are dealing with
 	//
-	uint32_t num_of_chroms = 0;
 	khiter_t iter;
 
 	for (iter = kh_begin(wanted_chromosome_hash); iter != kh_end(wanted_chromosome_hash); ++iter) {
 		if (kh_exist(wanted_chromosome_hash, iter))
-			num_of_chroms++;
+            NUMBER_OF_CHROMOSOMES++;
 	}
 
-	chromosomeTrackingInit1(num_of_chroms, chrom_tracking, wanted_chromosome_hash, header);
-
-	return num_of_chroms;
+	chromosomeTrackingInit1(chrom_tracking, wanted_chromosome_hash, header);
 }
 
 void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, uint32_t chrom_len, int index) {
@@ -632,7 +650,6 @@ void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
     stats_info->read_cov_stats = calloc(1, sizeof(Read_Coverage_Stats));
     stats_info->wgs_cov_stats  = calloc(1, sizeof(WGS_Coverage_Stats));
     stats_info->capture_cov_stats = calloc(user_inputs->num_of_target_files, sizeof(Capture_Coverage_Stats*));
-    stats_info->num_of_chromosomes = 0;
 
     int i, j;
     for (i=0; i<=1000; i++) {
@@ -642,7 +659,7 @@ void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
     for (i=0; i<user_inputs->num_of_target_files; i++) {
         stats_info->capture_cov_stats[i] = calloc(1, sizeof(Capture_Coverage_Stats));
         stats_info->capture_cov_stats[i]->target_base_with_N_coverage = kh_init(m32);
-        stats_info->capture_cov_stats[i]->target_coverage_for_median = kh_init(m32);
+        stats_info->capture_cov_stats[i]->target_coverage_for_median  = kh_init(m32);
         captureCoverageStatsInit(stats_info->capture_cov_stats[i]);
 
         for (j=0;j<=1000; j++) {
@@ -753,6 +770,8 @@ void statsInfoDestroy(Stats_Info *stats_info, User_Input *user_inputs) {
         int i;
         for (i=0; i<user_inputs->num_of_target_files; i++) {
             kh_destroy(m32, stats_info->capture_cov_stats[i]->target_coverage_for_median);
+            kh_destroy(m32, stats_info->capture_cov_stats[i]->target_base_with_N_coverage);
+            free(stats_info->capture_cov_stats[i]);
         }       
         free(stats_info->capture_cov_stats);
         stats_info->capture_cov_stats=NULL;
@@ -770,7 +789,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 	// here we need to find out the length of the current chromsome to prevent out of bound segmentation error
 	// get the index for the target_buffer_status
 	//
-    for(i=0; i<target_buffer_status[0].num_of_chromosomes; i++) {
+    for(i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
         if (strcmp(target_buffer_status[i].chrom_id, chrom_id) == 0) {
             chrom_len = target_buffer_status[i].size;
 
@@ -839,6 +858,35 @@ uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key) {
     }
 
 	return 0;
+}
+
+void addValueToKhashBucketStrStr(khash_t(khStrStr) *hash_in, char *key, char * val) {
+    int ret;
+    khiter_t k_iter = kh_put(khStrStr, hash_in, key, &ret);
+    if (ret == 1) {
+        kh_key(hash_in, k_iter) = strdup(key);
+        kh_value(hash_in, k_iter) = strdup(val);
+        //strcpy(kh_value(hash_in, k_iter), val);
+    } else if (ret == -1) {
+        fprintf(stderr, "can't find the key  %s\n", key);
+        exit(EXIT_FAILURE);
+    }
+}
+
+char * getValueFromKhashStrStr(khash_t(khStrStr) *hash_in, char* key) {
+    khiter_t k_iter;
+    if (hash_in != NULL) {
+        k_iter = kh_get(khStrStr, hash_in, key);
+        
+        if (k_iter == kh_end(hash_in))
+            // this is needed as if the bucket is never used, the value will be whatever left there, and the value is undefined!
+            //
+            return NULL;
+        
+        return kh_value(hash_in, k_iter);
+    }
+    
+    return NULL;
 }
 
 uint16_t getValueFromKhash(khash_t(m16) *hash16, uint32_t pos_key) {

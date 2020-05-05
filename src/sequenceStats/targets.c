@@ -227,7 +227,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
             // get the index for the target_buffer_status
             //
-            for(k=0; k<target_buffer_status[0].num_of_chromosomes; k++) {
+            for(k=0; k<NUMBER_OF_CHROMOSOMES; k++) {
                 if (strcmp(target_buffer_status[k].chrom_id, cur_chrom_id) == 0) {
                     idx = k;
                     chrom_len = target_buffer_status[k].size;
@@ -281,7 +281,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
     if (type == 1) {
         uint8_t cur_target_buffer_bit = getTargetBufferBit(target_file_index);
 
-        for (i=0; i<target_buffer_status[0].num_of_chromosomes; i++) {
+        for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
             if (target_buffer_status[i].index == -1)
                 continue;
 
@@ -353,11 +353,10 @@ void TargetBufferStatusInit(Target_Buffer_Status *target_buffer_status, bam_hdr_
         target_buffer_status[i].index = -1;
         target_buffer_status[i].target_status_array = calloc(header->target_len[i], sizeof(uint8_t));
         target_buffer_status[i].buffer_status_array = calloc(header->target_len[i], sizeof(uint8_t));
-        target_buffer_status[i].num_of_chromosomes = header->n_targets;
     }
 }
 
-void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, uint32_t num_of_chroms) {
+void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash) {
     khiter_t iter;
     uint32_t idx=0;
     for (iter = kh_begin(wanted_chromosome_hash); iter != kh_end(wanted_chromosome_hash); ++iter) {
@@ -368,8 +367,24 @@ void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t
             target_buffer_status[idx].index = -1;
             target_buffer_status[idx].target_status_array = calloc(kh_value(wanted_chromosome_hash, iter), sizeof(uint8_t));
             target_buffer_status[idx].buffer_status_array = calloc(kh_value(wanted_chromosome_hash, iter), sizeof(uint8_t));
-            target_buffer_status[idx].num_of_chromosomes = num_of_chroms;
             idx++;
         }
+    }
+}
+
+void TargetBufferStatusDestroy(Target_Buffer_Status *target_buffer_status) {
+    if (target_buffer_status) {
+        uint32_t i;
+        for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+            if (target_buffer_status[i].chrom_id) 
+                free(target_buffer_status[i].chrom_id);
+
+            if (target_buffer_status[i].target_status_array)
+                free(target_buffer_status[i].target_status_array);
+
+            if (target_buffer_status[i].buffer_status_array)
+                free(target_buffer_status[i].buffer_status_array);
+        }
+        free(target_buffer_status);
     }
 }

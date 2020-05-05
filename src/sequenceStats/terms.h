@@ -65,12 +65,13 @@ extern bool N_FILE_PROVIDED;            // this is the file that contains region
 extern bool TARGET_FILE_PROVIDED;
 extern bool HGMD_PROVIDED;
 extern bool USER_DEFINED_DATABASE;
-extern int khStrStr;
-extern int khStrInt;
-extern int khStrFloat;
-extern int khStrStrArray;
-extern int khStrLCG;
-extern int khStrGTP;
+extern uint32_t  NUMBER_OF_CHROMOSOMES;
+extern int  khStrStr;
+extern int  khStrInt;
+extern int  khStrFloat;
+extern int  khStrStrArray;
+extern int  khStrLCG;
+extern int  khStrGTP;
 
 /**
  * define a structure that holds the file strings from user inputs
@@ -165,7 +166,6 @@ typedef struct {
     int32_t index;                  // -1 means this chromosome is not important/processed, and we should skip it!
     uint8_t *target_status_array;   // array to store the target status for each chrom position
     uint8_t *buffer_status_array;   // array to store the buffer status for each chrom position
-    uint32_t num_of_chromosomes;    // how many chromosomes it is tracking (it will tell us the status array size)
 } Target_Buffer_Status;
 
 /**
@@ -217,7 +217,7 @@ typedef struct {
 } User_Defined_Database;
 
 typedef struct {
-    uint32_t num_of_chroms;
+    uint32_t num_of_chroms;             // the number of chromosomes in the user specified annotation file
     uint64_t num_of_lines;
     User_Defined_Database *ud_database_per_chrom;
 } User_Defined_Database_Wrapper;
@@ -225,9 +225,9 @@ typedef struct {
 /*
  * store the raw user-defined-database with the structure like the following
  * num_of_chromosomes                25 + alt + hla + decoy etc.
- * chrom_id     (array)                "1"        "2"        "3"    ...    "7"        "Y"        "alt" ...
- * annotation_size (array)             0         5         17         12         22         35  ...
- * annotations (array of arrays)                            "7    117292897    117292985    CFTR|ENST00000600166_cds_1
+ * chrom_id     (array)                "1"        "2"         "3"    ...    "7"        "Y"        "alt" ...
+ * annotation_size (array)             0         5            17            12         22         35  ...
+ * annotations (array of arrays)                              "7    117292897    117292985    CFTR|ENST00000600166_cds_1
  *                                                            "7    117304742    117304914    CFTR|ENST00000600166_cds_2
  *                                                            "7    117305513    117305618    CFTR|ENST00000600166_cds_3
  *                                                            "7    117355812    117355913    CFTR|ENST00000600166_cds_4
@@ -235,7 +235,7 @@ typedef struct {
  */
 typedef struct {
     uint32_t *annotation_size;
-    uint32_t num_of_chromosomes;
+    uint32_t num_of_chromosomes;        // the number of chromosomes in the user specified annotation file
     char **chrom_id;
     char *** annotations;
     int32_t number_of_unique_genes;
@@ -247,14 +247,14 @@ typedef struct {
  * single '*' for 1-D pointer, double '**' for 2-D array, while three '***' for 2-D array of strings
  *
  * chromosome_ids array list:                    '1', '2', '3', '4', '5', ...... 'X', 'Y', 'MT'
- * size_r: num_of_regions on each chrom:        55,  96,  183, 66,  9,   ...... 32,  15,  2
- * region starts/ends on one chrom:             0:  31938        32954
- *                                                1:  65938        78932
- *                                                2:  101343        123908
+ * size_r: num_of_regions on each chrom:         55,  96,  183, 66,  9,   ...... 32,  15,  2
+ * region starts/ends on one chrom:               0:  31938          32954
+ *                                                1:  65938          78932
+ *                                                2:  101343         123908
  *                                                .
  *                                                54: 1498903        2809823
  * transcript_name for a region per chrom:        0: 'ABL2'
- *                                                1: 'BCKL1'    'DSSL3'
+ *                                                1: 'BCKL1'         'DSSL3'
  *                                                .
  *
  */
@@ -451,7 +451,6 @@ typedef struct {
  * define a structure to store various information, such as coverage histogram etc
  */
 typedef struct {
-    uint32_t num_of_chromosomes;
     Read_Coverage_Stats     *read_cov_stats;
     WGS_Coverage_Stats      *wgs_cov_stats;
     Capture_Coverage_Stats  **capture_cov_stats;

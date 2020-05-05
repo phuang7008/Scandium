@@ -1,9 +1,10 @@
-IDIR=/usr/lib/gcc/x86_64-redhat-linux/4.4.7/include
+IDIR=/opt/rh/devtoolset-8/root/usr/include
 CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/repo/scandium/src/sequenceStats
 HTSDIR=/stornext/snfs5/next-gen/scratch/phuang/htslib/v1.10.2/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
-CC=/hgsc_software/gcc/gcc-7.3.0/bin/gcc
+CC=/opt/rh/devtoolset-8/root/usr/bin/gcc
+#CC=/hgsc_software/gcc/gcc-7.3.0/bin/gcc
 #CFLAGS= -g -Wall -O2 -fopenmp
 CFLAGS= -g -Wall -Wextra -O0 -fopenmp
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp

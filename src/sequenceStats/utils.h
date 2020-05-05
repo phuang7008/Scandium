@@ -101,6 +101,12 @@ void cleanKhashStrStrArray(khash_t(khStrStrArray) * hash_to_clean);
 void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type);
 
 /**
+ * This is used to free the memory used by the hash_to_clean
+ * @param hash_to_clean: a khash_t variable to be cleaned
+ */
+void cleanKhashStrStr(khash_t(khStrStr) * hash_to_clean);
+
+/**
  *
  */
 void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage_hash);
@@ -124,15 +130,14 @@ void dynamicStringExpansion(char *str_in, char **storage_str);
  * @param header: a bam header that contains all the chromosome information
  * @return an instance of Chromosome_Tracking upon successful
  */
-void chromosomeTrackingInit1(uint32_t num_of_chroms, Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header);
+void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header);
 
 /**
  * Initialize the chromosome_tracking variable using user specified region file
  * This approach will process those chromosomes specified by user only
  * @param wanted_chromosome_hash: a kh_hash table stores chromosomes to be processed
- * @return an instance of Chromosome_Tracking upon successful 
  */
-uint32_t chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header);
+void chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header);
 
 /**
  * This function is used to update all members for the Chromosome_Tracking variable
@@ -197,6 +202,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
  */
 void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t val);
 void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint32_t val);
+void addValueToKhashBucketStrStr(khash_t(khStrStr) *hash_in, char *key, char * val);
 
 /**
  * Get value from the hash table by the key
@@ -206,6 +212,7 @@ void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint32_t v
  */
 uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key);
 uint16_t getValueFromKhash16(khash_t(m16) *hash16, uint32_t pos_key);
+char * getValueFromKhashStrStr(khash_t(khStrStr) *hash_in, char* key);
 
 /** converts fractions into percentages with 2 decimal positions
  * @param num: the numeric value 

@@ -203,7 +203,7 @@ void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(
 	// because we need chromosome length information here
 	//
 	int32_t idx = -1;
-	for (i=0; i<target_buffer_status[0].num_of_chromosomes; i++) {
+	for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
 		if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
 			chrom_len = target_buffer_status[i].size;
 			idx = i;
