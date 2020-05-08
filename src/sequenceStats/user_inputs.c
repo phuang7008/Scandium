@@ -192,7 +192,8 @@ void usage() {
     printf("--hgmd          -M  Use HGMD annotation. Default: off\n");
     printf("--overlap       -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
     printf("--high_cov_out  -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
-    printf("--wig_output    -W  Write/Dump the WGS Coverage.fasta file (both -w and -W needed). Default: off\n");
+    printf("--wgs_depth     -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
+    printf("                    (both -w and -W needed). Default: off\n");
     printf("--help          -h  Print this help/usage message\n");
 }
 
@@ -290,7 +291,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             {"high_cov_out",        no_argument,  0,  'V'},
             {"wig_output",          no_argument,  0,  'G'},
             {"wgs",                 no_argument,  0,  'w'},
-            {"wgs_dump",            no_argument,  0,  'W'},
+            {"wgs_depth",           no_argument,  0,  'W'},
             {0,  0,  0,  0},
         };
 
@@ -535,15 +536,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                     || optopt == 'E' || optopt == 'j' || optopt == 'J' || optopt == 'x' || optopt == 'X' 
                     || optopt == 'z' || optopt == 'Z' )
                     fprintf(stderr, "===>Option -%c requires an argument.\n", optopt);
-                else if (optopt == 0)
-                    fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
+                //else if (optopt == 0)
+                //    fprintf (stderr, "===>Unknown option `-%d'.\n", optopt);
                 else if (isprint (optopt))
-                    fprintf (stderr, "===>Unknown option `-%c'.\n", optopt);
+                    fprintf (stderr, "===> You have entered an Unknown option. See the above error message\n");
                 else
-                    fprintf (stderr, "===>Unknown option character `\\x%x'.\n", optopt);
+                    fprintf (stderr, "===> You have entered an unknown option. See the above error message\n");
                 input_error_flag=true;
                 break;
-            default: fprintf(stderr, "===>Non-option argument %c\n", optopt); input_error_flag=true; break;
+            default: 
+                fprintf(stderr, "===>Non-option argument %c\n", optopt); input_error_flag=true; break;
         }
     }
 
@@ -625,6 +627,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     //
     int p = 0;
     if (TARGET_FILE_PROVIDED) {
+        checkRepeatedCaptureFiles(user_inputs);
+
         // produce the base filename information
         //
         getBaseFilenameWithoutExtension(user_inputs, 1);
@@ -824,6 +828,25 @@ void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khS
         free(capture_only_files[i]);
     }
     free(capture_only_files);
+}
+
+void checkRepeatedCaptureFiles(User_Input *user_inputs) {
+    int i, j;
+    for (i=0; i< user_inputs->num_of_target_files; i++) {
+        for (j=1; j< user_inputs->num_of_target_files; j++) {
+            if (i == j)
+                continue;
+
+            if (strcmp (user_inputs->target_files[i], user_inputs->target_files[j]) == 0) {
+                // same capture file names repeated twice! Error out
+                //
+                fprintf(stderr, "You entered same capture file name %s twice\n", user_inputs->target_files[i]);
+                fprintf(stderr, "\tCapture file name should be UNIQUE.\n");
+                fprintf(stderr, "\tPlease use a different file name instead if this is your intention\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 }
 
 //Here I need to pass in file_in name string as reference, otherwise, it will be by value and will get segmentation fault

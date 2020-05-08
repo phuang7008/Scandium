@@ -46,12 +46,16 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (user_inputs->user_name == NULL) {
-		fprintf(stderr, "Please enter your MySQL DB login user name and password!\n");
-		exit(EXIT_FAILURE);
-	}
+    char error_message[100];
+    if (user_inputs->wgs_annotation_on) {
+        strcpy(error_message, "\nWGS annotation is on. Need to access the MySQL database");
+    } else {
+        if (user_inputs->num_of_annotation_files < user_inputs->num_of_target_files) 
+            strcpy(error_message, "\nSome capture analysis needs to access the MySQL database for annotation");
+    }
 
-	if (user_inputs->passwd == NULL) {
+	if (user_inputs->user_name == NULL || user_inputs->passwd == NULL) {
+        fprintf(stderr, "%s\n", error_message);
 		fprintf(stderr, "Please enter your MySQL DB login user name and password!\n");
 		exit(EXIT_FAILURE);
 	}

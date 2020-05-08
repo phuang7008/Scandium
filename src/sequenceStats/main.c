@@ -597,7 +597,7 @@ int main(int argc, char *argv[]) {
     // output gene converage
     //
     if (TARGET_FILE_PROVIDED) {
-        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+        for (i=0; i<user_inputs->num_of_target_files; i++)
             outputGeneCoverage(gene_transcript_percentage_hash[i], user_inputs, i);
     }
 
@@ -658,13 +658,13 @@ int main(int argc, char *argv[]) {
         cleanKhashStrInt(hgmd_transcripts);
 
     if (gene_transcript_percentage_hash != NULL) {
-        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+        for (i=0; i<user_inputs->num_of_target_files; i++)
             cleanGeneTranscriptPercentage(gene_transcript_percentage_hash[i]);
         free(gene_transcript_percentage_hash);
     }
 
     if (raw_user_defined_databases) {
-        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+        for (i=0; i<user_inputs->num_of_target_files; i++)
             cleanRawUserDefinedDatabase(raw_user_defined_databases[i]);
         free(raw_user_defined_databases);
     }
@@ -672,7 +672,7 @@ int main(int argc, char *argv[]) {
     // now need to clean-up the khash_t variables                                                     
     //
     if (exon_regions != NULL) {
-        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+        for (i=0; i<user_inputs->num_of_target_files; i++)
             regionsSkipMySQLDestroy(exon_regions[i], 3);
         free(exon_regions);
     }

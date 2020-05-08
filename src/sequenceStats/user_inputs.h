@@ -80,6 +80,8 @@ void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khS
 
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs);
 
+void checkRepeatedCaptureFiles(User_Input *user_inputs);
+
 /**
  * process user input options and ensure they are correct!
  * @param argv[]: an array of strings that are used to decide user input options

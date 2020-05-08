@@ -130,8 +130,9 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
         }
 
         if (!sorted) {
-            printf("The input bed file %s is not sorted between %"PRIu32" and %"PRIu32"!\n", bed_file, prev_start, coords[count].start);
-            printf("Please make sure your input bed file is sorted, merged and unique!");
+            fprintf(stderr, "The input bed file %s \n", bed_file);
+            fprintf(stderr, "\tis not sorted between %"PRIu32" and %"PRIu32"!\n", prev_start, coords[count].start);
+            fprintf(stderr, "Please make sure your input bed file is sorted, merged and unique!\n");
             exit(EXIT_FAILURE);
         }
 
@@ -178,17 +179,19 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     if (type == 1) {
         //printf("Total target is %"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
         if (total_size != stats_info->capture_cov_stats[target_file_index]->total_targeted_bases) {
-            printf("\n***Note: the target bed file needs to be bedtools sorted, merged and uniqued!\n");
-            printf("\t\ttotal size: %"PRIu32"\n", total_size);
-            printf("\t\ttotal target bases: %"PRIu32"\n", stats_info->capture_cov_stats[target_file_index]->total_targeted_bases);
-            printf("\n\t\t Also ensure the chrom list in the chrom input file matchs the chrom list in the capture bed file!\n");
+            printf("\n***Note: the target bed file %s needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
+            printf("\ttotal size: %"PRIu32"\n", total_size);
+            printf("\ttotal target bases: %"PRIu32"\n", stats_info->capture_cov_stats[target_file_index]->total_targeted_bases);
+            printf("\tThe chromosome ids in the capture file MUST appear in the chromosome input file (--chr_list option)!\n");
             exit(EXIT_FAILURE);
         }
     } else {
         //printf("Total Ns region is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
         if (total_size != stats_info->wgs_cov_stats->total_Ns_bases) {
-            printf("\n***Note: the Ns-region bed file needs to be bedtools sorted, merged and uniqued!\n");
-            printf("\n\t\t Also ensure the chrom list in the chrom input file matchs the chrom list in the Ns-region bed file!\n");
+            printf("\n***Note: the Ns-region bed file %s needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
+            printf("\ttotal size: %"PRIu32"\n", total_size);
+            printf("\ttotal N bases: %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
+            printf("\tThe chromosome ids listed in the Ns-region file MUST appear in the chromosome input file (--chr_list option)!\n");
             exit(EXIT_FAILURE);
         }
     }
