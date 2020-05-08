@@ -665,7 +665,8 @@ int main(int argc, char *argv[]) {
 
     if (raw_user_defined_databases) {
         for (i=0; i<user_inputs->num_of_target_files; i++)
-            cleanRawUserDefinedDatabase(raw_user_defined_databases[i]);
+            if (raw_user_defined_databases[i])
+                cleanRawUserDefinedDatabase(raw_user_defined_databases[i]);
         free(raw_user_defined_databases);
     }
 
