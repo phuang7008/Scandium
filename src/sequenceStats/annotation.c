@@ -319,7 +319,10 @@ void regionsSkipMySQLDestroy(Regions_Skip_MySQL *regions_in, uint8_t type) {
         	if (regions_in->exon_info) free(regions_in->exon_info);
 	}
 
-	if (regions_in) free(regions_in);
+	if (regions_in) {
+        free(regions_in);
+        regions_in = NULL;
+    }
 }
 
 // type 1 for inter-genic regions, type 2 for intronic-regions, type 3 for exon regions

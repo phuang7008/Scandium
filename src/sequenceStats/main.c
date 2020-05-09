@@ -673,8 +673,15 @@ int main(int argc, char *argv[]) {
     // now need to clean-up the khash_t variables                                                     
     //
     if (exon_regions != NULL) {
-        for (i=0; i<user_inputs->num_of_target_files; i++)
-            regionsSkipMySQLDestroy(exon_regions[i], 3);
+        // here I use num_of_annotation_files to delete any exon_regions
+        // associated with user defined annotation database
+        // However, for the exon_regions links to the db_exon_regions from
+        // the MySQL database, we only need to delete once 
+        // It will be handled after this loop stated 8 lines below
+        //
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+            if (exon_regions[i] != NULL)
+                regionsSkipMySQLDestroy(exon_regions[i], 3);
         free(exon_regions);
     }
 
