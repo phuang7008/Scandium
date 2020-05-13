@@ -84,7 +84,7 @@ typedef struct {
     char * reference_file;          // reference file name for cram input file
     char * chromosome_bed_file;     // a file contains chromosome ids and regions need to be processed in bed format
     char ** target_files;
-    char ** user_defined_database_files;    // users can provide multiple annotation database files
+    char ** user_defined_annotation_files;  // users can provide multiple annotation files
     char ** annotation_file_basenames;      // the basename w/o extension of user defined annotation files
     char ** target_file_basenames;      // the basename w/o extension of target bed files
     char * database_version;            // either hg19 (hg37) or hg38
@@ -223,14 +223,14 @@ typedef struct {
 } User_Defined_Database_Wrapper;
 
 /*
- * store the raw user-defined-database with the structure like the following
+ * store the raw user-defined-annotation with the structure like the following
  * num_of_chromosomes                25 + alt + hla + decoy etc.
  * chrom_id     (array)                "1"        "2"         "3"    ...    "7"        "Y"        "alt" ...
  * annotation_size (array)             0         5            17            12         22         35  ...
- * annotations (array of arrays)                              "7    117292897    117292985    CFTR|ENST00000600166_cds_1
- *                                                            "7    117304742    117304914    CFTR|ENST00000600166_cds_2
- *                                                            "7    117305513    117305618    CFTR|ENST00000600166_cds_3
- *                                                            "7    117355812    117355913    CFTR|ENST00000600166_cds_4
+ * annotations (array of arrays)                              "7    117292897    117292985    CFTR|ENST00000600166|cds_1|gene
+ *                                                            "7    117304742    117304914    CFTR|ENST00000600166|cds_2|gene
+ *                                                            "7    117305513    117305618    CFTR|ENST00000600166|cds_3|gene
+ *                                                            "7    117355812    117355913    CFTR|ENST00000600166|cds_4|gene
  *                                                            .....
  */
 typedef struct {

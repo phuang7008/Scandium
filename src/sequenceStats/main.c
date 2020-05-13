@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     //
     samFile *sfd = sam_open(user_inputs->bam_file, "r");
     if (sfd == 0) {
-        fprintf(stderr, "Cannot open file %s\n", user_inputs->bam_file);
+        fprintf(stderr, "Cannot open file \n%s\n", user_inputs->bam_file);
         return -1;
     }
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         }
     } else {
         if ( sfd->is_cram || sfd->format.format == cram ) {
-            fprintf(stderr, "Please provide the reference sequences for the input CRAM file \"%s\".\n", user_inputs->bam_file);
+            fprintf(stderr, "Please provide the reference sequences for the input CRAM file \n%s\n", user_inputs->bam_file);
             return -1;
         }
     }
@@ -294,6 +294,8 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+
+    setupOutputReportFiles(user_inputs);
 
     // can't set to be static as openmp won't be able to handle it
     // check the bam/cram file size first

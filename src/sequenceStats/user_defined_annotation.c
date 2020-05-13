@@ -23,10 +23,10 @@ void checkAnnotationFormat(User_Input *user_inputs) {
     //
     int x;
     for (x=0; x<user_inputs->num_of_annotation_files; x++) {
-        FILE *fp = fopen(user_inputs->user_defined_database_files[x], "r");
+        FILE *fp = fopen(user_inputs->user_defined_annotation_files[x], "r");
 
         if (fp == NULL) {
-            fprintf(stderr, "\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[x]);
+            fprintf(stderr, "\nERROR: user defined annotation file \n%s\n open failed!\n", user_inputs->user_defined_annotation_files[x]);
             exit(EXIT_FAILURE);
         }
 
@@ -103,10 +103,10 @@ void checkAnnotationFormat(User_Input *user_inputs) {
 void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_Wrapper *udd_wrapper, khash_t(khStrInt) *cds_lengths, khash_t(khStrInt) *cds_counts, khash_t(khStrInt) *user_defined_targets, uint8_t file_index) {
     // open user-defined-database for read
     //
-    FILE *fp = fopen(user_inputs->user_defined_database_files[file_index], "r");
+    FILE *fp = fopen(user_inputs->user_defined_annotation_files[file_index], "r");
 
     if (fp == NULL) {
-        printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[file_index]);
+        printf("\nERROR: user defined annotation file \n%s\n open failed!\n", user_inputs->user_defined_annotation_files[file_index]);
         exit(EXIT_FAILURE);
     }
 
@@ -378,10 +378,10 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
 
     // open user-defined-database file for read again and populate the exon_regions
     //
-    FILE *fp = fopen(user_inputs->user_defined_database_files[file_index], "r");
+    FILE *fp = fopen(user_inputs->user_defined_annotation_files[file_index], "r");
 
     if (fp == NULL) {
-        printf("\nERROR: user defined database file %s open failed!\n", user_inputs->user_defined_database_files[file_index]);
+        printf("\nERROR: user defined annotation file \n%s\n open failed!\n", user_inputs->user_defined_annotation_files[file_index]);
         exit(EXIT_FAILURE);
     }
 

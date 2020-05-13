@@ -46,12 +46,12 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		exit(EXIT_FAILURE);
 	}
 
-    char error_message[100];
+    char error_message[500];
     if (user_inputs->wgs_annotation_on) {
         strcpy(error_message, "\nWGS annotation is on. Need to access the MySQL database");
     } else {
         if (user_inputs->num_of_annotation_files < user_inputs->num_of_target_files) 
-            strcpy(error_message, "\nSome capture analysis needs to access the MySQL database for annotation");
+            sprintf(error_message, "\nSome capture analysis such as for capture file: \n%s\nneeds to access the MySQL database for annotation\n", user_inputs->target_files[user_inputs->num_of_target_files-1]);
     }
 
 	if (user_inputs->user_name == NULL || user_inputs->passwd == NULL) {
@@ -383,28 +383,31 @@ void populateStaticRegionsForOneChromOnly(Regions_Skip_MySQL *regions_in, Databa
 int32_t binarySearch(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, uint32_t chrom_idx, uint32_t low_search_index) {
 	int32_t low = low_search_index;
     int32_t high = regions_in->size_r[chrom_idx] - 1;
-    int32_t middle = (low + high)/2;
+    int32_t middle;
 
     while (low <= high) {
+        middle = (low + high)/2;
+
 		if (((regions_in->starts[chrom_idx][middle] <= start) && (start < regions_in->ends[chrom_idx][middle])) ||
 				((regions_in->starts[chrom_idx][middle] <= end) && (end < regions_in->ends[chrom_idx][middle]))) {
 			// take care of the cases: region.start |=========================| region.end
     		//                                         start\----------------------\end
     		//                          start\----------------------\end
 			return middle;
-		} else if ((start <= regions_in->starts[chrom_idx][middle]) && (regions_in->ends[chrom_idx][middle] <= end)) {
+		} 
+        
+        if ((start <= regions_in->starts[chrom_idx][middle]) && (regions_in->ends[chrom_idx][middle] <= end)) {
 			// take care of the case: region.start |=========================| region.end
 			//                       start\----------------------------------------------\end
             return middle;
-        } else {
-            if (regions_in->starts[chrom_idx][middle] < start) {
-                low = middle + 1;
-            } else {
-                high = middle - 1;
-            }
         }
 
-        middle = (low + high)/2;
+        if (regions_in->starts[chrom_idx][middle] < start) {
+            low = middle + 1;
+        } else {
+            high = middle - 1;
+        }
+
     }
 
     // outside the while loop means low > high

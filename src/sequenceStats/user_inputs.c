@@ -38,7 +38,7 @@ bool USER_DEFINED_DATABASE = false;
 //
 bool checkFile(char * fName) {
     if(access(fName, F_OK|R_OK) == -1) {
-        fprintf(stderr, "===>No such file as %s;  File not found.\n", fName);
+        fprintf(stderr, "===>No such file as \n%s\n  File not found.\n", fName);
         return false;
         //exit(EXIT_FAILURE);
     }
@@ -50,7 +50,7 @@ uint64_t check_file_size(const char *filename) {
     if (stat(filename, &st) == 0)
         return st.st_size;
 
-    fprintf(stderr, "Something is wrong when check the file size for file: %s\n", filename);
+    fprintf(stderr, "Something is wrong when check the file size for file: \n%s\n", filename);
     exit(EXIT_FAILURE);
 }
 
@@ -555,14 +555,14 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     // don't proceed if the user doesn't specify either -t or -w or both
     //
     if (!user_inputs->wgs_coverage && !TARGET_FILE_PROVIDED) {
-        fprintf(stderr, "===>You specify neither -t (for Capture Project) nor -w (for WGS analysis)\n");
-        fprintf(stderr, "===>\tPlease specify either -t or -w or both before proceeding. Thanks!\n");
+        fprintf(stderr, "===>You specify neither --t (for Capture Project) nor --wgs (for WGS analysis)\n");
+        fprintf(stderr, "===>\tPlease specify either --t or --wgs or both before proceeding. Thanks!\n");
         input_error_flag=true;
     }
 
     // check the mandatory arguments (will turn this on for the final test/run)
     if (user_inputs->bam_file == NULL) {
-        fprintf(stderr, "===>-i\toption is mandatory!\n");
+        fprintf(stderr, "===>--input_bam (or -i)\toption is mandatory!\n");
         input_error_flag=true;
     }
 
@@ -574,7 +574,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     }
     
     if (user_inputs->output_dir == NULL) {
-        fprintf(stderr, "===>-o\toption is mandatory!\n");
+        fprintf(stderr, "===> --output_dir (or -o)\toption is mandatory!\n");
         input_error_flag=true;
     } else {
         // check to see if the directory exist!
@@ -593,7 +593,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     }
 
     if (user_inputs->upper_bound < user_inputs->lower_bound) {
-        fprintf(stderr, "===>The value for -u(%d) should be larger than the value for -l(%d) option \n", user_inputs->upper_bound, user_inputs->lower_bound);
+        fprintf(stderr, "===>The value for --upper_bound (or -u) (%d) should be larger than the value for --lower_bound (or -l) (%d) option \n", user_inputs->upper_bound, user_inputs->lower_bound);
         input_error_flag=true;
     }
 
@@ -602,22 +602,36 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) input_error_flag=true; //exit(EXIT_FAILURE);
     if (TARGET_FILE_PROVIDED) {
         for (i=0; i<user_inputs->num_of_target_files; i++) {
-            if (!checkFile(user_inputs->target_files[i])) 
-                input_error_flag=true; //exit(EXIT_FAILURE);
+            if (!checkFile(user_inputs->target_files[i])) {
+                fprintf(stderr, "===>Capture file \n%s\n doesn't exist\n", user_inputs->target_files[i]);
+                input_error_flag=true;
+            }
         }
     }
 
-    // need to get the basename from BAM/CRAM filename
-    //char *tmp_basename = basename(strdup(user_inputs->bam_file));
-    char *tmp_basename = basename(user_inputs->bam_file);
-    if (!tmp_basename || strlen(tmp_basename) == 0) {
-        fprintf(stderr, "===>Something went wrong for extracting the basename from the input BAM/CRAM file\n");
-        input_error_flag=true;
+    for (i=0; i<user_inputs->num_of_annotation_files; i++) {
+        if (!checkFile(user_inputs->user_defined_annotation_files[i])) {
+            fprintf(stderr, "===>Annotation file \n%s\n doesn't exist\n", user_inputs->user_defined_annotation_files[i]);
+            input_error_flag=true;
+        }
     }
 
     if (input_error_flag) {
         //usage();
-        fprintf(stderr, "Please use -h for all Scandium options\n");
+        fprintf(stderr, "Please use --help (or -h) for all Scandium options\n");
+        exit(EXIT_FAILURE);
+    }
+
+    cleanKhashStrStr(annotation_files);
+    cleanKhashStrStr(capture_files);
+}
+
+void setupOutputReportFiles(User_Input *user_inputs) {
+    // need to get the basename from BAM/CRAM filename
+    char *tmp_basename = basename(user_inputs->bam_file);
+    if (!tmp_basename || strlen(tmp_basename) == 0) {
+        fprintf(stderr, "===>Something went wrong for extracting the basename from the input BAM/CRAM file\n");
+        fprintf(stderr, "Please use --help (or -h) for all Scandium options\n");
         exit(EXIT_FAILURE);
     }
 
@@ -637,7 +651,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_AllSites_REPORT.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_all_site_files[p], string_to_add);
-            writeHeaderLine(user_inputs->capture_all_site_files[p], 1);
+            writeHeaderLine(user_inputs->capture_all_site_files[p], user_inputs, p, 1);
         }
 
         // For capture coverage summary report
@@ -674,7 +688,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_below%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->low_coverage_to_report);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_low_cov_files[p], string_to_add);
-            writeHeaderLine(user_inputs->capture_low_cov_files[p], 1);
+            writeHeaderLine(user_inputs->capture_low_cov_files[p], user_inputs, p, 1);
         }
 
         // output too high coverage regions for target (capture)
@@ -684,7 +698,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             for (p=0; p<user_inputs->num_of_target_files; p++) {
                 sprintf(string_to_add, ".%s.Capture_above%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->high_coverage_to_report);
                 createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_files[p], string_to_add);
-                writeHeaderLine(user_inputs->capture_high_cov_files[p], 1);
+                writeHeaderLine(user_inputs->capture_high_cov_files[p], user_inputs, p, 1);
             }
         }
 
@@ -698,15 +712,15 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_Gene_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_files[p], string_to_add);
-            writeHeaderLine(user_inputs->low_cov_gene_pct_files[p], 3);
+            writeHeaderLine(user_inputs->low_cov_gene_pct_files[p], user_inputs, p, 3);
 
             sprintf(string_to_add, ".%s.Capture_CDS_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_files[p], string_to_add);
-            writeHeaderLine(user_inputs->low_cov_exon_pct_files[p], 4);
+            writeHeaderLine(user_inputs->low_cov_exon_pct_files[p], user_inputs, p, 4);
 
             sprintf(string_to_add, ".%s.Capture_Transcript_pct.txt", user_inputs->target_file_basenames[p]);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_files[p], string_to_add);
-            writeHeaderLine(user_inputs->low_cov_transcript_files[p], 5);
+            writeHeaderLine(user_inputs->low_cov_transcript_files[p], user_inputs, p, 5);
         }
     }
 
@@ -720,14 +734,14 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         // output low coverage regions for WGS
         sprintf(string_to_add, ".WGS_below%dx_REPORT.txt", user_inputs->low_coverage_to_report);
         createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_low_cov_file, string_to_add);
-        writeHeaderLine(user_inputs->wgs_low_cov_file, 1);
+        writeHeaderLine(user_inputs->wgs_low_cov_file, user_inputs, 20, 1);
 
         // output too high coverage regions for the whole genome
         //
         if (user_inputs->above_10000_on) {
             sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add);
-            writeHeaderLine(user_inputs->wgs_high_cov_file, 1);
+            writeHeaderLine(user_inputs->wgs_high_cov_file, user_inputs, 20, 1);
         }
 
         // output the uniformity data file for Uniformity Analysis
@@ -752,9 +766,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     //}
 
     // string_to_add is declared at the stack, so no need to free it!
-
-    cleanKhashStrStr(annotation_files);
-    cleanKhashStrStr(capture_files);
 }
 
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
@@ -770,7 +781,7 @@ void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
 //
 void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs) {
     user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    user_inputs->user_defined_database_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
 
     const char *keys[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
     char **capture_only_files = calloc(8, sizeof(char*));
@@ -790,8 +801,10 @@ void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khS
         // annotation only without capture file
         //
         if (a_iter != kh_end(annotation_files) && c_iter == kh_end(capture_files)) {
-            fprintf(stderr, "ERROR: you have entered an annotation file %s\n", kh_value(annotation_files, a_iter));
+            fprintf(stderr, "ERROR: you have entered an annotation file \n%s\n", kh_value(annotation_files, a_iter));
             fprintf(stderr, "without the corresponding capture file\n");
+            fprintf(stderr, "Please check your inputs and try again. Thanks!\n");
+            exit(EXIT_FAILURE);
         }
 
         // capture only without annotation file
@@ -810,9 +823,9 @@ void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khS
                 (char*) malloc(strlen(kh_value(capture_files, c_iter))+1 * sizeof(char));
             strcpy(user_inputs->target_files[counter], kh_value(capture_files, c_iter));
 
-            user_inputs->user_defined_database_files[counter] = 
+            user_inputs->user_defined_annotation_files[counter] = 
                 (char*) malloc(strlen(kh_value(annotation_files, a_iter))+1 * sizeof(char));
-            strcpy(user_inputs->user_defined_database_files[counter], kh_value(annotation_files, a_iter));
+            strcpy(user_inputs->user_defined_annotation_files[counter], kh_value(annotation_files, a_iter));
 
             counter++;
         }
@@ -840,9 +853,9 @@ void checkRepeatedCaptureFiles(User_Input *user_inputs) {
             if (strcmp (user_inputs->target_files[i], user_inputs->target_files[j]) == 0) {
                 // same capture file names repeated twice! Error out
                 //
-                fprintf(stderr, "You entered same capture file name %s twice\n", user_inputs->target_files[i]);
-                fprintf(stderr, "\tCapture file name should be UNIQUE.\n");
-                fprintf(stderr, "\tPlease use a different file name instead if this is your intention\n");
+                fprintf(stderr, "You entered same capture file \n%s\ntwice\n", user_inputs->target_files[i]);
+                fprintf(stderr, "Capture file name should be UNIQUE.\n");
+                fprintf(stderr, "Please use a different file name instead if this is your intention\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -864,8 +877,18 @@ void createFileName(char *output_dir, char *base_name, char **file_in, char *str
 }
 
 // need to write the header line for some of the output files
-void writeHeaderLine(char *file_in, uint8_t type) {
+// type:    1 -> coverage threshold reports;    2 -> capture missing target report; 
+//          3 -> Gene Percentage Reports;       4 -> Exon Percentage Reports
+//          5 -> Transcript Percentage Reports;
+//
+void writeHeaderLine(char *file_in, User_Input *user_inputs, int annotation_file_index, uint8_t type) {
     FILE *out_fp = fopen(file_in, "a");
+
+    if (user_inputs->num_of_annotation_files <= annotation_file_index) {
+        fprintf(out_fp, "##Annotation source: MySQL database\n");
+    } else {
+        fprintf(out_fp, "##Annotation source: %s\n", user_inputs->user_defined_annotation_files[annotation_file_index]);
+    }
 
     if (type == 1) {
         // for the coverage annotation report (for example: below20x, above10000x coverage reports)
@@ -922,7 +945,7 @@ void outputUserInputOptions(User_Input *user_inputs) {
     if (USER_DEFINED_DATABASE) {
         int p;
         for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_database_files[p]);
+            fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_annotation_files[p]);
         }
     }
 
@@ -1041,7 +1064,7 @@ User_Input * userInputInit() {
     user_inputs->reference_file = NULL;
     user_inputs->chromosome_bed_file = NULL;
     user_inputs->annotation_file_basenames = NULL;
-    user_inputs->user_defined_database_files = NULL;
+    user_inputs->user_defined_annotation_files = NULL;
 
     // WGS output file
     //
@@ -1132,7 +1155,7 @@ void userInputDestroy(User_Input *user_inputs) {
 
     // For User-Defined Database output files clean-up
     //
-    cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->user_defined_database_files);
+    cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->user_defined_annotation_files);
 
     if (user_inputs)
         free(user_inputs);
@@ -1146,7 +1169,7 @@ void createdFileArray(User_Input *user_inputs, uint8_t f_size, char **file_array
         char* string_to_add = calloc(strlen(user_inputs->target_file_basenames[p]) + strlen(description) + 2, sizeof(char));
         sprintf(string_to_add, ".%s.%s", user_inputs->target_file_basenames[p], description);
         createFileName(user_inputs->output_dir, bam_prefix, &file_array[p], string_to_add);
-        writeHeaderLine(file_array[p], headline_type);
+        writeHeaderLine(file_array[p], user_inputs, p, headline_type);
     }
 }
 
@@ -1221,9 +1244,9 @@ void getBaseFilenameWithoutExtension(User_Input *user_inputs, uint8_t type) {
     type == 1 ? num_of_items = user_inputs->num_of_target_files : user_inputs->num_of_annotation_files;
     for (p=0; p<num_of_items; p++) {
         const char *bn = (type == 1) ? baseFilename(user_inputs->target_files[p]) 
-            : baseFilename(user_inputs->user_defined_database_files[p]);
+            : baseFilename(user_inputs->user_defined_annotation_files[p]);
         const char* ext = (type == 1) ? getFileExtension(user_inputs->target_files[p]) 
-            : getFileExtension(user_inputs->user_defined_database_files[p]);
+            : getFileExtension(user_inputs->user_defined_annotation_files[p]);
 
         int ext_len = strlen(ext);
         int bn_len  = strlen(bn);
@@ -1251,24 +1274,24 @@ void checkFileExtension(User_Input *user_inputs, samFile* sfd) {
     switch (sfd->format.format) {
         case bam:
             if (stristr(".bam", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file  %s is in bam format\n\n", user_inputs->bam_file);
+                fprintf(stderr, "\nERROR: The input file  \n%s\n is in bam format\n\n", user_inputs->bam_file);
                 exit(EXIT_FAILURE);
             }
             break;
         case cram:
             if (stristr(".cram", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file %s is in cram format\n\n", user_inputs->bam_file);
+                fprintf(stderr, "\nERROR: The input file \n%s\n is in cram format\n\n", user_inputs->bam_file);
                 exit(EXIT_FAILURE);
             }
             break;
         case sam:
             if (stristr(".sam", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file %s is in sam format\n\n", user_inputs->bam_file);
+                fprintf(stderr, "\nERROR: The input file \n%s\n is in sam format\n\n", user_inputs->bam_file);
                 exit(EXIT_FAILURE);
             }
             break;
         default:
-            fprintf(stderr, "\nERROR: Unknown input file format %s\n\n", user_inputs->bam_file);
+            fprintf(stderr, "\nERROR: Unknown input file format \n%s\n\n", user_inputs->bam_file);
             exit(EXIT_FAILURE);
     }
 
@@ -1284,9 +1307,9 @@ char* getReferenceFaiPath(const char *fn_ref) {
 
     if (access(fn_fai, R_OK) == -1) { // fn_fai is unreadable
         if (access(fn_ref, R_OK) == -1) {
-            fprintf(stderr, "fail to read file %s. in getReferenceFaiPath() \n", fn_ref);
+            fprintf(stderr, "fail to read file \n%s\n in getReferenceFaiPath() \n", fn_ref);
         }
-        fprintf(stderr, "fail to read file %s. in getReferenceFaiPath() \n", fn_fai);
+        fprintf(stderr, "fail to read file \n%s\n in getReferenceFaiPath() \n", fn_fai);
         free(fn_fai); fn_fai = 0;
     }
 
@@ -1385,9 +1408,9 @@ void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input
     //
     if ( (strcasecmp(user_inputs->database_version, "hg38") != 0) && (strstr(chrom_id, "chr") != NULL) ) {
         fprintf(stderr, "The reference version isn't set correctly\n");
-        fprintf(stderr, "The current reference version was %s\n", user_inputs->database_version);
+        fprintf(stderr, "The current reference version was \n%s\n", user_inputs->database_version);
         strcpy(user_inputs->database_version, "hg38");
-        fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
+        fprintf(stderr, "The correct reference version is \n%s\n has been reset\n", user_inputs->database_version);
     }
 
     if (chrom_id != NULL) free(chrom_id);

@@ -103,12 +103,16 @@ void outputUserInputOptions(User_Input *user_inputs);
  */
 void createFileName(char *output_dir, char *base_name, char **file_in, char *string_to_append);
 
+void setupOutputReportFiles(User_Input *user_inputs);
+
 /*
  * for output only. So that users will understand the meaning of each output column
  * @param file_in: the output file handle
+ * @param user_inputs: it contains all of the options from user's command line inputs
+ * @param annotation_file_index: the file index in annotation file array
  * @param type: different type of files will have different header
  */
-void writeHeaderLine(char *file_in, uint8_t type);
+void writeHeaderLine(char *file_in, User_Input *user_inputs, int annotation_file_index, uint8_t type);
 
 /**
  * this method is used to initialize the user input structure
