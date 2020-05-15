@@ -30,6 +30,12 @@ void checkAnnotationFormat(User_Input *user_inputs) {
             exit(EXIT_FAILURE);
         }
 
+        // store previous start and end by chromosome (key)
+        //
+        khash_t(khStrInt) *prev_start = kh_init(khStrInt);
+        //khash_t(khStrInt) *prev_end   = kh_init(khStrInt);
+        khiter_t iter;
+
         char *line = NULL;
         size_t len = 0;
         ssize_t read;
@@ -51,21 +57,43 @@ void checkAnnotationFormat(User_Input *user_inputs) {
             char *gene_info = NULL;
             char *chrom_id  = NULL;
             uint32_t start=0, end=0;
+            int absent;
 
             while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
                 if (j==0) {
                     dynamicStringExpansion(tokPtr, &chrom_id);
+                    iter = kh_put(khStrInt, prev_start, tokPtr, &absent);
+                    if (absent) {
+                        kh_key(prev_start, iter) = strdup(tokPtr);
+                        //kh_key(prev_end, iter) = strdup(tokPtr);
+                        kh_value(prev_start, iter) = 0;
+                        //kh_value(prev_end, iter) = 0;
+                    }
                 }
-                if (j==1) start = (uint32_t) strtol(tokPtr, NULL, 10);
-                if (j==2) end   = (uint32_t) strtol(tokPtr, NULL, 10);
+                if (j==1) {
+                    start = (uint32_t) strtol(tokPtr, NULL, 10);
+                    iter = kh_get(khStrInt, prev_start, chrom_id);
+                    if (start < kh_value(prev_start, iter)) {
+                        fprintf(stderr, "\nERROR: The annotation file \n%s\n", user_inputs->user_defined_annotation_files[x]);
+                        fprintf(stderr, "is not sorted between  %"PRIu32" and %"PRIu32"\n", kh_value(prev_start, iter), start);
+                        fprintf(stderr, "Please ensure the annotation file is sorted. Thanks!\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    kh_value(prev_start, iter) = start;
+                }
+
+                if (j==2) {
+                    end = (uint32_t) strtol(tokPtr, NULL, 10);
+                }
+
                 if (j==3) {
                     // check if the annotation contains space
                     //
-                    if (strstr(tokPtr, " ") != NULL) {
+                    /*if (strstr(tokPtr, " ") != NULL) {
                         fprintf(stderr, "\nERROR: Gene/SNP/miRNA annotation should NOT contain spaces!\n");
                         fprintf(stderr, "\tPlease correct it before submit runs again. Thank You!\n");
                         exit(EXIT_FAILURE);
-                    }
+                    }*/
 
                     dynamicStringExpansion(tokPtr, &gene_info);
                 }

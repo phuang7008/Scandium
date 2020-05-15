@@ -38,7 +38,7 @@ bool USER_DEFINED_DATABASE = false;
 //
 bool checkFile(char * fName) {
     if(access(fName, F_OK|R_OK) == -1) {
-        fprintf(stderr, "===>No such file as \n%s\n  File not found.\n", fName);
+        fprintf(stderr, "ERROR: No such file as \n%s\n  File not found.\n", fName);
         return false;
         //exit(EXIT_FAILURE);
     }
@@ -50,7 +50,7 @@ uint64_t check_file_size(const char *filename) {
     if (stat(filename, &st) == 0)
         return st.st_size;
 
-    fprintf(stderr, "Something is wrong when check the file size for file: \n%s\n", filename);
+    fprintf(stderr, "ERROR: Something is wrong when check the file size for file: \n%s\n", filename);
     exit(EXIT_FAILURE);
 }
 
@@ -391,11 +391,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->wgs_annotation_on = true; break;
             case 'b':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered base quality filter score %s is not a number\n", optarg);
-                    //usage();
-                    //exit(EXIT_FAILURE);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered base quality filter score %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->min_base_quality = atoi(optarg);
                 break;
@@ -417,19 +414,16 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'g': 
                 user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10);
                 if (user_inputs->gVCF_percentage < 1) {
-                    fprintf(stderr, "===>The gVCF block size %s should be larger than or equal to 1\n", optarg);
-                    input_error_flag=true;
+                    fprintf(stderr, "ERROR: The gVCF block size %s should be larger than or equal to 1\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 break;
             case 'G': user_inputs->Write_WIG = true; break;
             case 'h': usage(); exit(EXIT_FAILURE);
             case 'H':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered High coverage cutoff value %s is not a number\n", optarg);
-                    //usage();
-                    //exit(EXIT_FAILURE);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered High coverage cutoff value %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->high_coverage_to_report = (uint32_t) strtol(optarg, NULL, 10);
                 break;
@@ -443,25 +437,22 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->user_set_peak_size_on = true; break;
             case 'L':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered Lower coverage cutoff value %s is not a number\n", optarg);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered Lower coverage cutoff value %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->low_coverage_to_report = (uint16_t) strtol(optarg, NULL, 10);
                 break;
             case 'l':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered lower_bound value %s is not a number\n", optarg);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered lower_bound value %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->lower_bound = (uint16_t) strtol(optarg, NULL, 10);
                 break;
             case 'm':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered map quality filter score %s is not a number\n", optarg);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered map quality filter score %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->min_map_quality = atoi(optarg);
                 break;
@@ -486,8 +477,8 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'p': 
                    flag_float = isFloat(optarg, &(user_inputs->percentage)); 
                 if (!flag_float) {
-                    fprintf(stderr, "===>Entered percentage value %s is not a float decimal number\n", optarg);
-                    input_error_flag=true;
+                    fprintf(stderr, "ERROR: Entered percentage value %s is not a float decimal number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 break;
             case 'P':
@@ -505,17 +496,15 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 's': user_inputs->remove_supplementary_alignments = true; break;
             case 'T':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered number of threads %s is not a number\n", optarg);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered number of threads %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->num_of_threads = atoi(optarg);
                 break;
             case 'u':
                 if (!isNumber(optarg)) {
-                    fprintf (stderr, "===>Entered upper_bound value %s is not a number\n", optarg);
-                    input_error_flag=true;
-                    break;
+                    fprintf (stderr, "ERROR: Entered upper_bound value %s is not a number\n", optarg);
+                    exit(EXIT_FAILURE);
                 }
                 user_inputs->upper_bound = (uint16_t) strtol(optarg, NULL, 10);
                 break;
@@ -535,46 +524,48 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                     || optopt == '6' || optopt == '7' || optopt == '8' || optopt == '1' || optopt == 'e'
                     || optopt == 'E' || optopt == 'j' || optopt == 'J' || optopt == 'x' || optopt == 'X' 
                     || optopt == 'z' || optopt == 'Z' )
-                    fprintf(stderr, "===>Option -%c requires an argument.\n", optopt);
+                    fprintf(stderr, "ERROR: Option -%c requires an argument.\n", optopt);
                 //else if (optopt == 0)
                 //    fprintf (stderr, "===>Unknown option `-%d'.\n", optopt);
                 else if (isprint (optopt))
-                    fprintf (stderr, "===> You have entered an Unknown option. See the above error message\n");
+                    fprintf (stderr, "ERROR: You have entered an Unknown option. See the above error message\n");
                 else
-                    fprintf (stderr, "===> You have entered an unknown option. See the above error message\n");
-                input_error_flag=true;
+                    fprintf (stderr, "ERROR: You have entered an unknown option. See the above error message\n");
+                exit(EXIT_FAILURE);
                 break;
             default: 
-                fprintf(stderr, "===>Non-option argument %c\n", optopt); input_error_flag=true; break;
+                fprintf(stderr, "ERROR: Non-option argument %c\n", optopt); input_error_flag=true; break;
+                exit(EXIT_FAILURE);
         }
     }
 
+    outputUserInputOptions(user_inputs, capture_files, annotation_files);
     checkInputCaptureAndAnnotationFiles(user_inputs);
     formTargetAnnotationFileArray(capture_files, annotation_files, user_inputs);
 
     // don't proceed if the user doesn't specify either -t or -w or both
     //
     if (!user_inputs->wgs_coverage && !TARGET_FILE_PROVIDED) {
-        fprintf(stderr, "===>You specify neither --t (for Capture Project) nor --wgs (for WGS analysis)\n");
-        fprintf(stderr, "===>\tPlease specify either --t or --wgs or both before proceeding. Thanks!\n");
+        fprintf(stderr, "ERROR: You specify neither --t (for Capture Project) nor --wgs (for WGS analysis)\n");
+        fprintf(stderr, "\tPlease specify either --t or --wgs or both before proceeding. Thanks!\n");
         input_error_flag=true;
     }
 
     // check the mandatory arguments (will turn this on for the final test/run)
     if (user_inputs->bam_file == NULL) {
-        fprintf(stderr, "===>--input_bam (or -i)\toption is mandatory!\n");
+        fprintf(stderr, "ERROR: --input_bam (or -i)\toption is mandatory!\n");
         input_error_flag=true;
     }
 
     // check database version
     if ( (strcmp(user_inputs->database_version, "hg19") != 0) && (strcmp(user_inputs->database_version, "hg37") != 0)
             && strcmp(user_inputs->database_version, "hg38") != 0) {
-        fprintf(stderr, "===>-D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n");
+        fprintf(stderr, "ERROR: -D\toption is not correct! It should be either hg19 or hg37 or hg38! All in lower case, please! Thanks!\n");
         input_error_flag=true;
     }
     
     if (user_inputs->output_dir == NULL) {
-        fprintf(stderr, "===> --output_dir (or -o)\toption is mandatory!\n");
+        fprintf(stderr, "ERROR: --output_dir (or -o)\toption is mandatory!\n");
         input_error_flag=true;
     } else {
         // check to see if the directory exist!
@@ -583,27 +574,29 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             /* Directory exists */
             closedir(dir);
         } else if (ENOENT == errno) {
-            fprintf(stderr, "===>The output directory doesn't exist! Please double check the output directory and try again. Thanks!!\n");
+            fprintf(stderr, "ERROR: The output directory \n%s\n doesn't exist! \n", user_inputs->output_dir);
+            fprintf(stderr, "Please double check the output directory and try again. Thanks!!\n");
             input_error_flag=true;
         } else {
             /* opendir() failed for some other reason, such as permission */
-            fprintf(stderr, "===>Can't open the output directory! Please check to see if the permission is set correctly. Thanks!\n");
+            fprintf(stderr, "ERROR: Can't open the output directory \n%s\n", user_inputs->output_dir);
+            fprintf(stderr, "Please check to see if the permission is set correctly. Thanks!\n");
             input_error_flag=true;
         }
     }
 
     if (user_inputs->upper_bound < user_inputs->lower_bound) {
-        fprintf(stderr, "===>The value for --upper_bound (or -u) (%d) should be larger than the value for --lower_bound (or -l) (%d) option \n", user_inputs->upper_bound, user_inputs->lower_bound);
+        fprintf(stderr, "ERROR: The value for --upper_bound (or -u) (%d) should be larger than the value for --lower_bound (or -l) (%d) option \n", user_inputs->upper_bound, user_inputs->lower_bound);
         input_error_flag=true;
     }
 
     // Need to check out that all files user provided exist before proceeding
-    if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) input_error_flag=true; //exit(EXIT_FAILURE);
-    if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) input_error_flag=true; //exit(EXIT_FAILURE);
+    if (user_inputs->bam_file && !checkFile(user_inputs->bam_file)) input_error_flag=true;
+    if (N_FILE_PROVIDED && !checkFile(user_inputs->n_file)) input_error_flag=true;
     if (TARGET_FILE_PROVIDED) {
         for (i=0; i<user_inputs->num_of_target_files; i++) {
             if (!checkFile(user_inputs->target_files[i])) {
-                fprintf(stderr, "===>Capture file \n%s\n doesn't exist\n", user_inputs->target_files[i]);
+                fprintf(stderr, "ERROR: Capture file \n%s\n doesn't exist\n", user_inputs->target_files[i]);
                 input_error_flag=true;
             }
         }
@@ -611,7 +604,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
     for (i=0; i<user_inputs->num_of_annotation_files; i++) {
         if (!checkFile(user_inputs->user_defined_annotation_files[i])) {
-            fprintf(stderr, "===>Annotation file \n%s\n doesn't exist\n", user_inputs->user_defined_annotation_files[i]);
+            fprintf(stderr, "ERROR: Annotation file \n%s\n doesn't exist\n", user_inputs->user_defined_annotation_files[i]);
             input_error_flag=true;
         }
     }
@@ -630,7 +623,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
     // need to get the basename from BAM/CRAM filename
     char *tmp_basename = basename(user_inputs->bam_file);
     if (!tmp_basename || strlen(tmp_basename) == 0) {
-        fprintf(stderr, "===>Something went wrong for extracting the basename from the input BAM/CRAM file\n");
+        fprintf(stderr, "ERROR: Something went wrong for extracting the basename from the input BAM/CRAM file\n");
         fprintf(stderr, "Please use --help (or -h) for all Scandium options\n");
         exit(EXIT_FAILURE);
     }
@@ -770,7 +763,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
 
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
     if (user_inputs->num_of_annotation_files > user_inputs->num_of_target_files) {
-        fprintf(stderr, "You have entered more annotation files than capture files\n");
+        fprintf(stderr, "ERROR: You have entered more annotation files than capture files\n");
         fprintf(stderr, "Please ensure the annotation file number < the capture file number!\n");
         exit(EXIT_FAILURE);
     }
@@ -853,7 +846,7 @@ void checkRepeatedCaptureFiles(User_Input *user_inputs) {
             if (strcmp (user_inputs->target_files[i], user_inputs->target_files[j]) == 0) {
                 // same capture file names repeated twice! Error out
                 //
-                fprintf(stderr, "You entered same capture file \n%s\ntwice\n", user_inputs->target_files[i]);
+                fprintf(stderr, "ERROR: You entered same capture file \n%s\ntwice\n", user_inputs->target_files[i]);
                 fprintf(stderr, "Capture file name should be UNIQUE.\n");
                 fprintf(stderr, "Please use a different file name instead if this is your intention\n");
                 exit(EXIT_FAILURE);
@@ -884,10 +877,22 @@ void createFileName(char *output_dir, char *base_name, char **file_in, char *str
 void writeHeaderLine(char *file_in, User_Input *user_inputs, int annotation_file_index, uint8_t type) {
     FILE *out_fp = fopen(file_in, "a");
 
-    if (user_inputs->num_of_annotation_files <= annotation_file_index) {
-        fprintf(out_fp, "##Annotation source: MySQL database\n");
+    if (annotation_file_index == 20) {
+        // For WGS
+        //
+        if (user_inputs->wgs_annotation_on) {
+            fprintf(out_fp, "##Annotation source: MySQL database\n");
+        } else {
+            fprintf(out_fp, "##Annotation source: None\n");
+        }
     } else {
-        fprintf(out_fp, "##Annotation source: %s\n", user_inputs->user_defined_annotation_files[annotation_file_index]);
+        // for Capture
+        //
+        if (user_inputs->num_of_annotation_files <= annotation_file_index) {
+            fprintf(out_fp, "##Annotation source: MySQL database\n");
+        } else {
+            fprintf(out_fp, "##Annotation source: %s\n", user_inputs->user_defined_annotation_files[annotation_file_index]);
+        }
     }
 
     if (type == 1) {
@@ -922,16 +927,11 @@ void writeHeaderLine(char *file_in, User_Input *user_inputs, int annotation_file
     fclose(out_fp);
 }
 
-void outputUserInputOptions(User_Input *user_inputs) {
+void outputUserInputOptions(User_Input *user_inputs, khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files) {
     fprintf(stderr, "The following are the options you have chosen:\n");
     fprintf(stderr, "\tInput bam/cram file: %s\n", user_inputs->bam_file);
     fprintf(stderr, "\tOutput directory is: %s\n", user_inputs->output_dir);
     fprintf(stderr, "\tThe version of official gene annotation is: %s\n", user_inputs->database_version);
-
-    uint8_t j;
-    for (j=0; j<user_inputs->num_of_target_files; j++) {
-        fprintf(stderr, "\tCurrent capture/target bed file is: %s\n", user_inputs->target_files[j]);
-    }
 
     if (user_inputs->n_file)
         fprintf(stderr, "\tThe file that contains all Ns regions is: %s\n", user_inputs->n_file);
@@ -942,12 +942,25 @@ void outputUserInputOptions(User_Input *user_inputs) {
     if (user_inputs->reference_file)
         fprintf(stderr, "\tThe reference sequence file is: %s\n", user_inputs->reference_file);
 
+    const char *keys[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
+    uint8_t i;
+    fprintf(stderr, "\n\tCapture Input Files:\n");
+    for (i=0; i<8; i++) {
+        khiter_t c_iter = kh_get(khStrStr, capture_files, keys[i]);
+
+        if (c_iter != kh_end(capture_files))
+            fprintf(stderr, "\t--t%d capture/target bed file is: %s\n", i+1, kh_value(capture_files, c_iter));
+    }
+    fprintf(stderr, "\n\tUser Defined Annotation Input Files:\n");
+
     if (USER_DEFINED_DATABASE) {
-        int p;
-        for (p=0; p<user_inputs->num_of_annotation_files; p++) {
-            fprintf(stderr, "\tUser provided database is %s.\n", user_inputs->user_defined_annotation_files[p]);
+        for (i=0; i<8; i++) {
+            khiter_t a_iter = kh_get(khStrStr, annotation_files, keys[i]);
+            if (a_iter != kh_end(annotation_files))
+                fprintf(stderr, "\t--f%d for user provided database is %s.\n", i+1, kh_value(annotation_files, a_iter));
         }
     }
+    fprintf(stderr, "\n");
 
     fprintf(stderr, "\tThe minimum mapping quality is: %d\n", user_inputs->min_map_quality);
     fprintf(stderr, "\tThe minimum base quality is: %d\n", user_inputs->min_base_quality);
@@ -1029,7 +1042,7 @@ void outputUserInputOptions(User_Input *user_inputs) {
 User_Input * userInputInit() {
     User_Input * user_inputs = calloc(1, sizeof(User_Input));
     if (!user_inputs) {
-        fprintf(stderr, "Memory allocation failed in line %d!\n", __LINE__);
+        fprintf(stderr, "ERROR: Memory allocation failed in line %d!\n", __LINE__);
         exit(EXIT_FAILURE);
     }
 
@@ -1331,13 +1344,13 @@ void checkChromosomeID(User_Input *user_inputs, char* chrom_id) {
     if (strcmp(user_inputs->database_version, "hg37") == 0 ||
         strcmp(user_inputs->database_version, "hg19") == 0) {
         if (strstr(tmp_chrom_id, "chr") != NULL) {
-            fprintf(stderr, "The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");
+            fprintf(stderr, "ERROR: The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");
             exit(EXIT_FAILURE);
         }
     }
 
     if (strcmp(user_inputs->database_version, "hg38") == 0 && strstr(tmp_chrom_id, "chr") == NULL) { 
-        fprintf(stderr, "The chromosome ID for Human Genome hg38 should begin with 'chr'!");
+        fprintf(stderr, "ERROR: The chromosome ID for Human Genome hg38 should begin with 'chr'!");
         exit(EXIT_FAILURE);
     }
 
@@ -1430,7 +1443,7 @@ void checkNamingConvention(bam_hdr_t *header, khash_t(khStrInt)* wanted_chromoso
     }
 
     if (!match) {
-        fprintf(stderr, "The naming conventions for chromosomes are different\n");
+        fprintf(stderr, "ERROR: The naming conventions for chromosomes are different\n");
         fprintf(stderr, "between the chromosome bed file and the input bam/cram file\n\n");
         exit(EXIT_FAILURE);
     }

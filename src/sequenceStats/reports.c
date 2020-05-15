@@ -451,7 +451,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
                     uint16_t str_len_needed = strlen(exon_regions->gene[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->Synonymous[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->prev_genes[chrom_idr][tmp_loc_idx]) + strlen(exon_regions->exon_info[chrom_idr][tmp_loc_idx]) + 50;
                     char *tmp = realloc(annotation, str_len_needed * sizeof(char));
                     if (!tmp) {
-                        fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+                        fprintf(stderr, "ERROR: Memory re-allocation for string failed in checkExonRegion\n");
                         exit(EXIT_FAILURE);
                     }
                     annotation = tmp;
@@ -469,7 +469,7 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
                 uint16_t str_len_needed = strlen(intronic_regions->gene[chrom_idr][tmp_loc_idx]) + strlen(intronic_regions->Synonymous[chrom_idr][tmp_loc_idx]) + strlen(intronic_regions->prev_genes[chrom_idr][tmp_loc_idx]) + 50;
                 char *tmp = realloc(annotation, str_len_needed * sizeof(char));
                 if (!tmp) {
-                    fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+                    fprintf(stderr, "ERROR: Memory re-allocation for string failed in checkExonRegion\n");
                     exit(EXIT_FAILURE);
                 }
                 annotation = tmp;
@@ -764,13 +764,13 @@ void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint
 
 void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
     if (stats_info->read_cov_stats->total_reads_aligned == 0) {
-        fprintf(stderr, "No reads aligned. Aborting.\n");
+        fprintf(stderr, "ERROR: No reads aligned. Aborting.\n");
         exit(EXIT_FAILURE);
     }
 
     uint32_t non_duplicate_reads = stats_info->read_cov_stats->total_reads_aligned - stats_info->read_cov_stats->total_duplicate_reads;
     if (non_duplicate_reads == 0) {
-        fprintf(stderr, "All reads are duplicates. Aborting.\n");
+        fprintf(stderr, "ERROR: All reads are duplicates. Aborting.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -860,14 +860,14 @@ void writeCaptureReports(Stats_Info *stats_info, User_Input *user_inputs) {
     if (TARGET_FILE_PROVIDED) {
         for (fidx=0; fidx<user_inputs->num_of_target_files; fidx++) {
             if (stats_info->capture_cov_stats[fidx]->total_targeted_bases == 0) {
-                fprintf(stderr, "Total targeted bases is zero. Not Possible\n");
+                fprintf(stderr, "ERROR: Total targeted bases is zero. Not Possible\n");
                 fprintf(stderr, "No target matches a chromosome in the BAM, or something else went wrong.  Aborting.\n");
                 exit(EXIT_FAILURE);
             }
 
             if (stats_info->capture_cov_stats[fidx]->total_targets == 0) {
                 //I don't think we should ever see this error, as its dealt with above.
-                fprintf(stderr, "No target regions given.  Aborting.\n");
+                fprintf(stderr, "ERROR: No target regions given.  Aborting.\n");
                 exit(EXIT_FAILURE);
             }
 
@@ -1273,7 +1273,7 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
                                 // the bucket with the current key_str doesn't exists!
                                 // This shouldn't happen. So let's exit()
                                 //
-                                fprintf(stderr, "there is no CDS exist, which shouldn't happen, so exit()!\n");
+                                fprintf(stderr, "ERROR: There is no CDS exist, which shouldn't happen, so exit()!\n");
                                 exit(EXIT_FAILURE);
                             }
 
@@ -1494,7 +1494,7 @@ void storeHGMD_TranscriptPercentageInfo(khash_t(khStrGTP) *gene_transcript_perce
                 realloc(kh_value(gene_transcript_percentage_hash, tmp_iter)->transcript_percentage, 
                         kh_value(gene_transcript_percentage_hash, tmp_iter)->capacity * sizeof(Transcript_Percentage));
             if (kh_value(gene_transcript_percentage_hash, tmp_iter)->transcript_percentage == NULL) {
-                fprintf(stderr, "Memory re-allocation failed at storeHGMD_TranscriptPercentageInfo\n");
+                fprintf(stderr, "ERROR: Memory re-allocation failed at storeHGMD_TranscriptPercentageInfo\n");
                 exit(EXIT_FAILURE);
             }
         }

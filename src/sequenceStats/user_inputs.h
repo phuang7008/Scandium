@@ -92,7 +92,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]);
  * Output the User Input Options to the end user so he/she can double-check if all the options are correct!
  * @param user_inputs: a variable contains all the user input options
  */
-void outputUserInputOptions(User_Input *user_inputs);
+void outputUserInputOptions(User_Input *user_inputs, khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files);
 
 /**
  * this is a helper function that is used to create a file name from the existing base file name

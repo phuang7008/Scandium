@@ -29,7 +29,7 @@
 //
 void finish_with_error(MYSQL *con)
 {
-    fprintf(stderr, "%s\n", mysql_error(con));
+    fprintf(stderr, "ERROR: %s\n", mysql_error(con));
     mysql_close(con);
     exit(EXIT_FAILURE);
 }
@@ -42,21 +42,25 @@ void databaseSetup(Databases *dbs, User_Input *user_inputs) {
 		finish_with_error(dbs->con);
 
 	if (mysql_library_init(0, NULL, NULL)) {
-		fprintf(stderr, "Could not initialize MySQL Library!\n");
+		fprintf(stderr, "ERROR: Could not initialize MySQL Library!\n");
 		exit(EXIT_FAILURE);
 	}
 
     char error_message[500];
+    bool more_capture=false;
     if (user_inputs->wgs_annotation_on) {
-        strcpy(error_message, "\nWGS annotation is on. Need to access the MySQL database");
+        strcpy(error_message, "\nERROR: WGS annotation is on. Need to access the MySQL database");
     } else {
-        if (user_inputs->num_of_annotation_files < user_inputs->num_of_target_files) 
-            sprintf(error_message, "\nSome capture analysis such as for capture file: \n%s\nneeds to access the MySQL database for annotation\n", user_inputs->target_files[user_inputs->num_of_target_files-1]);
+        if (user_inputs->num_of_annotation_files < user_inputs->num_of_target_files) {
+            //sprintf(error_message, "\nSome capture analysis such as for capture file: \n%s\nneeds to access the MySQL database for annotation\n", user_inputs->target_files[user_inputs->num_of_target_files-1]);
+            strcpy(error_message, "\nERROR: Not all capture bed files have an annotation source.\nEither provide annotation bed for each capture bed \nor alternatively,\nprovide database credentials to use the MySQL database as an annotation source.\n");
+            more_capture = true;
+        }
     }
 
 	if (user_inputs->user_name == NULL || user_inputs->passwd == NULL) {
         fprintf(stderr, "%s\n", error_message);
-		fprintf(stderr, "Please enter your MySQL DB login user name and password!\n");
+		if (!more_capture) fprintf(stderr, "ERROR: Please enter your MySQL DB login user name and password!\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -199,19 +203,19 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, uint8_
 	if (type > 1) {
         regions_in->gene = calloc(regions_in->chrom_list_size, sizeof(char**));
         if (!regions_in->gene) {
-            fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
+            fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
             exit(EXIT_FAILURE);
         }
 
         regions_in->Synonymous = calloc(regions_in->chrom_list_size, sizeof(char**));
 	    if (!regions_in->Synonymous) {
-		    fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Synonymous");
+		    fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Synonymous");
 			exit(EXIT_FAILURE);
         }
 
 	    regions_in->prev_genes = calloc(regions_in->chrom_list_size, sizeof(char**));
 		if (!regions_in->prev_genes) {
-			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Prev_genes");
+			fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Prev_genes");
 	        exit(EXIT_FAILURE);
         }
 
@@ -219,7 +223,7 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, uint8_
 		if (type == 3) {
 			regions_in->exon_info = calloc(regions_in->chrom_list_size, sizeof(char**));
 	        if (!regions_in->exon_info) {
-		        fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
+		        fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Gene");
 			    exit(EXIT_FAILURE);
 			}
         }
@@ -231,13 +235,13 @@ void regionsSkipMySQLInit(Databases *dbs, Regions_Skip_MySQL *regions_in, uint8_
 		regions_in->starts[i] = calloc(regions_in->size_r[i], sizeof(uint32_t));
 
 		if (!regions_in->starts[i]) {
-			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Starts");
+			fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Starts");
 			exit(EXIT_FAILURE);
 		}
 
 		regions_in->ends[i] = calloc(regions_in->size_r[i], sizeof(uint32_t));
 		if (!regions_in->ends) {
-			fprintf(stderr, "Memory allocation for %s failed\n", "Regions With Less Annotation Ends");
+			fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "Regions With Less Annotation Ends");
 			exit(EXIT_FAILURE);
 		}
 	
@@ -433,7 +437,7 @@ int32_t checkIntronicRegion(Regions_Skip_MySQL *regions_in, uint32_t start, uint
             } else {
                 char *tmp = realloc(*info_in_and_out, str_len_needed * sizeof(char));
                 if (!tmp) {
-                    fprintf(stderr, "Memory re-allocation for string failed in checkIntronicRegion\n");
+                    fprintf(stderr, "ERROR: Memory re-allocation for string failed in checkIntronicRegion\n");
                     exit(EXIT_FAILURE);
                 }
                 *info_in_and_out = tmp;
@@ -536,7 +540,7 @@ void copyAnnotationDetails(Annotation_Wrapper *annotation_wrapper, Regions_Skip_
 		annotation_wrapper->allocated_size = annotation_wrapper->allocated_size * 2;
 		Annotation *tmp = realloc(annotation_wrapper->annotations, annotation_wrapper->allocated_size*sizeof(Annotation));
 		if (!tmp) {
-			fprintf(stderr, "Memory re-allocation for the struct Annotation failed in checkExonRegion\n");
+			fprintf(stderr, "ERROR: Memory re-allocation for the struct Annotation failed in checkExonRegion\n");
 			exit(EXIT_FAILURE);
 		}
 		annotation_wrapper->annotations = tmp;
@@ -581,7 +585,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		if (str_len_needed > orig_str_len) {
 			*info_in_and_out = realloc(*info_in_and_out, str_len_needed * sizeof(char));
 			if (*info_in_and_out == NULL) {
-				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+				fprintf(stderr, "ERROR: Memory re-allocation for string failed in checkExonRegion\n");
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -821,7 +825,7 @@ void combineAllExonAnnotations(Annotation_Wrapper *annotation_wrapper, char **in
 		if (str_len_needed > orig_str_len) {
 			*info_in_and_out = realloc(*info_in_and_out, str_len_needed * sizeof(char));
 			if (*info_in_and_out == NULL) {
-				fprintf(stderr, "Memory re-allocation for string failed in checkExonRegion\n");
+				fprintf(stderr, "ERROR: Memory re-allocation for string failed in checkExonRegion\n");
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -941,7 +945,7 @@ void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chro
 				// However, this shouldn't happen as the previous lowCoverageGeneHashBucketKeyInit()
 				// should generate the key bucket. So if it happens, exit!
 				//
-				fprintf(stderr, "Memory re-allocation failed at genePercentageCoverageInit()!\n");
+				fprintf(stderr, "ERROR: Memory re-allocation failed at genePercentageCoverageInit()!\n");
 				exit(EXIT_FAILURE);
 			}
 
@@ -1159,7 +1163,7 @@ void transcriptPercentageCoverageInit(khash_t(khStrLCG) *transcript_hash, khash_
 					// the key doesn't exists!
 					// This shouldn't happen. So we exit right away!
 					//
-					fprintf(stderr, "key doesn't exist at the transcriptPercentageCoverageInit()!\n");
+					fprintf(stderr, "ERROR: key doesn't exist at the transcriptPercentageCoverageInit()!\n");
 					exit(EXIT_FAILURE);
 				}
 
@@ -1275,7 +1279,7 @@ void processExonArrays(Gene_Coverage *gc, uint32_t start, uint32_t end) {
 		gc->low_cov_regions->theArray = 
 			realloc(gc->low_cov_regions->theArray, gc->low_cov_regions->capacity * sizeof(char*));
 		if (gc->low_cov_regions->theArray == NULL) {
-			fprintf(stderr, "Memory re-allocation failed at processExonArrays\n");
+			fprintf(stderr, "ERROR: Memory re-allocation failed at processExonArrays\n");
 			exit(EXIT_FAILURE);
 		}
 

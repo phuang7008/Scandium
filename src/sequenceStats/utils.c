@@ -149,7 +149,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 						start_L = realloc(start_L, capacity * sizeof(uint32_t));
 						end_L   = realloc(end_L, capacity * sizeof(uint32_t));
 						if (start_L == NULL || end_L == NULL) {
-							fprintf(stderr, "Memory re-allocation failed at processLowCovRegionFromKhash()!\n");
+							fprintf(stderr, "ERROR: Memory re-allocation failed at processLowCovRegionFromKhash()!\n");
 							exit(EXIT_FAILURE);
 						}
 					}
@@ -187,7 +187,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 			*output = realloc(*output, stringLength+50*sizeof(char));
 
 			if (*output == NULL) {
-				fprintf(stderr, "Memory re-allocation failed at the processLowCovRegionFromKhash()!\n");
+				fprintf(stderr, "ERROR: Memory re-allocation failed at the processLowCovRegionFromKhash()!\n");
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -232,7 +232,7 @@ uint32_t processLowCovRegionFromStrArray(stringArray *merged_low_cov_regions, ch
 
 	*output = realloc(*output, (stringLength + 50) * sizeof(char));
 	if (*output == NULL) {
-		fprintf(stderr, "Memory re-allocation failed at processLowCovRegionFromStrArray()\n");
+		fprintf(stderr, "ERROR: Memory re-allocation failed at processLowCovRegionFromStrArray()\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -304,7 +304,7 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 				realloc(kh_value(gene_transcripts, iter)->theArray, kh_value(gene_transcripts, iter)->capacity * sizeof(char*));
 
 			if (kh_value(gene_transcripts, iter)->theArray == NULL) {
-				fprintf(stderr, "Memory re-allocation failed at addToGeneTranscriptKhashTable()!\n");
+				fprintf(stderr, "ERROR: Memory re-allocation failed at addToGeneTranscriptKhashTable()!\n");
 				exit(EXIT_FAILURE);
 			}
 
@@ -455,7 +455,7 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 
 	chrom_tracking->coverage = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t*));
 	if (!chrom_tracking->coverage) {
-		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->coverage");
+		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->coverage");
 		exit(EXIT_FAILURE);
 	}
 
@@ -468,7 +468,7 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 	//
 	chrom_tracking->chromosome_ids = calloc(NUMBER_OF_CHROMOSOMES, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
-		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
+		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
 	       exit(EXIT_FAILURE);
 	}
 
@@ -476,7 +476,7 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 	//
 	chrom_tracking->chromosome_lengths = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
-		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
+		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
 		exit(EXIT_FAILURE);
 	}
 
@@ -490,7 +490,7 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 			//
 			chrom_tracking->chromosome_ids[j] = calloc(strlen(header->target_name[i])+1, sizeof(char));
 			if (chrom_tracking->chromosome_ids[j] == NULL) {
-				printf("Allocation failed for chromosome %s\n", header->target_name[i]);
+				printf("ERROR: Allocation failed for chromosome %s\n", header->target_name[i]);
 				exit(EXIT_FAILURE);
 			}
 			strcpy(chrom_tracking->chromosome_ids[j], header->target_name[i]);
@@ -504,13 +504,13 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 	}
 
 	if ((unsigned int) j > NUMBER_OF_CHROMOSOMES) {
-		fprintf(stderr, "Number of chromosomes needs to be processed %d is larger than required %d!\n", j, NUMBER_OF_CHROMOSOMES);
+		fprintf(stderr, "ERROR: Number of chromosomes needs to be processed %d is larger than required %d!\n", j, NUMBER_OF_CHROMOSOMES);
 		exit(EXIT_FAILURE);
 	}
 
 	chrom_tracking->chromosome_status = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
-		fprintf(stderr, "Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
+		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
 		exit(EXIT_FAILURE);
 	}
 	for(i=0; i<NUMBER_OF_CHROMOSOMES; i++)
@@ -540,7 +540,7 @@ void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, uint32_t chro
 	//
 	chrom_tracking->coverage[index] = calloc(chrom_len + 1, sizeof(uint32_t));
 	if (!chrom_tracking->coverage[index]) {
-		fprintf(stderr, "Memory allocation failed for chromosome_tracking->coverage");
+		fprintf(stderr, "ERROR: Memory allocation failed for chromosome_tracking->coverage");
 		exit(EXIT_FAILURE);
 	}
 
@@ -574,7 +574,7 @@ void dynamicStringAllocation(char *str_in, char **storage_str) {
 		if (strlen(str_in) > strlen(*storage_str)) {
 			*storage_str = realloc(*storage_str, (strlen(*storage_str) + strlen(str_in) + 2)*sizeof(char));
 			if (*storage_str == NULL) {
-				fprintf(stderr, "Dynamic Memory allocation failed\n");
+				fprintf(stderr, "ERROR: Dynamic Memory allocation failed\n");
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -602,7 +602,7 @@ void dynamicStringExpansion(char *str_in, char **storage_str) {
     }
 
     if (*storage_str == NULL) {
-        fprintf(stderr, "Dynamic Memory allocation failed\n");
+        fprintf(stderr, "ERROR: Dynamic Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -643,7 +643,7 @@ int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Trackin
 
 void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
 	if (!stats_info) {
-		fprintf(stderr, "Memory allocation failed for Stats_Info\n");
+		fprintf(stderr, "ERROR: Memory allocation failed for Stats_Info\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -676,7 +676,7 @@ void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
 
 void readCoverageStatsInit(Read_Coverage_Stats * read_cov_stats) {
     if (!read_cov_stats) {
-        fprintf(stderr, "Memory allocation failed for Read_Coverage_Stats\n");
+        fprintf(stderr, "ERROR: Memory allocation failed for Read_Coverage_Stats\n");
         exit(EXIT_FAILURE);
     }
 
@@ -693,7 +693,7 @@ void readCoverageStatsInit(Read_Coverage_Stats * read_cov_stats) {
 
 void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats) {
     if (!wgs_cov_stats) {
-        fprintf(stderr, "Memory allocation failed for WGS Coverage Stats\n");
+        fprintf(stderr, "ERROR: Memory allocation failed for WGS Coverage Stats\n");
         exit(EXIT_FAILURE);
     }
 
@@ -721,7 +721,7 @@ void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats) {
 
 void captureCoverageStatsInit(Capture_Coverage_Stats * capture_cov_stats) {
     if (!capture_cov_stats) {
-        fprintf(stderr, "Memory allocation failed for Capture Coverage Stats\n");
+        fprintf(stderr, "ERROR: Memory allocation failed for Capture Coverage Stats\n");
         exit(EXIT_FAILURE);
     }
 
@@ -817,7 +817,7 @@ void addValueToKhashBucket16(khash_t(m16) *hash_in, uint16_t pos_key, uint16_t v
     if (ret == 1) {
         kh_value(hash_in, k_iter) = 0;
     } else if (ret == -1) {
-        fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
+        fprintf(stderr, "ERROR: can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
         exit(EXIT_FAILURE);
     }
 
@@ -833,7 +833,7 @@ void addValueToKhashBucket32(khash_t(m32) *hash_in, uint32_t pos_key, uint32_t v
         kh_value(hash_in, k_iter) = 0;
 		//printf("add value is 0 %d ret, with key %"PRIu32"\n", ret, pos_key);
     } else if (ret == -1) {
-        fprintf(stderr, "can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
+        fprintf(stderr, "ERROR: can't find the key for stats_info->target_cov_histogram at pos %d\n", pos_key);
         exit(EXIT_FAILURE);
     }
 
@@ -868,7 +868,7 @@ void addValueToKhashBucketStrStr(khash_t(khStrStr) *hash_in, char *key, char * v
         kh_value(hash_in, k_iter) = strdup(val);
         //strcpy(kh_value(hash_in, k_iter), val);
     } else if (ret == -1) {
-        fprintf(stderr, "can't find the key  %s\n", key);
+        fprintf(stderr, "ERROR: can't find the key  %s\n", key);
         exit(EXIT_FAILURE);
     }
 }
@@ -1003,7 +1003,7 @@ void lowCoverageGeneHashBucketKeyInit(khash_t(khStrLCG) *low_cov_gene_hash, char
 			realloc(kh_value(low_cov_gene_hash, iter)->gene_coverage, kh_value(low_cov_gene_hash, iter)->capacity * sizeof(Gene_Coverage));
 
 		if (kh_value(low_cov_gene_hash, iter)->gene_coverage == NULL) {
-			fprintf(stderr, "Memory re-allocation failed at lowCoverageGeneHashBucketKeyInit()!\n");
+			fprintf(stderr, "ERROR: Memory re-allocation failed at lowCoverageGeneHashBucketKeyInit()!\n");
 			exit(EXIT_FAILURE);
 		}
 
@@ -1036,7 +1036,7 @@ void geneCoverageInit(Gene_Coverage *gc) {
 //
 void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool copy_gene) {
 	if (gc1 == NULL || gc2 == NULL) {
-		fprintf(stderr, "gc1 or gc2 shouldn't be NULL\n");
+		fprintf(stderr, "ERROR: gc1 or gc2 shouldn't be NULL\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -1094,7 +1094,7 @@ void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool 
 			gc2->low_cov_regions->theArray = realloc(gc2->low_cov_regions->theArray, end_size * sizeof(char*));
 
 			if (gc2->low_cov_regions->theArray == NULL) {
-				fprintf(stderr, "Memory re-allocation failed at copyGeneCoverageLowCovRegions()!\n");
+				fprintf(stderr, "ERROR: Memory re-allocation failed at copyGeneCoverageLowCovRegions()!\n");
 				exit(EXIT_FAILURE);
 			}
 
@@ -1418,7 +1418,7 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 	khiter_t iter;
 	iter = kh_get(m32, cov_freq_dist, peak);
 	if (iter == kh_end(cov_freq_dist)) {
-		fprintf(stderr, "Peak hash value shouldn't be empty\n");
+		fprintf(stderr, "ERROR: Peak hash value shouldn't be empty\n");
 		exit(EXIT_FAILURE);
 	}
 	peak_area_under_histogram = kh_value(cov_freq_dist, iter);

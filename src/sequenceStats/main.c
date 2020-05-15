@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     //
     User_Input *user_inputs = userInputInit();
     processUserOptions(user_inputs, argc, argv);
-    outputUserInputOptions(user_inputs);
+    //outputUserInputOptions(user_inputs);
 
     // now need to setup a Stats_Info variable to track various statistical information
     //

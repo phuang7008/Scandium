@@ -29,7 +29,7 @@
 uint32_t getLineCount(char *bed_file) {
     FILE *fp = fopen(bed_file, "r");
     if (fp == NULL) {       // ensure the target file open correctly!
-        printf("target file \n%s\n open failed!", bed_file);
+        printf("ERROR: target file \n%s\n open failed!", bed_file);
         exit(EXIT_FAILURE);
     }
 
@@ -55,7 +55,7 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
     FILE *fp = fopen(bed_file, "r");;
 
     if (fp == NULL) {       // ensure the target file open correctly!
-        printf("target or N region bed file \n%s\n open failed!", bed_file);
+        printf("ERROR: target or N region bed file \n%s\n open failed!", bed_file);
         exit(EXIT_FAILURE);
     }
 
@@ -130,7 +130,7 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
         }
 
         if (!sorted) {
-            fprintf(stderr, "The input bed file \n%s\n", bed_file);
+            fprintf(stderr, "ERROR: The input bed file \n%s\n", bed_file);
             fprintf(stderr, "\tis not sorted between %"PRIu32" and %"PRIu32"!\n", prev_start, coords[count].start);
             fprintf(stderr, "Please make sure your input bed file is sorted, merged and unique!\n");
             exit(EXIT_FAILURE);
@@ -179,7 +179,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     if (type == 1) {
         //printf("Total target is %"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
         if (total_size != stats_info->capture_cov_stats[target_file_index]->total_targeted_bases) {
-            printf("\n***Note: the target bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
+            printf("\nERROR: The target bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
             printf("\ttotal size: %"PRIu32"\n", total_size);
             printf("\ttotal target bases: %"PRIu32"\n", stats_info->capture_cov_stats[target_file_index]->total_targeted_bases);
             printf("\tThe chromosome ids in the capture file MUST appear in the chromosome input file (--chr_list option)!\n");
@@ -188,7 +188,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     } else {
         //printf("Total Ns region is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
         if (total_size != stats_info->wgs_cov_stats->total_Ns_bases) {
-            printf("\n***Note: the Ns-region bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
+            printf("\nERROR: The Ns-region bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
             printf("\ttotal size: %"PRIu32"\n", total_size);
             printf("\ttotal N bases: %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
             printf("\tThe chromosome ids listed in the Ns-region file MUST appear in the chromosome input file (--chr_list option)!\n");
@@ -313,7 +313,7 @@ uint8_t getTargetBufferBit(uint8_t target_file_index) {
     else if (target_file_index == 5) { return TRT_BFR_6; }
     else if (target_file_index == 6) { return TRT_BFR_7; }
     else if (target_file_index == 7) { return TRT_BFR_8; }
-    else { printf("Something is wrong as target file index > 8\n"); exit(EXIT_FAILURE); }
+    else { printf("ERROR: Something is wrong as target file index > 8\n"); exit(EXIT_FAILURE); }
 }
 
 void setTargetBufferStatus(Target_Buffer_Status *target_buffer_status, int chrom_idx, uint32_t pos_idx, uint8_t target_file_index, uint8_t type) {
