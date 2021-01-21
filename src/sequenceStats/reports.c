@@ -779,19 +779,33 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
     double average_coverage=0.0;
     uint16_t bins[16] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 500, 1000 };
     khiter_t k_iter;
+    //uint32_t cov_bin_size = 20000;
+    uint32_t coverage_bins[20000] = {0};    // initialize array contents to 0
 
     if (user_inputs->wgs_coverage) {
+
         //Do not consider the Ns for Median calculation.
         uint64_t total_genome_non_Ns_bases = stats_info->wgs_cov_stats->total_genome_bases - stats_info->wgs_cov_stats->total_Ns_bases;
+
         for (k_iter=0; k_iter!=kh_end(stats_info->wgs_cov_stats->genome_coverage_for_median); k_iter++) {
             if (kh_exist(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter)) {
 
-                if (sum >= (total_genome_non_Ns_bases/2)) {
-                    stats_info->wgs_cov_stats->median_genome_coverage = k_iter--;
-                    break;
-                }else{
-                    sum += kh_value(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter);;
-                }
+                //fprintf(stderr, "%d\t%d\t%"PRIu32"\n", k_iter, kh_key(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter), kh_value(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter));
+                if (kh_key(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter) < 20000)
+                    coverage_bins[kh_key(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter)] =
+                        kh_value(stats_info->wgs_cov_stats->genome_coverage_for_median, k_iter);
+            }
+        }
+
+        for (i=0; i<20000; i++) {
+
+            if (sum >= (total_genome_non_Ns_bases/2)) {
+                stats_info->wgs_cov_stats->median_genome_coverage = i--;
+                break;
+            }else{
+                sum += coverage_bins[i];
+                if (i == 0)
+                    sum -= stats_info->wgs_cov_stats->total_Ns_bases;
             }
         }
 
