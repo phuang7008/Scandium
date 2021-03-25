@@ -40,7 +40,7 @@ uint32_t getLineCount(char *bed_file);
  * @param coords: the Bed_Coords structure to store coordinates of each bed section
  * @return the total number of bases covered in the target/N-regions bed file
  */
-uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords);
+uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords, khash_t(khStrInt)* wanted_chromosome_hash);
 
 /**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup

@@ -1,6 +1,6 @@
 IDIR=/opt/rh/devtoolset-8/root/usr/include
-CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/repo/scandium/src/sequenceStats
-HTSDIR=/stornext/snfs5/next-gen/scratch/phuang/htslib/v1.10.2/htslib
+CODEDIR=/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/sequenceStats
+HTSDIR=/stornext/snfs130/NGIRD/scratch/phuang/htslib/v1.10.2/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 CC=/opt/rh/devtoolset-8/root/usr/bin/gcc

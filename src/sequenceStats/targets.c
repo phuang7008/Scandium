@@ -50,7 +50,7 @@ uint32_t getLineCount(char *bed_file) {
 // It will open the bed-formatted file and then record all the start and stop positions along with chromosome ids
 // for chromosome X and Y are characters, I will use array of chars (ie array of string) to store chromosome ids
 //
-uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords) {
+uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords, khash_t(khStrInt)* wanted_chromosome_hash) {
 
     FILE *fp = fopen(bed_file, "r");;
 
@@ -93,6 +93,14 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
             // get the first item, which is chromosome id
             //
             if (i == 0) {
+                // skip if the chromosome is not going to be processed
+                //
+                if (wanted_chromosome_hash != NULL) {
+                    khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, p_token);
+                    if (iter_p == kh_end(wanted_chromosome_hash))
+                        break;
+                }
+
                 checkChromosomeID(user_inputs, p_token);       // check chromosome id for versioning
                 strcpy(coords[count].chrom_id,  p_token);
             }
@@ -105,6 +113,13 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
 
             i++;
         }
+
+        if (coords[count].chrom_id == NULL)
+            continue;
+
+        //if (coords[count].chrom_id && strcmp(coords[count].chrom_id, '\0') == 0)
+        if (coords[count].chrom_id && strlen(coords[count].chrom_id) == 0)
+            continue;
 
         // checking if the bed file is sorted
         //
@@ -131,6 +146,7 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
 
         if (!sorted) {
             fprintf(stderr, "ERROR: The input bed file \n%s\n", bed_file);
+            fprintf(stderr, "\tis not sorted between chrom %s and %s!\n", prev_chr_id, coords[count].chrom_id);
             fprintf(stderr, "\tis not sorted between %"PRIu32" and %"PRIu32"!\n", prev_start, coords[count].start);
             fprintf(stderr, "Please make sure your input bed file is sorted, merged and unique!\n");
             exit(EXIT_FAILURE);
@@ -166,7 +182,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     
     // load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
     //
-    uint32_t total_size = loadBedFiles(user_inputs, bedfile_name, bed_info->coords);
+    uint32_t total_size = loadBedFiles(user_inputs, bedfile_name, bed_info->coords, wanted_chromosome_hash);
     //printf("total size is %"PRIu32"\n", total_size);
 
     // Now we are going to generate target-buffer lookup table for all the loaded targets
@@ -182,7 +198,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
             printf("\nERROR: The target bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
             printf("\ttotal size: %"PRIu32"\n", total_size);
             printf("\ttotal target bases: %"PRIu32"\n", stats_info->capture_cov_stats[target_file_index]->total_targeted_bases);
-            printf("\tThe chromosome ids in the capture file MUST appear in the chromosome input file (--chr_list option)!\n");
+            //printf("\tThe chromosome ids in the capture file MUST appear in the chromosome input file (--chr_list option)!\n");
             exit(EXIT_FAILURE);
         }
     } else {
@@ -191,7 +207,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
             printf("\nERROR: The Ns-region bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
             printf("\ttotal size: %"PRIu32"\n", total_size);
             printf("\ttotal N bases: %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
-            printf("\tThe chromosome ids listed in the Ns-region file MUST appear in the chromosome input file (--chr_list option)!\n");
+            //printf("\tThe chromosome ids listed in the Ns-region file MUST appear in the chromosome input file (--chr_list option)!\n");
             exit(EXIT_FAILURE);
         }
     }
