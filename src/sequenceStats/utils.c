@@ -27,7 +27,6 @@
 #include "user_inputs.h"
 #include "annotation.h"
 
-uint32_t NUMBER_OF_CHROMOSOMES = 0;
 
 // split a string into an array of words
 // 0: RefSeq	1:CCDS		2:VEGA/Gencode		3:miRNA		4:everything else (such as SNP, Pseudo gene etc)
@@ -453,7 +452,7 @@ void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage
 void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header) {
 	uint32_t i=0;
 
-	chrom_tracking->coverage = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t*));
+	chrom_tracking->coverage = calloc(chrom_tracking->number_of_chromosomes, sizeof(uint32_t*));
 	if (!chrom_tracking->coverage) {
 		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->coverage");
 		exit(EXIT_FAILURE);
@@ -461,12 +460,12 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 
 	//since the thread finishes unevenly, some chromosome might be processed before its predecessor,
 	//hence we need to initialize them here
-	for(i=0; i<NUMBER_OF_CHROMOSOMES; i++)
+	for(i=0; i<(uint32_t)chrom_tracking->number_of_chromosomes; i++)
 		chrom_tracking->coverage[i] = NULL;
 
 	// the order of the chromosome id need to be in the same order as the bam/cram
 	//
-	chrom_tracking->chromosome_ids = calloc(NUMBER_OF_CHROMOSOMES, sizeof(char*));
+	chrom_tracking->chromosome_ids = calloc(chrom_tracking->number_of_chromosomes, sizeof(char*));
 	if (!chrom_tracking->chromosome_ids) {
 		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_ids");
 	       exit(EXIT_FAILURE);
@@ -474,7 +473,7 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 
 	// Now the chromosome lengths
 	//
-	chrom_tracking->chromosome_lengths = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint32_t));
+	chrom_tracking->chromosome_lengths = calloc(chrom_tracking->number_of_chromosomes, sizeof(uint32_t));
 	if (!chrom_tracking->chromosome_lengths) {
 		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_lengths");
 		exit(EXIT_FAILURE);
@@ -503,20 +502,20 @@ void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrI
 		}
 	}
 
-	if ((unsigned int) j > NUMBER_OF_CHROMOSOMES) {
-		fprintf(stderr, "ERROR: Number of chromosomes needs to be processed %d is larger than required %d!\n", j, NUMBER_OF_CHROMOSOMES);
+	if ((unsigned int) j > (uint32_t)chrom_tracking->number_of_chromosomes) {
+		fprintf(stderr, "ERROR: Number of chromosomes needs to be processed %d is larger than required %d!\n", j, chrom_tracking->number_of_chromosomes);
 		exit(EXIT_FAILURE);
 	}
 
-	chrom_tracking->chromosome_status = calloc(NUMBER_OF_CHROMOSOMES, sizeof(uint8_t));
+	chrom_tracking->chromosome_status = calloc(chrom_tracking->number_of_chromosomes, sizeof(uint8_t));
 	if (!chrom_tracking->chromosome_status) {
 		fprintf(stderr, "ERROR: Memory allocation for %s failed\n", "chrom_tracking->chromosome_status");
 		exit(EXIT_FAILURE);
 	}
-	for(i=0; i<NUMBER_OF_CHROMOSOMES; i++)
+	for(i=0; i<(uint32_t)chrom_tracking->number_of_chromosomes; i++)
         chrom_tracking->chromosome_status[i] = 0;
 
-	chrom_tracking->number_tracked = NUMBER_OF_CHROMOSOMES;
+	chrom_tracking->number_tracked = chrom_tracking->number_of_chromosomes;
 	chrom_tracking->more_to_read = true;
 }
 
@@ -527,7 +526,7 @@ void chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromoso
 
 	for (iter = kh_begin(wanted_chromosome_hash); iter != kh_end(wanted_chromosome_hash); ++iter) {
 		if (kh_exist(wanted_chromosome_hash, iter))
-            NUMBER_OF_CHROMOSOMES++;
+            chrom_tracking->number_of_chromosomes++;
 	}
 
 	chromosomeTrackingInit1(chrom_tracking, wanted_chromosome_hash, header);
@@ -789,7 +788,7 @@ void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *ch
 	// here we need to find out the length of the current chromsome to prevent out of bound segmentation error
 	// get the index for the target_buffer_status
 	//
-    for(i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+    for(i=0; i<(uint32_t)chrom_tracking->number_of_chromosomes; i++) {
         if (strcmp(target_buffer_status[i].chrom_id, chrom_id) == 0) {
             chrom_len = target_buffer_status[i].size;
 

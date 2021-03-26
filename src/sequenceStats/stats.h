@@ -60,7 +60,7 @@ uint32_t readBam(samFile *sffh, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
  * @param thread_id: the current thread id
  * @param primary_chromosome_hash: handle primary chromosomes only if it is not NULL
  */
-void processBamChunk(User_Input *user_inputs, Stats_Info *stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt) * primary_chromosome_hash);
+void processBamChunk(User_Input *user_inputs, Stats_Info *stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt) * primary_chromosome_hash, int number_of_chromosomes);
 
 /**
  * This function is used to process individual aligned read and put the results into a hash table where the key is the chromosome location
@@ -74,7 +74,7 @@ void processBamChunk(User_Input *user_inputs, Stats_Info *stats_info, khash_t(st
  * @param same_chr: a boolean value to indicate if chr id has been changed or not
  * @param iter_in_out: an khiter_t variable to store the point value for current chromosome id key
  */
-void processRecord(User_Input *user_inputs, Stats_Info *stats_info, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status, bool same_chr, khiter_t *iter_in_out);
+void processRecord(User_Input *user_inputs, Stats_Info *stats_info, khash_t(str) *coverage_hash, char *chrom_id, bam1_t *rec, Target_Buffer_Status * target_buffer_status, bool same_chr, khiter_t *iter_in_out, int number_of_chromosomes);
 
 //void setTargetBufferFlags(Target_Buffer_Status *target_buffer_status, uint8_t *on_target, uint8_t *on_buffer, uint32_t chrom_idx, uint32_t pos_idx);
 void setTargetBufferFlags(Target_Buffer_Status *target_buffer_status, bool *on_target, bool *on_buffer, uint32_t chrom_idx, uint32_t pos_idx);

@@ -133,14 +133,14 @@ int main(int argc, char *argv[]) {
         //
         checkNamingConvention(header, wanted_chromosome_hash);
 
-        target_buffer_status = calloc(NUMBER_OF_CHROMOSOMES, sizeof(Target_Buffer_Status));
+        target_buffer_status = calloc(chrom_tracking->number_of_chromosomes, sizeof(Target_Buffer_Status));
         TargetBufferStatusInit2(target_buffer_status, wanted_chromosome_hash);
     } else {
         loadGenomeInfoFromBamHeader(wanted_chromosome_hash, header, stats_info, user_inputs);
-        NUMBER_OF_CHROMOSOMES = header->n_targets;
+        chrom_tracking->number_of_chromosomes = header->n_targets;
         chromosomeTrackingInit1(chrom_tracking, wanted_chromosome_hash, header);
 
-        target_buffer_status = calloc(NUMBER_OF_CHROMOSOMES, sizeof(Target_Buffer_Status));
+        target_buffer_status = calloc(chrom_tracking->number_of_chromosomes, sizeof(Target_Buffer_Status));
         TargetBufferStatusInit(target_buffer_status, header);
     }
 
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
     if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
         processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, 
-                wanted_chromosome_hash, user_inputs->n_file, 0, 2);
+                wanted_chromosome_hash, user_inputs->n_file,chrom_tracking->number_of_chromosomes,0, 2);
         fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
     }
 
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
         for (i=0; i<user_inputs->num_of_target_files; i++) {
             target_bed_info[i] = calloc(1, sizeof(Bed_Info));
             processBedFiles(user_inputs, target_bed_info[i], stats_info, target_buffer_status, 
-                    wanted_chromosome_hash, user_inputs->target_files[i], i, 1);
+                    wanted_chromosome_hash, user_inputs->target_files[i], chrom_tracking->number_of_chromosomes, i, 1);
         }
     }
 
@@ -358,8 +358,8 @@ int main(int argc, char *argv[]) {
         if (num_records > 0) {
           printf("Reading: %"PRIu32" records\t\tTotal: %"PRIu64"\t\tThread id: %d.\n", num_records, total_reads, thread_id);
 
-          processBamChunk(user_inputs, tmp_stats_info, coverage_hash, header, 
-                  &read_buff[thread_id], target_buffer_status, thread_id, wanted_chromosome_hash);
+          processBamChunk(user_inputs, tmp_stats_info, coverage_hash, header, &read_buff[thread_id], 
+                  target_buffer_status, thread_id, wanted_chromosome_hash, chrom_tracking->number_of_chromosomes);
 
         }
 
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
             // if all reads have been processed for the entire file, we need to set the status to 2 for all
             // 
             if (!chrom_tracking->more_to_read) {
-              for(i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+              for(i=0; i<(uint32_t)chrom_tracking->number_of_chromosomes; i++) {
                 if (chrom_tracking->chromosome_status[i] == 1)
                   chrom_tracking->chromosome_status[i] = 2;
               }
@@ -400,7 +400,7 @@ int main(int argc, char *argv[]) {
 #pragma omp single
         {
           if (num_records > 0) {
-            for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+            for (i=0; i<(uint32_t)chrom_tracking->number_of_chromosomes; i++) {
               if ( chrom_tracking->chromosome_ids[i] && chrom_tracking->chromosome_status[i] == 2) {
                 // check to see if any of the chromosomes has finished. If so, write the results out
                 // for the whole genome, we need to use the file that contains regions of all Ns in the reference
@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
 #pragma omp barrier
 
         i = 0;
-        while (i<NUMBER_OF_CHROMOSOMES) {
+        while (i<(uint32_t)chrom_tracking->number_of_chromosomes) {
 
 #pragma omp sections
           {
@@ -607,6 +607,8 @@ int main(int argc, char *argv[]) {
 
     cleanKhashInt(cov_freq_dist);
 
+    TargetBufferStatusDestroy(target_buffer_status, chrom_tracking->number_of_chromosomes);
+
     chromosomeTrackingDestroy(chrom_tracking);
 
     for (i=0; i<user_inputs->num_of_target_files; i++) {
@@ -620,8 +622,6 @@ int main(int argc, char *argv[]) {
 
     if (user_defined_bed_info != NULL)
         cleanBedInfo(user_defined_bed_info);
-
-    TargetBufferStatusDestroy(target_buffer_status);
 
     if (stats_info)
         statsInfoDestroy(stats_info, user_inputs);

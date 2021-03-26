@@ -170,7 +170,7 @@ uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coor
     return total_size;
 }
 
-void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, char* bedfile_name, short target_file_index, short type) {
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, char* bedfile_name, int number_of_chromosomes, short target_file_index, short type) {
     // First, let's get the total number of lines(items or count) within the target file
     //
     bed_info->size = getLineCount(bedfile_name);
@@ -188,7 +188,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *st
     // Now we are going to generate target-buffer lookup table for all the loaded targets
     // we will store targets and buffers information based on chromosome ID
     //
-    generateBedBufferStats(bed_info, stats_info, target_buffer_status, user_inputs, wanted_chromosome_hash, target_file_index, type);
+    generateBedBufferStats(bed_info, stats_info, target_buffer_status, user_inputs, wanted_chromosome_hash, number_of_chromosomes, target_file_index, type);
 
     // Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
     //
@@ -225,7 +225,7 @@ void outputForDebugging(Bed_Info *bed_info) {
 // For values stored in the status_array:
 // 1: target        2: buffer        3: Ns        4: 1+3 (target+Ns overlaps)        5: 2+3 (buffer+Ns overlaps)
 //
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, short target_file_index, short type) {
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, int number_of_chromosomes, short target_file_index, short type) {
     uint32_t i=0, j=0, k=0, chrom_len=0;
     int idx = -1;
     char cur_chrom_id[50];
@@ -246,7 +246,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
             // get the index for the target_buffer_status
             //
-            for(k=0; k<NUMBER_OF_CHROMOSOMES; k++) {
+            for(k=0; k<(uint32_t)number_of_chromosomes; k++) {
                 if (strcmp(target_buffer_status[k].chrom_id, cur_chrom_id) == 0) {
                     idx = k;
                     chrom_len = target_buffer_status[k].size;
@@ -300,7 +300,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
     if (type == 1) {
         uint8_t cur_target_buffer_bit = getTargetBufferBit(target_file_index);
 
-        for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+        for (i=0; i<(uint32_t)number_of_chromosomes; i++) {
             if (target_buffer_status[i].index == -1)
                 continue;
 
@@ -391,10 +391,10 @@ void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t
     }
 }
 
-void TargetBufferStatusDestroy(Target_Buffer_Status *target_buffer_status) {
+void TargetBufferStatusDestroy(Target_Buffer_Status *target_buffer_status, int number_of_chromosomes) {
     if (target_buffer_status) {
-        uint32_t i;
-        for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+        int i;
+        for (i=0; i<number_of_chromosomes; i++) {
             if (target_buffer_status[i].chrom_id) 
                 free(target_buffer_status[i].chrom_id);
 

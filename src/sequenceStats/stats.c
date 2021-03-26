@@ -57,7 +57,7 @@ uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tr
 	return record_idx;
 }
 
-void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash) {
+void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash, int number_of_chromosomes) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
 	bool not_added = true;	
 	uint32_t i = 0;
@@ -181,7 +181,7 @@ void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_
         	///////////////////////////////////////////////////////////////////
 		}
 
-        processRecord(user_inputs, tmp_stats_info, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status, same_chr, iter_in_out);
+        processRecord(user_inputs, tmp_stats_info, coverage_hash, header->target_name[read_buff_in->chunk_of_reads[i]->core.tid], read_buff_in->chunk_of_reads[i], target_buffer_status, same_chr, iter_in_out, number_of_chromosomes);
     }
 
 	if (iter_in_out != NULL) free(iter_in_out);
@@ -189,7 +189,7 @@ void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_
     //printf("Done read bam for thread %d\n", thread_id);
 }
 
-void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out) {
+void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, char * chrom_id, bam1_t *rec, Target_Buffer_Status *target_buffer_status, bool same_chr, khiter_t *iter_in_out, int number_of_chromosomes) {
 	uint32_t i=0, chrom_len=0;
 	bool *on_target=calloc(8, sizeof(bool));
     bool *on_buffer=calloc(8, sizeof(bool));
@@ -203,7 +203,7 @@ void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(
 	// because we need chromosome length information here
 	//
 	int32_t idx = -1;
-	for (i=0; i<NUMBER_OF_CHROMOSOMES; i++) {
+	for (i=0; i<(uint32_t)number_of_chromosomes; i++) {
 		if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
 			chrom_len = target_buffer_status[i].size;
 			idx = i;

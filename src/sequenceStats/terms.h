@@ -65,7 +65,6 @@ extern bool N_FILE_PROVIDED;            // this is the file that contains region
 extern bool TARGET_FILE_PROVIDED;
 extern bool HGMD_PROVIDED;
 extern bool USER_DEFINED_DATABASE;
-extern uint32_t  NUMBER_OF_CHROMOSOMES;
 extern int  khStrStr;
 extern int  khStrInt;
 extern int  khStrFloat;
@@ -190,6 +189,7 @@ typedef struct {
  * (that is all of the member variables are array, except number_tracked)
  */
 typedef struct {
+    int number_of_chromosomes;      // the number of chromosomes users are interested in
     uint32_t number_tracked;        // the number of chromosomes we are tracking so far!
     uint32_t **coverage;            // the coverage count info for each base on each chromosome will be stored here!
 
