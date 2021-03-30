@@ -12,35 +12,18 @@ path=$1
 peak_size=$2
 version=$3
 
-for bFile in `ls $path/*WGS_between1x_150x_REPORT.txt`
-#for bFile in `ls $path/*wo_centromeres`
+for file in `ls $path/*WGS_uniformity_REPORT.txt`
 do
-	bambasename=""
-	if [[ $bFile = *"_wo_centromeres"* ]]; then
-		bambasename=$(basename "$bFile" _wo_centromeres) 
-	fi
+    filename=$(basename -- "$file")
+    filename="${filename%.*}"
+    filename="${filename%.*}"
+    filename="${filename%.*}"
+    filename="${filename%.*}"
+	echo "$filename"
 
-	if [[ $bFile = *"hgv.cram"* ]]; then
-		bambasename=$(basename "$bFile" .hgv.cram.WGS_between1x_150x_REPORT.txt) 
-	fi
+	echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $file $version $peak_size >> uniformity_scores"
 
-	if [[ $bFile = *"hgv.bam"* ]]; then 
-		bambasename=$(basename "$bFile" .hgv.bam.WGS_between1x_150x_REPORT.txt) 
-	fi
-
-	if [[ $bFile = *"realigned.recal.bam"* ]]; then
-		bambasename=$(basename "$bFile" .realigned.recal.bam.WGS_between1x_150x_REPORT.txt) 
-	fi
-
-	if [[ $bFile = *"realigned.recal.cram"* ]]; then
-		bambasename=$(basename "$bFile" .realigned.recal.cram.WGS_between1x_150x_REPORT.txt) 
-	fi
-
-	echo "$bambasename"
-
-	echo "/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $peak_size >> uniformity_scores"
-
-	/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $bFile $version $peak_size >> uniformity_scores
+	/hgsc_software/perl/perl-5.18.2/bin/perl /stornext/snfs5/next-gen/scratch/phuang/git_repo/graph_scripts/uniformity_calculation/calculate_uniformity_comparison.pl $file $version $peak_size >> uniformity_scores
 
 	#break
 done

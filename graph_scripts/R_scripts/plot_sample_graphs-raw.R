@@ -209,7 +209,7 @@ PCT_of_Bases_Coverage_capture_df$Coverage <- factor(PCT_of_Bases_Coverage_captur
                                                     levels=sort(as.numeric(levels(PCT_of_Bases_Coverage_capture_df$Coverage))))
 
 capture_pct <- ggplot(PCT_of_Bases_Coverage_capture_df, aes(x=Coverage, y=Percentage)) + 
-  geom_col(color="slategray4", fill="slategray4") + labs(title="Capture Percentage Base Coverage") + 
+  geom_col(color="red", fill="red") + labs(title="Capture Percentage Base Coverage") + 
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
     axis.title.x = element_text(color="black", size=5, face="bold"),

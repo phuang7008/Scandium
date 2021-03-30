@@ -26,19 +26,19 @@ $a_size  = 7 if !defined $a_size;
 
 # need to remove Ns regions for the calculation
 #
-my $num_of_Ns = 237019493;	# for hg37
+my $num_of_Ns = 237019315;	# for hg37 autosome + XY
 
 if ($version eq "hg38") {
-	$num_of_Ns = 173893331;
+	$num_of_Ns = 164553752; # for hg38 autosome + XY
 }
 
 if ($XY != 1) {
-	# need to modify Ns regions (not include X and Y)
+	# need to modify Ns regions (Autosome Only: not include X and Y)
 	#
 	if ($version eq "hg38") {
-		$num_of_Ns -= 34738921;
+		$num_of_Ns -= 129814831;
 	} else {
-		$num_of_Ns -= 40559035;
+		$num_of_Ns -= 196460278;
 	}
 }
 
