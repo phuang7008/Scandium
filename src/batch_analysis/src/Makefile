@@ -1,16 +1,18 @@
 # (note: the <tab> in the command line is necessary for make to work)
 # variable definitions
 CC=g++
+#CC=/opt/rh/devtoolset-8/root/usr/bin/g++
 CXXFLAGS=-g -Wall -std=c++0x
-#CODEDIR=/stornext/snfs5/next-gen/scratch/phuang/git_repo/dev/batch_analysis/src
+#CODEDIR=/stornext/snfs130/NGIRD/scratch/phuang/git_repo/dev/batch_analysis/src
 MYSQLDIR=-I/usr/include/mysql
 MYSQLLIB=/usr/lib64
+IDIR=-I/opt/rh/devtoolset-8/root/usr/include
 
 # define any libraries to be link into executables:
 LIBS = -lmysqlclient
 
 # define dependent header files
-_DEPS = hts_data.hpp exon.hpp annotation.hpp user_inputs.hpp utils.hpp
+_DEPS = exon.hpp hts_data.hpp annotation.hpp user_inputs.hpp utils.hpp
 #DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
 DEPS=$(patsubst %,/%,$(_DEPS))
 
@@ -40,7 +42,7 @@ all: $(MAIN)
 	@echo  batch_analysis executable has been compiled
 
 $(MAIN): $(OBJS)
-	$(CC) $(CXXFLAGS) $(MYSQLDIR) -o $(MAIN) $(OBJS) $(LIBS) -L$(MYSQLLIB)
+	$(CC) $(CXXFLAGS) $(IDIR) $(MYSQLDIR) -o $(MAIN) $(OBJS) $(LIBS) -L$(MYSQLLIB)
 
 # this is a suffix replacement rule for building .o's from .c's
 # it uses automatic variables $<: the name of the prerequisite of

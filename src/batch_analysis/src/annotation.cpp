@@ -90,7 +90,7 @@ void Annotation::fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data
 	MYSQL_ROW row;
 
 	while ((row = mysql_fetch_row(result))) {
-		Exon::Exon exon;
+		Exon exon;
 		exon.set_exon_start(atol(row[0]));
 		exon.set_exon_end(atol(row[1]));
 		exon.set_exon_id(atol(row[2]));
@@ -100,13 +100,13 @@ void Annotation::fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data
 		// if the gene symbol is not found in the unordered_map, create an empty container first
 		//
 		if (hts_data->get_gene_transcript_exon_map()->find(gene_symbol) == hts_data->get_gene_transcript_exon_map()->end()) {
-			hts_data->get_gene_transcript_exon_map()->insert(std::make_pair(gene_symbol, unordered_map<string, vector<Exon::Exon> >()));
+			hts_data->get_gene_transcript_exon_map()->insert(std::make_pair(gene_symbol, unordered_map<string, vector<Exon> >()));
 		}
 
 		// if the transcript name is not found in the unordered_map, create an empty container first
 		//
 		if (hts_data->get_gene_transcript_exon_map()->at(gene_symbol).find(transcript_name) == hts_data->get_gene_transcript_exon_map()->at(gene_symbol).end()) {
-			hts_data->get_gene_transcript_exon_map()->at(gene_symbol).insert(std::make_pair(transcript_name, vector<Exon::Exon>()));
+			hts_data->get_gene_transcript_exon_map()->at(gene_symbol).insert(std::make_pair(transcript_name, vector<Exon>()));
 			hts_data->get_gene_transcript_exon_map()->at(gene_symbol).at(transcript_name).reserve(hts_data->get_initial_vector_size());
 		}
 
@@ -163,7 +163,7 @@ void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in
 	//
 	while (infile >> chrom_id >> exon_start >> exon_end >> exon_annotation) {
 		if (chrom_id.compare(chrom_in) == 0 && exon_annotation.length() > 0) {
-			Exon::Exon exon;
+			Exon exon;
 			exon.set_exon_start(exon_start);
 			exon.set_exon_end(exon_end);
 
@@ -184,13 +184,13 @@ void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in
 			// if the gene symbol unordered_map is not found, create an empty container first
 			//
 			if (hts_data->get_gene_transcript_exon_map()->find(gene_symbol) == hts_data->get_gene_transcript_exon_map()->end()) {
-				hts_data->get_gene_transcript_exon_map()->insert(std::make_pair(gene_symbol, unordered_map<string, vector<Exon::Exon> >()));
+				hts_data->get_gene_transcript_exon_map()->insert(std::make_pair(gene_symbol, unordered_map<string, vector<Exon> >()));
 			}
 
 			// if the transcript name unordered_map is not found, create an empty container first
 			//
 			if (hts_data->get_gene_transcript_exon_map()->at(gene_symbol).find(transcript_name) == hts_data->get_gene_transcript_exon_map()->at(gene_symbol).end()) {
-				hts_data->get_gene_transcript_exon_map()->at(gene_symbol).insert(std::make_pair(transcript_name, vector<Exon::Exon>()));
+				hts_data->get_gene_transcript_exon_map()->at(gene_symbol).insert(std::make_pair(transcript_name, vector<Exon>()));
 				hts_data->get_gene_transcript_exon_map()->at(gene_symbol).at(transcript_name).reserve(hts_data->get_initial_vector_size());
 			}
 
@@ -273,7 +273,7 @@ void Annotation::fetch_and_dump_exon_info(User_Inputs *user_inputs) {
 
 	    process_mysql_query(sql);
 	    MYSQL_ROW row;
-	    Exon::Exon exon;
+	    Exon exon;
 
 		while ((row = mysql_fetch_row(result))) {
 			char *tmp_str = static_cast<char*> (calloc(100, sizeof(char)));

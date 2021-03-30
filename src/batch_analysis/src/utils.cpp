@@ -55,7 +55,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 		// if the chrom_id key is not found in the low_cov_exon_map iterator, create an empty container
 		//
 		if (hts_data->get_low_cov_exon_map()->find(chrom_id) == hts_data->get_low_cov_exon_map()->end()) {
-			hts_data->get_low_cov_exon_map()->insert(std::make_pair(chrom_id, unordered_map<string, unordered_map<string, vector<Exon::Exon> > >()));
+			hts_data->get_low_cov_exon_map()->insert(std::make_pair(chrom_id, unordered_map<string, unordered_map<string, vector<Exon> > >()));
 		}
 
 		// Now process the exon annotation first. Here is an example:
@@ -66,7 +66,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 		// Here we need to check to see if the current gene_symbol key is present. If not, we need to create an empty container
 		//
 		if (hts_data->get_low_cov_exon_map()->at(chrom_id).find(annotations[0]) == hts_data->get_low_cov_exon_map()->at(chrom_id).end()) {
-			hts_data->get_low_cov_exon_map()->at(chrom_id).insert(std::make_pair(annotations[0], unordered_map<string, vector<Exon::Exon> >()));
+			hts_data->get_low_cov_exon_map()->at(chrom_id).insert(std::make_pair(annotations[0], unordered_map<string, vector<Exon> >()));
 			//cout << "Processing gene symbol " << annotations[0] << endl;
 		}
 
@@ -82,7 +82,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 		// check to see if transcript_name key exists. If not, create an empty container
 		//
 		if (hts_data->get_low_cov_exon_map()->at(chrom_id).at(annotations[0]).find(transcript_name) == hts_data->get_low_cov_exon_map()->at(chrom_id).at(annotations[0]).end()) {
-			hts_data->get_low_cov_exon_map()->at(chrom_id).at(annotations[0]).insert(std::make_pair(transcript_name, vector<Exon::Exon>()));
+			hts_data->get_low_cov_exon_map()->at(chrom_id).at(annotations[0]).insert(std::make_pair(transcript_name, vector<Exon>()));
 
 			// set the initial size
 			// This is needed because according to the following:
@@ -132,7 +132,7 @@ void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts
 		if (!found) {
 			// The low_cov_exon is the low coverage regions
 			//
-			Exon::Exon low_cov_exon;
+			Exon low_cov_exon;
 			low_cov_exon.set_exon_start(exon_target_start);
 			low_cov_exon.set_exon_end(exon_target_end);
 			low_cov_exon.set_num_of_low_qual_bases(low_cov_end - low_cov_start);
@@ -235,7 +235,7 @@ void Utils::output_detailed_annotations(string chrom_id, HTS_Data *hts_data, Use
 			//
 			if (transcript_name.compare(".") == 0) continue;
 
-			vector<Exon::Exon> tmp_exons = it->second;	
+			vector<Exon> tmp_exons = it->second;	
 			uint32_t total_exon_size=0;
 			uint32_t total_exon_low_qual_bases=0;
 

@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
 
 		// get the low_cov_exon_map, which we just read in
 		//
-		unordered_map <string, unordered_map<string, unordered_map<string, vector<Exon::Exon> > > > *low_cov_exon_map = hts_data->get_low_cov_exon_map();
+		unordered_map <string, unordered_map<string, unordered_map<string, vector<Exon> > > > *low_cov_exon_map = hts_data->get_low_cov_exon_map();
 		//cout << low_cov_exon_map->size() << endl;
 
 		// Here keyword 'auto' stands for "automatic type inference" based on the initialization statement
