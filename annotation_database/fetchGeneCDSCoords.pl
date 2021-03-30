@@ -73,7 +73,10 @@ while (<IN>) {
 		} elsif ($ref_exon_id=~/(^E.*)_(\d+)_(\d+)$/) {
 			($refseq_name, $exon_id, $exon_count) = ($1, $2, $3);
 			$refseq_name=~s/\.\d+//;
-		}
+		} elsif ($ref_exon_id=~/(^\w.*)_(\d+)_(\d+)$/) {
+            ($refseq_name, $exon_id, $exon_count) = ($1, $2, $3);
+            $refseq_name=~s/\.\d+//;
+        }
 		
 		my ($sql, $sth);
 		if (!defined $gene_symbol) {

@@ -32,11 +32,11 @@ $dbh->do(qq{
   `exon_id`    INT UNSIGNED NOT NULL,
   `exon_count` INT UNSIGNED NOT NULL,
   `gene_symbol`  varchar(200) NOT NULL,
-  `gene_name`    varchar(200) NOT NULL,
+  `transcript_name`  varchar(200) NOT NULL,
   PRIMARY KEY (ge_id),
   INDEX `COMP` (`chrom`, exon_start, exon_end),
   INDEX `SYM`  (`gene_symbol`),
-  INDEX `NAME` (`gene_name`)
+  INDEX `NAME` (`transcript_name`)
 ) ENGINE=InnoDB;
 });
 
@@ -70,12 +70,22 @@ while (<IN>) {
 	undef $sth;
 
 	# process the 3rd item on the list that contains the exon_id, refseq name and gene symbol
+    # NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652
+    #
 	my @info = split(/;/, $items[3]);
 
 	foreach my $region (@info) {
 		my ($exon, $gene_symbol) = split(/=/, $region);
-		my ($gene_name, $e_info) = split(/_exon_/, $exon);
-		my ($exon_id, $exon_count) = split(/_/, $e_info);
+		my ($gene_name, $exon_id, $exon_count) = split(/\|/, $exon);
+        $exon_id =~s/exon_//;
+        if ($exon_count=~/gene/) {
+            $exon_count =~s/gene_//;
+        } elsif ($exon_count=~/miRNA/) {
+            $exon_count =~s/miRNA_//;
+        } else {
+            print "Wrong annotation $exon_count\n";
+        }
+
 		
 		# only CCDS doesn't have gene_symbol, we need to find it here!
 		if (!defined $gene_symbol) {
