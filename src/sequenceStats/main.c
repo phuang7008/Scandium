@@ -24,6 +24,9 @@
 #include <omp.h>
 #include "htslib/sam.h"
 
+#include "data_structure.h"
+#include "coverage_tracking.h"
+
 #include "annotation.h"
 #include "reports.h"
 #include "stats.h"

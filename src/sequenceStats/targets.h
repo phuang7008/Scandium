@@ -74,12 +74,6 @@ void processBufferRegions(uint32_t start, uint32_t end, int chrom_idx, Target_Bu
 void outputForDebugging(Bed_Info *bed_info);
 
 /**
- * this function is used to free all the memories that are allocated by the program
- * @param bed_info: the declared Bed_Info variable
- */
-void cleanBedInfo(Bed_Info *bed_info);
-
-/**
  * It is used to store both target and buffer information
  * @param chromosome_id: the current chromosome to load
  * @param size: the size of the chromosome
@@ -88,11 +82,5 @@ void cleanBedInfo(Bed_Info *bed_info);
  * @return
  */
 void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_buffer_regions, Bed_Coords *coords);
-
-void TargetBufferStatusInit(Target_Buffer_Status *target_buffer_status, bam_hdr_t *header);
-
-void TargetBufferStatusInit2(Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash);
-
-void TargetBufferStatusDestroy(Target_Buffer_Status *target_buffer_status, int number_of_chromosomes);
 
 #endif //TARGETS_H

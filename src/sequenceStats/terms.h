@@ -35,6 +35,9 @@
 // Users defined header files
 #include "htslib/sam.h"
 
+#include "data_structure.h"
+#include "coverage_tracking.h"
+
 // The followings are defined as macro/constants. The program should never try to change their values
 #define VERSION_ "##Scandium v2.0.1"
 
@@ -66,7 +69,7 @@ extern bool TARGET_FILE_PROVIDED;
 extern bool HGMD_PROVIDED;
 extern bool USER_DEFINED_DATABASE;
 extern int  khStrStr;
-extern int  khStrInt;
+//extern int  khStrInt;
 extern int  khStrFloat;
 extern int  khStrStrArray;
 extern int  khStrLCG;
@@ -139,65 +142,6 @@ typedef struct {
     bool non_MC_tag_ON;                 // use non_MC_tag approach for overlap base removal even though the bam file has MC_tags
 } User_Input;
 
-/**
- * define a structure that holds the target coordinates
- */
-typedef struct {
-    char chrom_id[150];    // some chromosome ID would be quite long
-    uint32_t start;
-    uint32_t end;
-} Bed_Coords;
-
-/**
- * define a structure that holds the size and coordinates info of a bed file
- */
-typedef struct {
-    Bed_Coords *coords;
-    uint32_t size;          // number of regions in bed format from the original file
-} Bed_Info;
-
-/**
- * define a strcuture for quick lookup of target information
- */
-typedef struct {
-    char *chrom_id;                 // which chromosome it is tracking
-    uint32_t size;                  // size of current chromosome
-    int32_t index;                  // -1 means this chromosome is not important/processed, and we should skip it!
-    uint8_t *target_status_array;   // array to store the target status for each chrom position
-    uint8_t *buffer_status_array;   // array to store the buffer status for each chrom position
-} Target_Buffer_Status;
-
-/**
- * define a structure to hold a chunk of read buff to be processed by each thread
- */
-typedef struct {
-    bam1_t **chunk_of_reads;
-    uint32_t capacity;
-    uint32_t size;
-} Read_Buffer;
-
-/**
- * data structure to store temp coverage results
- */
-typedef struct {
-    uint32_t size;
-    uint32_t * cov_array;
-} Temp_Coverage_Array;
-
-/**
- * define a strcuture that hold the chromosome ids status in array 
- * (that is all of the member variables are array, except number_tracked)
- */
-typedef struct {
-    int number_of_chromosomes;      // the number of chromosomes users are interested in
-    uint32_t number_tracked;        // the number of chromosomes we are tracking so far!
-    uint32_t **coverage;            // the coverage count info for each base on each chromosome will be stored here!
-
-    char **chromosome_ids;
-    uint32_t *chromosome_lengths;
-    uint8_t  *chromosome_status;    // 0 pending, 1 working, 2 finish coverage calculation, 3. done summary-report/annotation processing!
-    bool more_to_read;
-} Chromosome_Tracking;
 
 /**
  * define a structure to hold the database name infomation
@@ -362,7 +306,7 @@ KHASH_MAP_INIT_STR(khStrStr, char*)
 
 KHASH_MAP_INIT_STR(khStrStrArray, stringArray*)
 
-KHASH_MAP_INIT_STR(khStrInt, uint32_t)
+//KHASH_MAP_INIT_STR(khStrInt, uint32_t)
 
 KHASH_MAP_INIT_STR(str, Temp_Coverage_Array*)
 

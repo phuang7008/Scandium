@@ -81,12 +81,6 @@ uint32_t processLowCovRegionFromStrArray(stringArray *low_cov_regions, char **ou
  */
 void cleanKhashInt(khash_t(m32) *hash_to_clean);
 
-/*
- * It is used to clean the kash_t (char* as key, with uint32_t as value) hash table
- * @param hash_to_clean: loop through the hash table to clean all the allocated memories including keys
- */
-void cleanKhashStrInt(khash_t(khStrInt) *hash_to_clean);
-
 /* 
  * It is used to clean the kash_t (char* as key, but string array as value) hash table
  * @param hash_to_clean: loop through the hash table to clean all the allocated memories including keys and char* array
@@ -125,43 +119,6 @@ void dynamicStringAllocation(char *str_in, char **storage_str);
  */
 void dynamicStringExpansion(char *str_in, char **storage_str);
 
-/**
- * initialize the Chromosome_Tracking variable, this approach will process all chromosomes
- * @param header: a bam header that contains all the chromosome information
- * @return an instance of Chromosome_Tracking upon successful
- */
-void chromosomeTrackingInit1(Chromosome_Tracking *chrom_tracking, khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header);
-
-/**
- * Initialize the chromosome_tracking variable using user specified region file
- * This approach will process those chromosomes specified by user only
- * @param wanted_chromosome_hash: a kh_hash table stores chromosomes to be processed
- */
-void chromosomeTrackingInit2(khash_t(khStrInt) *wanted_chromosome_hash, Chromosome_Tracking *chrom_tracking, bam_hdr_t *header);
-
-/**
- * This function is used to update all members for the Chromosome_Tracking variable
- * @param chrom_tracking: a Chromosome_Tracking used for tracking
- * @param chrom_id: the current chromosome id
- * @param chrom_len: the length of current chromosome
- * @param index: the members in Chromosome_Tracking variable are stored in arrays, using index will help locate the chromosome info
- */
-void chromosomeTrackingUpdate(Chromosome_Tracking *chrom_tracking, uint32_t chrom_len, int index);
-
-/**
- * To clean up the allocated memory for chromosome tracking
- * @param chrom_tracking: the tracking variable to be cleaned
- */
-void chromosomeTrackingDestroy(Chromosome_Tracking * chrom_tracking);
-
-/**
- * To locate the index of a chromosome id in an array give the chromosome id information
- * @param chrom_id: current chromosome id to be handled
- * @param chrom_tracking: the Chromosome_Tracking variable to track the status of chromosome processed
- * @return a index at the tracking array
- */
-int32_t locateChromosomeIndexForChromTracking(char *chrom_id, Chromosome_Tracking *chrom_tracking);
-
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in);
 
 /**
@@ -183,16 +140,6 @@ void captureCoverageStatsInit(Capture_Coverage_Stats * capture_cov_stats);
  * @param stats_info
  */
 void statsInfoDestroy(Stats_Info *stats_info, User_Input *user_inputs);
-
-/**
- * it will set the coverage for all of the Ns regions in the genome to zero
- * @param chrom_id: current chromosome id to be handled
- * @param Ns_info: the detailed Ns info
- * @param chrom_tracking: a storage used to track each chromosome in details
- * @param target_buffer_status: it is used to tell which regions are targets and which regions are buffer. 
- *		Sometimes, Ns regions will overlap with the buffer regions
- */
-void zeroAllNsRegions(char *chrom_id, Bed_Info *Ns_info, Chromosome_Tracking *chrom_tracking, Target_Buffer_Status *target_buffer_status);
 
 /**
  * To add value into a hash table by the key

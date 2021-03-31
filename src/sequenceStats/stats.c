@@ -24,38 +24,6 @@
 #include "stats.h"
 #include "utils.h"
 
-void readBufferInit(Read_Buffer *read_buff_in) {
-	uint32_t i=0;
-	for (i=0; i<read_buff_in->capacity; i++) {
-        read_buff_in->chunk_of_reads[i] = bam_init1();
-    }
-}
-
-void readBufferDestroy(Read_Buffer *read_buff_in) {
-	uint32_t i=0;
-	for (i=0; i<read_buff_in->capacity;i++) {
-		if (read_buff_in->chunk_of_reads[i] != NULL) {
-			bam_destroy1(read_buff_in->chunk_of_reads[i]);
-			read_buff_in->chunk_of_reads[i]=NULL;
-		}
-	}
-
-	read_buff_in->size = 0;
-}
-
-uint32_t readBam(samFile *sfin, bam_hdr_t *header, Chromosome_Tracking *chrom_tracking, Read_Buffer *read_buff_in) {
-    uint32_t record_idx = 0;
-    while (record_idx < read_buff_in->capacity && chrom_tracking->more_to_read) {
-        if (sam_read1(sfin, header, read_buff_in->chunk_of_reads[record_idx]) < 0) {
-        	chrom_tracking->more_to_read = false;
-			//fprintf(stderr, "Reading Bam has encountered some problem\n");
-            break;
-        }
-        ++record_idx;
-    }
-
-	return record_idx;
-}
 
 void processBamChunk(User_Input *user_inputs, Stats_Info *tmp_stats_info, khash_t(str) *coverage_hash, bam_hdr_t *header, Read_Buffer *read_buff_in, Target_Buffer_Status *target_buffer_status, int thread_id, khash_t(khStrInt)* primary_chromosome_hash, int number_of_chromosomes) {
 	// it is the flag that is used to indicate if we need to add the khash into the coverage_hash
