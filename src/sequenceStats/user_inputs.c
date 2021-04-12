@@ -34,25 +34,6 @@ bool HGMD_PROVIDED   = false;
 bool TARGET_FILE_PROVIDED  = false;
 bool USER_DEFINED_DATABASE = false;
 
-// Before open any file for processing, it is always a good idea to make sure that file exists
-//
-bool checkFile(char * fName) {
-    if(access(fName, F_OK|R_OK) == -1) {
-        fprintf(stderr, "ERROR: No such file as \n%s\n  File not found.\n", fName);
-        return false;
-        //exit(EXIT_FAILURE);
-    }
-    return true;
-}
-
-uint64_t check_file_size(const char *filename) {
-    struct stat st;
-    if (stat(filename, &st) == 0)
-        return st.st_size;
-
-    fprintf(stderr, "ERROR: Something is wrong when check the file size for file: \n%s\n", filename);
-    exit(EXIT_FAILURE);
-}
 
 void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt) *hgmd_transcripts) {
     // query from the MySQL database
@@ -195,36 +176,6 @@ void usage() {
     printf("--wgs_depth     -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
     printf("                    (both -w and -W needed). Default: off\n");
     printf("--help          -h  Print this help/usage message\n");
-}
-
-// This is used to check if a string (ie char *) is an int number
-bool isNumber(const char * inStr) {
-    if (strlen(inStr) == 0) return false;
-
-    while( *inStr != '\0') {
-        if (!isdigit(inStr[0])) {
-            return false;
-        }
-        inStr++;
-    }
-    return true;
-}
-
-// This is used to check if a string is a float number
-//
-bool isFloat(const char *str, float *dest) {
-    if (str == NULL) return false;
-
-    char *endptr;
-    *dest = (float) strtod(str, &endptr);
-    if (str == endptr) return false;    // no conversion
-
-    // look at training text
-    //
-    while (isspace((unsigned char) *endptr))
-        endptr++;
-
-    return *endptr == '\0';
 }
 
 // Get command line arguments in and check the sanity of user inputs 
@@ -515,10 +466,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'V': user_inputs->above_10000_on = true; break;
             case 'w': user_inputs->wgs_coverage = true; break;
             case 'W': user_inputs->Write_WGS_cov_fasta = true; break;
-            case '?':
+            case '?':   // "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:"
                 if (   optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
                     || optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
-                    || optopt == 'n' || optopt == 'o' || optopt == 'O' || optopt == 'p' || optopt == 'P' 
+                    || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' 
                     || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U'
                     || optopt == '1' || optopt == '2' || optopt == '3' || optopt == '4' || optopt == '5' 
                     || optopt == '6' || optopt == '7' || optopt == '8' || optopt == '1' || optopt == 'e'
@@ -643,7 +594,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
         user_inputs->capture_all_site_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_AllSites_REPORT.txt", user_inputs->target_file_basenames[p]);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_all_site_files[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_all_site_files[p], string_to_add, VERSION_);
             writeHeaderLine(user_inputs->capture_all_site_files[p], user_inputs, p, 1);
         }
 
@@ -652,7 +603,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
         user_inputs->capture_cov_reports = calloc(user_inputs->num_of_target_files, sizeof(char*));
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_Coverage_Summary_Report.txt", user_inputs->target_file_basenames[p]);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_reports[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_reports[p], string_to_add, VERSION_);
         }
 
         // for cov.fasta file name
@@ -661,7 +612,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
             user_inputs->capture_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_target_files; p++) {
                 sprintf(string_to_add, "%s.Capture_cov.fasta", user_inputs->target_file_basenames[p]);
-                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_files[p], string_to_add);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_files[p], string_to_add, VERSION_);
             }
         }
 
@@ -671,7 +622,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
             user_inputs->capture_wig_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_target_files; p++) {
                 sprintf(string_to_add, "%s.Capture_off_target_good_hits.wig.fasta", user_inputs->target_file_basenames[p]);
-                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_wig_files[p], string_to_add);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_wig_files[p], string_to_add, VERSION_);
             }
         }
 
@@ -680,7 +631,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
         user_inputs->capture_low_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_below%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->low_coverage_to_report);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_low_cov_files[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_low_cov_files[p], string_to_add, VERSION_);
             writeHeaderLine(user_inputs->capture_low_cov_files[p], user_inputs, p, 1);
         }
 
@@ -690,7 +641,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
             user_inputs->capture_high_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_target_files; p++) {
                 sprintf(string_to_add, ".%s.Capture_above%dx_REPORT.txt", user_inputs->target_file_basenames[p], user_inputs->high_coverage_to_report);
-                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_files[p], string_to_add);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_high_cov_files[p], string_to_add, VERSION_);
                 writeHeaderLine(user_inputs->capture_high_cov_files[p], user_inputs, p, 1);
             }
         }
@@ -704,15 +655,15 @@ void setupOutputReportFiles(User_Input *user_inputs) {
 
         for (p=0; p<user_inputs->num_of_target_files; p++) {
             sprintf(string_to_add, ".%s.Capture_Gene_pct.txt", user_inputs->target_file_basenames[p]);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_files[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_gene_pct_files[p], string_to_add, VERSION_);
             writeHeaderLine(user_inputs->low_cov_gene_pct_files[p], user_inputs, p, 3);
 
             sprintf(string_to_add, ".%s.Capture_CDS_pct.txt", user_inputs->target_file_basenames[p]);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_files[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_exon_pct_files[p], string_to_add, VERSION_);
             writeHeaderLine(user_inputs->low_cov_exon_pct_files[p], user_inputs, p, 4);
 
             sprintf(string_to_add, ".%s.Capture_Transcript_pct.txt", user_inputs->target_file_basenames[p]);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_files[p], string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->low_cov_transcript_files[p], string_to_add, VERSION_);
             writeHeaderLine(user_inputs->low_cov_transcript_files[p], user_inputs, p, 5);
         }
     }
@@ -722,29 +673,29 @@ void setupOutputReportFiles(User_Input *user_inputs) {
     if (user_inputs->wgs_coverage) {
         // output WGS coverage summary report
         sprintf(string_to_add, ".WGS_Coverage_Summary_Report.txt");
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_report, string_to_add);
+        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_report, string_to_add, VERSION_);
 
         // output low coverage regions for WGS
         sprintf(string_to_add, ".WGS_below%dx_REPORT.txt", user_inputs->low_coverage_to_report);
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_low_cov_file, string_to_add);
+        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_low_cov_file, string_to_add, VERSION_);
         writeHeaderLine(user_inputs->wgs_low_cov_file, user_inputs, 20, 1);
 
         // output too high coverage regions for the whole genome
         //
         if (user_inputs->above_10000_on) {
             sprintf(string_to_add, ".WGS_above%dx_REPORT.txt", user_inputs->high_coverage_to_report);
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add);
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_high_cov_file, string_to_add, VERSION_);
             writeHeaderLine(user_inputs->wgs_high_cov_file, user_inputs, 20, 1);
         }
 
         // output the uniformity data file for Uniformity Analysis
         //
         sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add);
+        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add, VERSION_);
 
         // for whole genome (wgs) file name
         if (user_inputs->Write_WGS_cov_fasta) {
-            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta");
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta", VERSION_);
             //printf("Create wgs file name %s\n", user_inputs->wgs_file);
         }
     }
@@ -853,20 +804,6 @@ void checkRepeatedCaptureFiles(User_Input *user_inputs) {
             }
         }
     }
-}
-
-//Here I need to pass in file_in name string as reference, otherwise, it will be by value and will get segmentation fault
-void createFileName(char *output_dir, char *base_name, char **file_in, char *string_to_append) {
-    *file_in = calloc(strlen(output_dir)+strlen(base_name)+strlen(string_to_append)+2,  sizeof(char));
-    strcpy(*file_in, output_dir);
-    strcat(*file_in, "/");
-    strcat(*file_in, base_name);
-    strcat(*file_in, string_to_append);
-
-    // need to write the version number to every output file
-    FILE *out_fp = fopen(*file_in, "w");
-    fprintf(out_fp, "%s\n", VERSION_);
-    fclose(out_fp);
 }
 
 // need to write the header line for some of the output files
@@ -1181,7 +1118,7 @@ void createdFileArray(User_Input *user_inputs, uint8_t f_size, char **file_array
     for (p=0; p<f_size; p++) {
         char* string_to_add = calloc(strlen(user_inputs->target_file_basenames[p]) + strlen(description) + 2, sizeof(char));
         sprintf(string_to_add, ".%s.%s", user_inputs->target_file_basenames[p], description);
-        createFileName(user_inputs->output_dir, bam_prefix, &file_array[p], string_to_add);
+        createFileName(user_inputs->output_dir, bam_prefix, &file_array[p], string_to_add, VERSION_);
         writeHeaderLine(file_array[p], user_inputs, p, headline_type);
     }
 }
@@ -1202,44 +1139,6 @@ void setupMySQLDB(Databases **dbs, User_Input *user_inputs) {
         *dbs = calloc(1, sizeof(Databases));
         databaseSetup(*dbs, user_inputs);
     }
-}
-
-void loadGenomeInfoFromBamHeader(khash_t(khStrInt) *wanted_chromosome_hash, bam_hdr_t *header, Stats_Info *stats_info, User_Input *user_inputs) {
-    int i, absent=0;
-    for ( i = 0; i < header->n_targets; i++) {
-        khiter_t iter = kh_put(khStrInt, wanted_chromosome_hash, header->target_name[i], &absent);
-        if (absent) {
-            kh_key(wanted_chromosome_hash, iter) = strdup(header->target_name[i]);
-            kh_value(wanted_chromosome_hash, iter) = header->target_len[i];
-        }
-        stats_info->wgs_cov_stats->total_genome_bases += header->target_len[i];
-    }
-
-    // Now need to find out the reference version
-    //
-    for ( i = 0; i < header->n_targets; i++) {
-        if ( (strcasecmp(user_inputs->database_version, "hg38") != 0)
-            && (strstr(header->target_name[i], "chr") != NULL) ) {
-            fprintf(stderr, "The reference version %s isn't set correctly\n", user_inputs->database_version);
-            strcpy(user_inputs->database_version, "hg38");
-            fprintf(stderr, "The correct reference version is %s (has been reset)\n", user_inputs->database_version);
-            break;
-        }
-    }
-}
-
-const char* getFileExtension(const char* filename) {
-    const char* dot = strrchr(filename, '.');
-    if (!dot || dot == filename) return "";
-    return strdup(dot);
-}
-
-const char* baseFilename(char const *path) {
-    char *bn = strrchr(path, '/');
-    if (bn == NULL)
-        return strdup(path);
-    else
-        return strdup(bn+1);
 }
 
 // Type: 1 for target; 2 for annotation
@@ -1279,172 +1178,5 @@ void getBaseFilenameWithoutExtension(User_Input *user_inputs, uint8_t type) {
 
         if (bn) free((char*)bn);
         if (ext) free((char*)ext);
-    }
-}
-
-void checkFileExtension(User_Input *user_inputs, samFile* sfd) {
-    const char* file_extension = getFileExtension(user_inputs->bam_file);
-    switch (sfd->format.format) {
-        case bam:
-            if (stristr(".bam", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file  \n%s\n is in bam format\n\n", user_inputs->bam_file);
-                exit(EXIT_FAILURE);
-            }
-            break;
-        case cram:
-            if (stristr(".cram", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file \n%s\n is in cram format\n\n", user_inputs->bam_file);
-                exit(EXIT_FAILURE);
-            }
-            break;
-        case sam:
-            if (stristr(".sam", file_extension) == NULL) {
-                fprintf(stderr, "\nERROR: The input file \n%s\n is in sam format\n\n", user_inputs->bam_file);
-                exit(EXIT_FAILURE);
-            }
-            break;
-        default:
-            fprintf(stderr, "\nERROR: Unknown input file format \n%s\n\n", user_inputs->bam_file);
-            exit(EXIT_FAILURE);
-    }
-
-    if (file_extension != NULL) free((char*)file_extension);
-}
-
-char* getReferenceFaiPath(const char *fn_ref) {
-    char *fn_fai = 0;
-    if (fn_ref == 0) return 0;
-
-    fn_fai = calloc(strlen(fn_ref) + 5, sizeof(char));
-    strcat(strcpy(fn_fai, fn_ref), ".fai");
-
-    if (access(fn_fai, R_OK) == -1) { // fn_fai is unreadable
-        if (access(fn_ref, R_OK) == -1) {
-            fprintf(stderr, "fail to read file \n%s\n in getReferenceFaiPath() \n", fn_ref);
-        }
-        fprintf(stderr, "fail to read file \n%s\n in getReferenceFaiPath() \n", fn_fai);
-        free(fn_fai); fn_fai = 0;
-    }
-
-    return fn_fai;
-}
-
-void checkChromosomeID(User_Input *user_inputs, char* chrom_id) {
-    // make a copy and convert CHR in tmp_chrom_id to lowercase
-    //
-    char * tmp_chrom_id = calloc(strlen(chrom_id) + 1, sizeof(char));
-    strcpy(tmp_chrom_id, chrom_id);
-
-    int i=0;
-    for (i=0; tmp_chrom_id[i]; i++) {
-        if (tmp_chrom_id[i] == 'C' || tmp_chrom_id[i] == 'H' || tmp_chrom_id[i] == 'R')
-            tmp_chrom_id[i] = tolower(tmp_chrom_id[i]);
-    }
-
-    if (strcmp(user_inputs->database_version, "hg37") == 0 ||
-        strcmp(user_inputs->database_version, "hg19") == 0) {
-        if (strstr(tmp_chrom_id, "chr") != NULL) {
-            fprintf(stderr, "ERROR: The chromosome ID for Human Genome hg37/hg19 shouldn't contain 'chr'\n!");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    if (strcmp(user_inputs->database_version, "hg38") == 0 && strstr(tmp_chrom_id, "chr") == NULL) { 
-        fprintf(stderr, "ERROR: The chromosome ID for Human Genome hg38 should begin with 'chr'!");
-        exit(EXIT_FAILURE);
-    }
-
-    if (tmp_chrom_id != NULL) free(tmp_chrom_id);
-}
-
-void loadWantedChromosomes(khash_t(khStrInt) *wanted_chromosome_hash, User_Input *user_inputs, Stats_Info *stats_info) {
-    // open file for reading
-    //
-    FILE * fp = fopen(user_inputs->chromosome_bed_file, "r");
-    size_t len = 0;
-    ssize_t read;
-    char *line = NULL, *tokPtr=NULL;
-    char *chrom_id = calloc(50, sizeof(char));
-
-    while ((read = getline(&line, &len, fp)) != -1) {
-        if (*line == '\n') continue;                // handle empty lines
-        if (strstr(line, "#") != NULL) continue;    // commented out lines
-
-        char *savePtr = line;
-        int absent=0;
-        khiter_t iter;
-        uint32_t start=0, end=0;
-
-        // now need to process input information with the following format
-        // chr1    0       248956422
-        //
-        uint16_t j=0;
-        while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
-            if (j == 0) {
-                // check to see if the hashkey exists for current chromosome id
-                //
-                iter = kh_put(khStrInt, wanted_chromosome_hash, tokPtr, &absent);
-                if (absent) {
-                    kh_key(wanted_chromosome_hash, iter) = strdup(tokPtr);
-                }
-                kh_value(wanted_chromosome_hash, iter) = 1;
-
-                if (chrom_id == NULL) {
-                    strcpy(chrom_id, tokPtr);
-                }
-            }
-
-            if (j == 1) {
-                start = (uint32_t) strtol(tokPtr, NULL, 10);
-            }
-
-            if (j == 2) {
-                end = (uint32_t) strtol(tokPtr, NULL, 10);
-                kh_value(wanted_chromosome_hash, iter) = end-start;
-
-                // update the total genome size info
-                //
-                stats_info->wgs_cov_stats->total_genome_bases += end - start;
-                //printf("%"PRIu32"\t%"PRIu32"\t%"PRIu32"\n", start, end, stats_info->wgs_cov_stats->total_genome_bases);
-            }
-
-            j++;
-        }
-    }
-
-    if (line != NULL) free(line);
-
-    // check version using chrom_id (for human genome only)
-    // Since the MySQL database won't be used for many cases, we can't rely on users to use -D option
-    // As the Default reference setting is hg37, we will only handle cases where it is hg38.
-    // Here we will dynamically check the chromosome format and set the -D option
-    //
-    if ( (strcasecmp(user_inputs->database_version, "hg38") != 0) && (strstr(chrom_id, "chr") != NULL) ) {
-        fprintf(stderr, "The reference version isn't set correctly\n");
-        fprintf(stderr, "The current reference version was \n%s\n", user_inputs->database_version);
-        strcpy(user_inputs->database_version, "hg38");
-        fprintf(stderr, "The correct reference version is \n%s\n has been reset\n", user_inputs->database_version);
-    }
-
-    if (chrom_id != NULL) free(chrom_id);
-    fclose(fp);
-}
-
-
-void checkNamingConvention(bam_hdr_t *header, khash_t(khStrInt)* wanted_chromosome_hash) {
-    bool match=false;
-    int32_t i=0;
-    for(i=0; i<header->n_targets; i++) {
-        khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, header->target_name[i]);
-        if (iter != kh_end(wanted_chromosome_hash)) {
-            match=true;
-            break;
-        }
-    }
-
-    if (!match) {
-        fprintf(stderr, "ERROR: The naming conventions for chromosomes are different\n");
-        fprintf(stderr, "between the chromosome bed file and the input bam/cram file\n\n");
-        exit(EXIT_FAILURE);
     }
 }

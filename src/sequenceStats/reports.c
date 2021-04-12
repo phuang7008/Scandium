@@ -317,18 +317,18 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
     if (chrom_idx == -1) return 0;
     
-    uint32_t i=0;
+    uint32_t i=0;    // need to be signed as 'coverage' is a signed value
 
     for (i = begin; i < begin+length; i++) {
-        uint32_t start=0, end=0;
+        int32_t start=0, end=0;
         uint64_t cov_total=0;
 
         // for low coverage checking and writing
         //
-        if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->low_coverage_to_report) {
+        if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] < (int32_t) user_inputs->low_coverage_to_report) {
             start = i;
 
-            while(i < begin+length && chrom_tracking->coverage[chrom_idx][i] < user_inputs->low_coverage_to_report) {
+            while(i < begin+length && chrom_tracking->coverage[chrom_idx][i] < (int32_t) user_inputs->low_coverage_to_report) {
                 //if (start == 10568 || start == 11118) {
                 //    printf("beginning coverage is %"PRIu32"\n", chrom_tracking->coverage[chrom_idx][i]);
                 //}
@@ -361,10 +361,10 @@ uint32_t writeLow_HighCoverageReport(uint32_t begin, uint32_t length, Chromosome
 
         // now for anything above the High coverage
         //
-        if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
+        if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= (int32_t) user_inputs->high_coverage_to_report) {
             start = i;
 
-            while( i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= user_inputs->high_coverage_to_report) {
+            while( i < begin+length && chrom_tracking->coverage[chrom_idx][i] >= (int32_t) user_inputs->high_coverage_to_report) {
                     cov_total += chrom_tracking->coverage[chrom_idx][i];
                     i++;
             }
@@ -616,7 +616,7 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
         if (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound) {
             start = i;
 
-            uint32_t min_cov=10000000, max_cov=0;
+            int32_t min_cov=10000000, max_cov=0;    // need to be signed as 'coverage' is a signed int
 
             while (i < begin+length && chrom_tracking->coverage[chrom_idx][i] > user_inputs->upper_bound) {
                 // check using gVCF approach

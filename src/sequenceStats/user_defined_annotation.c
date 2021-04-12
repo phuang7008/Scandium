@@ -100,7 +100,7 @@ void checkAnnotationFormat(User_Input *user_inputs) {
                 j++;
             }
 
-            checkChromosomeID(user_inputs, chrom_id);       // check chromosome id for reference version
+            checkChromosomeID(user_inputs->database_version, chrom_id);       // check chromosome id for reference version
 
             if (start >= end) {
                 fprintf(stderr, "\nERROR: The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!\n", start, end);

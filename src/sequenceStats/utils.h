@@ -51,15 +51,6 @@ void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint
 void stringArrayDestroy(stringArray *arrayIn);
 
 /*
- * find if a string contains a substr (case insensative)
- * it follows the behaviors per standard strstr()
- * @param string1, the string to be checked
- * @param substr2, the substring to search for
- * @return a string starts from the substr substr2 in the original string1 to the end of original string1
- */
-char* stristr( const char* string1, const char* substr2 );
-
-/*
  * it is used to calculation the size of low coverage regions from a StrInt Hash table
  * In addition, it will generate the low coverage regions in sorted order in string format
  * @param low_cov_regions: a StrInt hash table contain the start and end position of low coverage region

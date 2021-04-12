@@ -26,23 +26,6 @@
 #include "user_inputs.h"
 
 /**
- * open the input file (bed-formatted) and count how many items within the bed (such as target) files
- * @param bed_file: file in bed-formatted such as (target file or the Ns regions of reference sequences in bed format)
- * @return count	=>	Total number of targets or Ns regions
- */
-uint32_t getLineCount(char *bed_file);
-
-/**
- * open the input bed-formated file and then load the coordinate regions into memory and leave them there
- * Note: the input file should be in .bed format
- * @param user_inputs: a variable contains all the user inputs including the target or Ns bed file names
- * @param bed_file: input name for the bed file
- * @param coords: the Bed_Coords structure to store coordinates of each bed section
- * @return the total number of bases covered in the target/N-regions bed file
- */
-uint32_t loadBedFiles(User_Input *user_inputs, char *bed_file, Bed_Coords * coords, khash_t(khStrInt)* wanted_chromosome_hash);
-
-/**
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup
  * @param bed_info: the bed information that is stored for the future usage
  * @param stat_info, statistical information for the reads/bases

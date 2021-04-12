@@ -26,6 +26,7 @@
 
 #include "data_structure.h"
 #include "coverage_tracking.h"
+#include "utility.h"
 
 #include "annotation.h"
 #include "reports.h"
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]) {
 
     // check if bam file named as .cram and cram file named as .bam
     //
-    checkFileExtension(user_inputs, sfd);
+    checkFileExtension(user_inputs->bam_file, sfd);
 
     // use sam_hdr_read to process both bam and cram header
     //
@@ -128,7 +129,8 @@ int main(int argc, char *argv[]) {
     // to make them the same order as those in bam/cram file
     //
     if (user_inputs->chromosome_bed_file != NULL) {
-        loadWantedChromosomes(wanted_chromosome_hash, user_inputs, stats_info);
+        stats_info->wgs_cov_stats->total_genome_bases = 
+            loadWantedChromosomes(wanted_chromosome_hash, user_inputs->database_version, user_inputs->chromosome_bed_file);
         chromosomeTrackingInit2(wanted_chromosome_hash, chrom_tracking, header);
 
         // here we need to verify if the chromosome naming convention matches 
@@ -139,7 +141,8 @@ int main(int argc, char *argv[]) {
         target_buffer_status = calloc(chrom_tracking->number_of_chromosomes, sizeof(Target_Buffer_Status));
         TargetBufferStatusInit2(target_buffer_status, wanted_chromosome_hash);
     } else {
-        loadGenomeInfoFromBamHeader(wanted_chromosome_hash, header, stats_info, user_inputs);
+        stats_info->wgs_cov_stats->total_genome_bases =
+            loadGenomeInfoFromBamHeader(wanted_chromosome_hash, header, user_inputs->database_version);
         chrom_tracking->number_of_chromosomes = header->n_targets;
         chromosomeTrackingInit1(chrom_tracking, wanted_chromosome_hash, header);
 
@@ -410,7 +413,7 @@ int main(int argc, char *argv[]) {
                 // As they will be not used, so we are going to set the count info in these regions to 0
                 //
                 if (N_FILE_PROVIDED)
-                  zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking, target_buffer_status);
+                  zeroAllNsRegions(chrom_tracking->chromosome_ids[i], Ns_bed_info, chrom_tracking, target_buffer_status, 0);
               }
             }
           }
