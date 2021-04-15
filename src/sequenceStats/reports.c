@@ -202,7 +202,7 @@ void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosom
     capture_low_x_fp    = fopen(user_inputs->capture_low_cov_files[target_file_index], "a");
     capture_all_site_fp = fopen(user_inputs->capture_all_site_files[target_file_index], "a");
 
-    if (user_inputs->above_10000_on) capture_high_x_fp = fopen(user_inputs->capture_low_cov_files[target_file_index], "a");
+    if (user_inputs->above_10000_on) capture_high_x_fp = fopen(user_inputs->capture_high_cov_files[target_file_index], "a");
 
     uint32_t i;
     for(i = 0; i < target_info->size; i++) {
