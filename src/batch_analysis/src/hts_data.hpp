@@ -70,22 +70,22 @@ class HTS_Data {
 		unordered_map<string, int> *chromosome_list;
 		unordered_map<string, string> * gene_list_to_check;
 
-		// Store MySQL query results for Gene Exon Annotation information (official gene exon annotation)
+		// Store designed targets. The key info is
 		// NOTE: the first key is gene_symbol, while the second key is transcript name
 		// The following is the schema:
 		// gene_transcript_exon_map -----> gene_symbol key -----> transcript_name1 key -----> vector<Exon> -----> exon1
-		//                                                                                                       -----> exon2
-		//                                                                                                       -----> ...
-		//                                                                                                       -----> exonn
+		//                                                                                                 -----> exon2
+		//                                                                                                 -----> ...
+		//                                                                                                 -----> exonn
 		//                                                 -----> transcript_name2 key
 		//                                                 -----> transcript_name3 key
 		//
 		unordered_map<string, unordered_map<string, vector<Exon> > > * gene_transcript_exon_map;
 
-		// Store designed targets. The key info is
+		// Store Gene Exon (i.e. target) Annotation information
 		// target_map -----> chrom_id key -----> gene_symbol key -----> transcript_name1 key -----> vector<Exon> -----> exon1
-		//																											   -----> exon2
-		//																											   -----> ...
+		//																										 -----> exon2
+		//																										 -----> ...
 		//
 		unordered_map<string, unordered_map<string, unordered_map<string, vector<Exon> > > > * target_annotation_map;
 

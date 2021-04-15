@@ -3,12 +3,12 @@
  *
  *       Filename:  annotation.hpp
  *
- *    Description:  query MySQL and produce the gene annotation in details
+ *    Description:  process user-defined annotation and produce the gene annotation in details
  *
  *        Version:  1.0
  *        Created:  08/23/2017 03:51:10 PM
  *       Revision:  none
- *       Compiler:  gcc
+ *       Compiler:  g++
  *
  *         Author:  Peiming (Peter) Huang, phuang@bcm.edu
  *        Company:  Baylor College of Medicine, Houston, TX 77030
@@ -22,7 +22,6 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
-#include <mysql.h>
 
 using namespace std;
 
@@ -31,27 +30,27 @@ using namespace std;
 
 class Annotation {
 	public:
-		Annotation(string db_version_in);
+		Annotation(string reference_version_in);
 		~Annotation() {}
 
 		// access functions
-		MYSQL * get_mysql_connection() const { return con; }
+		//MYSQL * get_mysql_connection() const { return con; }
 
-		void process_mysql_query(char* sql);
-		void finish_with_error();
-		void fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data *hts_data, User_Inputs *user_inputs);
+		//void process_mysql_query(char* sql);
+		//void finish_with_error();
+		//void fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data *hts_data, User_Inputs *user_inputs);
 		void fetch_gene_exon_info_from_user_defined_db(const string chrom_id, HTS_Data *hts_data, User_Inputs *user_inputs, Utils *utils);
-		void fetch_and_dump_exon_info(User_Inputs *user_inputs);
+		//void fetch_and_dump_exon_info(User_Inputs *user_inputs);
 
-		void get_chrom_list_from_mysql(HTS_Data *hts_data, User_Inputs *user_inputs);
+		//void get_chrom_list_from_mysql(HTS_Data *hts_data, User_Inputs *user_inputs);
 		void get_chrom_list_from_user_defined_db(HTS_Data *hts_data, User_Inputs *user_inputs);
 
 	private:
-		void make_mysql_connection();
+		//void make_mysql_connection();
 
-		MYSQL *con;
-		MYSQL_RES *result;
-		string db_version;
+		//MYSQL *con;
+		//MYSQL_RES *result;
+		string reference_version;
 };
 
 #endif

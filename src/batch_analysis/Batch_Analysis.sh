@@ -128,42 +128,18 @@ LOW_COVERAGE_Merged_File="Batch_Low_COVERAGE_Merged.bed"
 /hgsc_software/BEDTools/latest/bin/bedtools sort -i $OUTPUTDIR/$LOW_COVERAGE_FILE | /hgsc_software/BEDTools/latest/bin/bedtools merge -i - > $OUTPUTDIR/$LOW_COVERAGE_Merged_File
 
 # After talking to Qiaoyan, we decided not to use MySQL database anymore ...
-# But I think it might be helpful in the future to use it! So I added it in
-## now dump the official exon annotation (from MySQL database: default RefSeq) into a bed file
-if [ -z "$Annotation_Source" ]; then
-	Annotation_Source=1
-fi
-
-## intersect exon annotations with $LOW_COVERAGE_Merged_File
-Low_Coverage_Merged_Annotation=$LOW_COVERAGE_Merged_File"_Annotations"
-
+#
 if [ -z "$User_Defined_DB" ]; then
 	# no user-defined database (annotations), so let's get the Official exon annotation from MySQL database
 	#
-	echo "Dump the official exon annotation from MySQL database) into a bed file"
-	/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$LOW_COVERAGE_Merged_File -d $Database_Version -o $OUTPUTDIR -m 1 -a $Annotation_Source -t $BED_FILE
+	echo "/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $Targeted_Exon_Annotation -t $BED_FILE"
 
-	## sort the official annotation bed file
-	#echo "Sort the official annotation bed file"
-	Official_Exons="Official_Exons.bed"
-	#sort -k1,1 -V -s $Official_Exons > $Merged_Exons_Sorted
-
-	# MySQL Official database is too big, we need to remove those un-covered exons
-	echo "Intersect official exon annotation with target bed file to remove un-covered exons."
-	Targeted_Exon_Annotation="Targeted_Exon_Annotation"
-	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $BED_FILE -b $Official_Exons -wao | awk -F"\t" '($7!="") {print}' | cut -f1,2,3,7 > $Targeted_Exon_Annotation
-
-	# Intersect the shortened Official database (ie, Targeted_Exon_Annotation)  with $LOW_COVERAGE_Merged_File
-	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $OUTPUTDIR/$Targeted_Exon_Annotation -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
-
-	echo "Now run the batch analysis"
-	echo "/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $Targeted_Exon_Annotation -t $BED_FILE"
-
-	/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $Targeted_Exon_Annotation -t $BED_FILE
+	/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $Targeted_Exon_Annotation -t $BED_FILE
 
 else
-
-	# Intersect the user-defined database/annotation with $LOW_COVERAGE_Merged_File
+	# Intersect with the user-defined database/annotation with $LOW_COVERAGE_Merged_File
+    #
+    Low_Coverage_Merged_Annotation=$LOW_COVERAGE_Merged_File"_Annotations"
 	echo "Intersect user-defined annotations with $LOW_COVERAGE_Merged_File"
 	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 

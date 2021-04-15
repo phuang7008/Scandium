@@ -32,7 +32,7 @@ class User_Inputs {
 		int get_mode() const { return mode; }
 		int get_annotation_source() const { return annotation_source; }
 
-		string get_db_version() const { return db_version; }
+		string get_reference_version() const { return reference_version; }
 		string get_output_dir() const { return output_dir; }
 		string get_gene_list_file() const { return gene_list_file; }
 		string get_exon_bed_file() const { return output_exon_bed_file; }
@@ -56,7 +56,7 @@ class User_Inputs {
 	private:
 		int mode;				// 1 (default) for dumping exons into a bed formatted file, 2 for low coverage analysis
 		int annotation_source;	// 1:refseq(default); 2:ccds; 3:vega; 4:gencode; 5:combined (all the previous ones)
-		string db_version;
+		string reference_version;
 		string output_dir;
 		string gene_list_file;					// list of genes that users intested in
 		string design_uncovered_exon_file;		// the text file that contains exons which are not covered by capture design

@@ -26,7 +26,7 @@
 User_Inputs::User_Inputs() {
 	mode = 1;
 	annotation_source = 1;
-	db_version = "";
+	reference_version = "";
 	output_dir = "";
 	gene_list_file = "";
 	designed_targets_bed_file = "";
@@ -45,15 +45,8 @@ void User_Inputs::usage() {
 	cout << "\t-o: output directory [Mandatory]" << endl;
 	cout << "\t-t: designed targets in bed file format [Mandatory]" << endl;
 	cout << endl;
-	cout << "\t-f: user-defined annotation database. If no -f option, all annotations will be fetched from the MySQL Database!" << endl;
+	cout << "\t-f: user-defined annotation database. If no -f option, no annotations will be provided!" << endl;
 	cout << "\t-g: a file contains list of genes of interest. If no -g option, all genes with low coverage will be processed!" << endl;
-	cout << "\t-m: the run mode, 1 for dumping exons to a bed file, while 2 for low coverage analysis (Default: 1)" << endl;
-	cout << "\t-a: For mode=1 only, this option allow user to specify the source of official exon annotation (Default: 1 for refseq)" << endl;
-	cout << "\t\t: 1 for the refseq source" << endl;
-	cout << "\t\t: 2 for the ccds source" << endl;
-	cout << "\t\t: 3 for the vega source" << endl;
-	cout << "\t\t: 4 for the gencode source" << endl;
-	cout << "\t\t: 5 for combined (all of the above sources)" << endl;
 }
 
 // Get command line arguments in and check the sanity of user inputs 
@@ -69,7 +62,7 @@ void User_Inputs::process_user_inputs(int argc, char* argv[]) {
 				annotation_source=atoi(optarg);
 				break;
 			case 'd':
-				db_version=optarg;
+				reference_version=optarg;
 				break;
 			case 'f':
 				user_defined_annotation_file=optarg;
@@ -111,7 +104,7 @@ void User_Inputs::process_user_inputs(int argc, char* argv[]) {
 	//
 	check_inputs(low_cov_annotation_file, "Low Coverage Regions with Annotatioin File is missing!");
 	check_inputs(output_dir, "Output Directory is not specified!");
-	check_inputs(db_version, "Please specify the Database Version you are using!");
+	check_inputs(reference_version, "Please specify the Database Version you are using!");
 	check_inputs(designed_targets_bed_file, "Please specify the Designed Targets in bed format!");
 
 	// now we need to generate the other file names based on the input file name
@@ -156,7 +149,7 @@ void User_Inputs::output_user_options() {
 	cerr << endl;
 	cerr << "The following are the options you have choosen:" << endl;
 	cerr << "\tOutput directory: " << output_dir << endl;
-	cerr << "\tDatabase version used: " << db_version << endl;
+	cerr << "\tDatabase version used: " << reference_version << endl;
 	cerr << "\tDesigned targeted bed file: " << designed_targets_bed_file << endl;
 	cerr << "\tLow coverage annotation file: " << low_cov_annotation_file << endl;
 	cerr << "\tUser-Defined annotation file: " << user_defined_annotation_file << endl;

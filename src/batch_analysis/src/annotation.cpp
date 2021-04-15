@@ -21,12 +21,12 @@
 
 #include "annotation.hpp"
 
-Annotation::Annotation(string db_version_in) {
-	db_version = db_version_in;
-	make_mysql_connection();
+Annotation::Annotation(string reference_version_in) {
+	reference_version = reference_version_in;
+	//make_mysql_connection();
 }
 
-void Annotation::make_mysql_connection() {
+/*void Annotation::make_mysql_connection() {
 	con = mysql_init(NULL);
 	if (con == NULL)
 		finish_with_error();
@@ -39,15 +39,15 @@ void Annotation::make_mysql_connection() {
 	if (mysql_real_connect(con, "sug-esxa-db1", "phuang468", "phuang468", "GeneAnnotations", 0, NULL, 0) == NULL) {
 		finish_with_error();
 	}
-}
+}*/
 
-void Annotation::finish_with_error() {
+/*void Annotation::finish_with_error() {
 	cerr << mysql_error(con) << endl;
 	mysql_close(con);
 	exit(1);
-}
+}*/
 
-void Annotation::process_mysql_query(char* sql) {
+/*void Annotation::process_mysql_query(char* sql) {
 	if (mysql_query(con,sql)) 
 		finish_with_error();
 
@@ -55,12 +55,12 @@ void Annotation::process_mysql_query(char* sql) {
 
 	if (result == NULL)
 		finish_with_error();
-}
+}*/
 
 // this function is used to fetch the detailed information on each exon region from the Gene_Exon database
 // In this database, one exon is one row and gene_symbol and transcript_name are splitted already!
 //
-void Annotation::fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data *hts_data, User_Inputs *user_inputs) {
+/*void Annotation::fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data *hts_data, User_Inputs *user_inputs) {
 	char *sql = static_cast<char*> (calloc(250, sizeof(char)));		// in C++, you have to force the type conversion
 
 	string string_contains;
@@ -150,7 +150,7 @@ void Annotation::fetch_gene_exon_info_from_mysql(const string chrom_id, HTS_Data
 
 	free(sql);
 	sql=NULL;
-}
+}*/
 
 void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in, HTS_Data *hts_data, User_Inputs *user_inputs, Utils *utils) {
 	ifstream infile(user_inputs->get_user_defined_annotation_file());
@@ -237,7 +237,7 @@ void Annotation::fetch_gene_exon_info_from_user_defined_db(const string chrom_in
 // The output looks like: chr1    13220   14409   DDX11L1|NR_046018_exon_2
 // users will have to split the annotation later for further analysis
 //
-void Annotation::fetch_and_dump_exon_info(User_Inputs *user_inputs) { 
+/*void Annotation::fetch_and_dump_exon_info(User_Inputs *user_inputs) { 
 	// open a file stream for writing
 	//
 	ofstream os_file(user_inputs->get_exon_bed_file());
@@ -297,9 +297,9 @@ void Annotation::fetch_and_dump_exon_info(User_Inputs *user_inputs) {
 	}
 
 	os_file.close();
-}
+}*/
 
-void Annotation::get_chrom_list_from_mysql(HTS_Data *hts_data, User_Inputs *user_inputs) {
+/*void Annotation::get_chrom_list_from_mysql(HTS_Data *hts_data, User_Inputs *user_inputs) {
 	string database="Gene_Exon";
 	char *sql = static_cast<char*> (calloc(250, sizeof(char)));     // in C++, you have to force the type conversion
 
@@ -330,7 +330,7 @@ void Annotation::get_chrom_list_from_mysql(HTS_Data *hts_data, User_Inputs *user
 	while ((row = mysql_fetch_row(result))) {
 		hts_data->add_to_chromosome_list(row[0]);
 	}
-}
+}*/
 
 void Annotation::get_chrom_list_from_user_defined_db(HTS_Data *hts_data, User_Inputs *user_inputs) {
 
