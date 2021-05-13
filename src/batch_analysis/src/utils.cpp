@@ -22,9 +22,64 @@
 
 Utils::Utils() { }
 
+bool Utils::isFileEmpty(User_Inputs *user_inputs) {
+    ifstream infile(user_inputs->get_low_cov_annotation_file());
+    if (infile.peek() == std::ifstream::traits_type::eof()) {
+        infile.close();
+        return true;
+    } else {
+        infile.close();
+        return false;
+    }
+}
+
+bool Utils::isFile(User_Inputs *user_inputs) {
+    struct stat strct;
+    if ( stat(user_inputs->get_low_cov_annotation_file().c_str(), &strct) == 0 ) {
+        if (strct.st_mode & S_IFDIR ) {
+            // it is a directory
+            //
+            return false;
+        } else if( strct.st_mode & S_IFREG ) {
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        cout << "check stats failed for file: " << user_inputs->get_low_cov_annotation_file()<< endl;
+        return false;
+    }
+}
+
 // Need to read in the target exons with low covorage regions here
 //
 void Utils::read_low_cov_annotation_file(User_Inputs *user_inputs, HTS_Data *hts_data) {
+    // check if user provides the low coverage annotation file
+    //
+    if (user_inputs->get_low_cov_annotation_file() == "") return;
+
+    // check if the input file is a directory
+    //
+    if (!isFile(user_inputs)) {
+        cout << endl << "ERROR:" << endl;
+        cout << "    the input low coverage annotation path is not a file: " << endl;
+        cout << "    " << user_inputs->get_low_cov_annotation_file() << endl;
+        cout << "    Please check the file and try again. Thanks!" << endl;
+        cout << endl;
+        return;
+    }
+
+    // check the file size
+    //
+    if (isFileEmpty(user_inputs)) {
+        cout << "NOTE:" << endl;
+        cout << "    The low coverage annotation file is empty:" << endl;
+        cout << "    " << user_inputs->get_low_cov_annotation_file() << endl;
+        cout << "    Return directly" << endl;
+        cout << endl;
+        return;
+    }
+
 	ifstream infile(user_inputs->get_low_cov_annotation_file());
 	string chrom_id, exon_annotation;
 	uint32_t exon_target_start, exon_target_end, low_cov_start, low_cov_end, size_low_cov;

@@ -44,7 +44,6 @@ int main(int argc, char* argv[]) {
 	// process low coverage annotation file and genes to check list
 	//
 	Utils utils=Utils();
-	utils.read_low_cov_annotation_file(&user_inputs, hts_data);
 	utils.store_gene_list(&user_inputs, hts_data);
 
 	// get the low_cov_exon_map, which we just read in
@@ -65,21 +64,22 @@ int main(int argc, char* argv[]) {
 	// need to find out the chrom_list, from the user_defined annotations
 	//
 	if (user_inputs.get_user_defined_annotation_file() == "") {
-        cout << "Since there is no annotation provided, the program will exit!" << std::endl;
-        return 0;
+        cout << "Since there is no user-defined annotation provided, the program will exit!" << std::endl;
 	} else {
         cout << "User provided an annotation file, so will proceed accordingly" << std::endl;
+	
+        utils.read_low_cov_annotation_file(&user_inputs, hts_data);
 	    annotation.get_chrom_list_from_user_defined_db(hts_data, &user_inputs);
 	    unordered_map<string, int>* chrom_list = hts_data->get_chromosome_list();
 
 	    // loop through chrom_list, as we are going to process one chromosome at a time!
 	    //
 	    for (auto it=chrom_list->begin(); it!=chrom_list->end(); ++it) {
-		    //cout << "Current chromosome is " << it->first << endl;
+		    cout << "Current chromosome is " << it->first << endl;
 
 			// fetch the gene exon information from user-defined database
 			//
-			//fprintf(stderr, "Use user-defined database for gene annotations\n");
+			fprintf(stderr, "Use user-defined database for gene annotations\n");
 			annotation.fetch_gene_exon_info_from_user_defined_db(it->first, hts_data, &user_inputs, &utils);
 
 		    // output the detailed gene, transcript and exon information

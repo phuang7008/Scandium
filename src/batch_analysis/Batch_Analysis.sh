@@ -5,13 +5,7 @@
 ## check the inputs
 function help() {
 	echo "USAGE: Batch_Analysis.sh [options]"
-	echo -e "\t-a: The integer value from 1-5 to specify which annotation source you are interested in (Default 1)";
-	echo -e "\t\t: 1: RefSeq annotation only (Default)";
-	echo -e "\t\t: 2: CCDS annotation only";
-	echo -e "\t\t: 3: Vega annotation only";
-	echo -e "\t\t: 4: Gencode annotation only";
-	echo -e "\t\t: 5: combined (all of the above)";
-	echo -e "\t-b: the target bed file that contains exons to be examined (either VCRome+PKv2 or user defined) [Mandatory]";
+	echo -e "\t-b: the target bed file that contains exon targets to be examined [Mandatory]";
    	echo -e "\t-d: the DB Version (such as hg19 or hg38) (Default hg38)";
 	echo -e "\t-i: the input file that contains a list of low coverage reporting file names (absolute path) [Mandatory]";
 	echo -e "\t-f: the file that contains user defined database";
@@ -36,10 +30,6 @@ while [[ $# -gt 1 ]]; do
 		-p|--percentage)
 		Percentage="$2"
 		shift # pass argument
-		;;
-		-a|--annotation)
-		Annotation_Source="$2"
-		shift
 		;;
 		-b|--bed)
 		BED_FILE="$2"
@@ -130,11 +120,11 @@ LOW_COVERAGE_Merged_File="Batch_Low_COVERAGE_Merged.bed"
 # After talking to Qiaoyan, we decided not to use MySQL database anymore ...
 #
 if [ -z "$User_Defined_DB" ]; then
-	# no user-defined database (annotations), so let's get the Official exon annotation from MySQL database
+	# no user-defined database (annotations)
 	#
-	echo "/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $Targeted_Exon_Annotation -t $BED_FILE"
+	echo "/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE"
 
-	/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $Targeted_Exon_Annotation -t $BED_FILE
+	/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE
 
 else
 	# Intersect with the user-defined database/annotation with $LOW_COVERAGE_Merged_File
@@ -144,9 +134,9 @@ else
 	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 
 	echo "Now run the batch analysis"
-	echo "/stornext/snfs130/NGIRD/scratch/phuang/dev/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $User_Defined_DB -t $BED_FILE"
+	echo "/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE"
 
-	/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -m 2 -a $Annotation_Source -f $User_Defined_DB -t $BED_FILE
+	/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE
 fi 
 
 # now remove all the tmp files we just created

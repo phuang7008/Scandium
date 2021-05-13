@@ -24,8 +24,6 @@
 
 // constructor
 User_Inputs::User_Inputs() {
-	mode = 1;
-	annotation_source = 1;
 	reference_version = "";
 	output_dir = "";
 	gene_list_file = "";
@@ -55,12 +53,9 @@ void User_Inputs::process_user_inputs(int argc, char* argv[]) {
 	int arg;
 
 	//When getopt returns -1, no more options available
-	while ((arg = getopt(argc, argv, "a:d:f:g:hi:m:o:t:u:")) != -1) {
+	while ((arg = getopt(argc, argv, "d:f:g:hi:o:t:u:")) != -1) {
 		//printf("User options for %c is %s\n", arg, optarg);
 		switch(arg) {
-			case 'a':
-				annotation_source=atoi(optarg);
-				break;
 			case 'd':
 				reference_version=optarg;
 				break;
@@ -72,9 +67,7 @@ void User_Inputs::process_user_inputs(int argc, char* argv[]) {
 				break;
 			case 'i':
 				low_cov_annotation_file=optarg;
-			case 'm':
-				mode=atoi(optarg);
-				break;
+                break;
 			case 'o':
 				output_dir=optarg;
 				break;
@@ -160,18 +153,6 @@ void User_Inputs::output_user_options() {
 
 	if (gene_list_file.length() > 0) {
 		cerr << "\tGene list file: " << gene_list_file << endl;
-	}
-
-	if (annotation_source == 1) {
-		cerr << "\tAnnotation Source: RefSeq" << endl;
-	} else if (annotation_source == 2) {
-		cerr << "\tAnnotation Source: CCDS" << endl;
-	} else if (annotation_source == 3) {
-		cerr << "\tAnnotation Source: VEGA" << endl;
-	} else if (annotation_source == 4) {
-		cerr << "\tAnnotation Source: Gencode" << endl;
-	} else {
-		cerr << "\tAnnotation Source: All (RefSeq + CCDS + VEGA(hg19) or Gencode(hg38) " << endl;
 	}
 
 	cerr << endl;

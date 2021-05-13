@@ -23,6 +23,7 @@
 #include <vector>
 #include <iterator>		// used for string split
 #include <unordered_map>
+#include <sys/stat.h>   // used for checking file stats call stat()
 
 using namespace std;
 
@@ -50,6 +51,14 @@ class Utils {
 				*(result++) = item;
 			}
 		}
+
+        // the following is also a help function
+        //
+        bool isFileEmpty(User_Inputs *user_inputs);
+
+        // the following is used to check if a file path is a file (true) or directory (false)
+        //
+        bool isFile(User_Inputs *user_inputs);
 
 		std::vector<string> split(const string &s, char delim) {
 			vector<string> elems;
