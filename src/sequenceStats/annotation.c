@@ -883,7 +883,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 //									 -> [0] exon_id
 //									 -> [0] exon_count
 //									 -> [0] ...
-//									 -> [0] low_cov_regions [an array of the stringArray structure type]
+//									 -> [0] low_cov_regions [an array of the StringArray structure type]
 //														   -> size
 //														   -> capacity
 //														   -> theArray [an array of string: char*]
@@ -1265,7 +1265,7 @@ void processExonArrays(Gene_Coverage *gc, uint32_t start, uint32_t end) {
 	// now we need to allocate memory space for low_cov_regions string array for exon percentage report
 	//
 	if (gc->low_cov_regions == NULL) {
-		gc->low_cov_regions = calloc(1, sizeof(stringArray));
+		gc->low_cov_regions = calloc(1, sizeof(StringArray));
 		gc->low_cov_regions->capacity = 2;
 		gc->low_cov_regions->theArray = calloc(gc->low_cov_regions->capacity, sizeof(char*));
 		gc->low_cov_regions->size = 0;

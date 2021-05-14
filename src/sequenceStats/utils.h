@@ -34,21 +34,21 @@
 
  * Here the first delimiter is "\t", while the second delimiter is ";"
 
- * The stringArray will store all the information about the detailed exon annotation 
- * The following illustrates the stringArray structure
- * stringArray ->
+ * The StringArray will store all the information about the detailed exon annotation 
+ * The following illustrates the StringArray structure
+ * StringArray ->
                    RefSeq              CCDS              VEGA/Gencode          miRNA
                      0                   1                    2                  3   
                char **theArray    char **theArray        char **theArray     char **theArray
                   -> theArray[0] -> theArray[1] -> theArray[2] ... -> theArray[size]
 
  * @param stringPtr, a string pointer. It's content will be splitted into words
- * @param arrayPtr, a stringArray pointer. It is used to store string array information
+ * @param arrayPtr, a StringArray pointer. It is used to store string array information
  * @param index the array index of khashArrayPtr
 */ 
 void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint8_t index);
 
-void stringArrayDestroy(stringArray *arrayIn);
+void stringArrayDestroy(StringArray *arrayIn);
 
 /*
  * it is used to calculation the size of low coverage regions from a StrInt Hash table
@@ -64,7 +64,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
  * @param output: combined all low coverage regions
  * @return number of low coverage regions
  */
-uint32_t processLowCovRegionFromStrArray(stringArray *low_cov_regions, char **output);
+uint32_t processLowCovRegionFromStrArray(StringArray *low_cov_regions, char **output);
 
 /**
  * This function is used to clean the khash_t (uint32_t key) hash table used by the users
@@ -218,14 +218,14 @@ void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool 
  * @param cds_t_start: the targeted cds start position as we are not interested in anything before that
  * @param cds_t_end: the targeted cds end position as we are not interested in anything beyond that
  */
-void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray, uint32_t size_in, uint32_t cds_t_start, uint32_t cds_t_end);
+void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *mergedArray, uint32_t size_in, uint32_t cds_t_start, uint32_t cds_t_end);
 
 /* it is used for reporting purpose. If there is only one low coverage regions, we don't have to do the merge.
  * We can just print its content accordingly
  * @param low_cov_regions_hash: a hash table that contains the low coverage region
  * @param mergedArray: just copy everything into thie mergedArray for outputting
  */
-void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray);
+void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *mergedArray);
 
 /*
  * help function that is used to print the low coverage gene info for debugging
@@ -254,18 +254,6 @@ uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_fre
 void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist);
 
 void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs);
-
-/*
- * the following comparison is used to compare the int elements in an array used by qsort()
- * @param val1: int array 1 used for comparison
- * @param val2: int array 2 used for comparison
- * @return: return value means
- * <0 The element pointed by val1 goes before the element pointed by val2
- * 0  The element pointed by val1 is equivalent to the element pointed by val2
- * >0 The element pointed by val1 goes after the element pointed by val2
- *
- */
-int compare(const void * val1, const void * val2);
 
 /**
  * It is used to print a string array before (OR after sorting) for viewing and comparison.

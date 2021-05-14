@@ -1163,7 +1163,7 @@ void calculateGenePercentageCoverage(char *chrom_id, Bed_Info *target_info, Chro
 // The function will loop through several data structure to find the information
 // Here is the outline:
 //
-// gene_transcript[gene_symbol] -> a hash table of khash_t(khStrStrArray) with key as gene symbol and value as a stringArray variable
+// gene_transcript[gene_symbol] -> a hash table of khash_t(khStrStrArray) with key as gene symbol and value as a StringArray variable
 //                                -> [0] transcript_name0
 //                                -> [1] transcript_name1
 //                                -> ...
@@ -1354,7 +1354,7 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
                                 uint32_t cur_low_cov_count=0;
 
                                 if (num_of_low_cov_regions > 0) {
-                                    stringArray *mergedRegions = calloc(1, sizeof(stringArray));
+                                    StringArray *mergedRegions = calloc(1, sizeof(StringArray));
 
                                     if (num_of_low_cov_regions == 1) {
                                         getOneLowCovRegions(low_cov_regions_hash, mergedRegions);

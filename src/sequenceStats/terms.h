@@ -237,15 +237,6 @@ typedef struct {
     uint16_t real_size;         // the number of exon info currently stored in this array
 } Annotation_Wrapper;
 
-/** define stringArray structure to store the annotation information
- * one for RefSeq, one for CCDS, one for VEGA and one for Gencode, one for miRNA
- */
-typedef struct {
-    char **theArray;
-    uint16_t capacity;
-    uint16_t size;
-} stringArray;
-
 /**
  * define a structure for Gene RefSeq CDS Exons for the calculation of gene/transcript/cds Percentage Coverage Reports
  * For exon_target_start and exon_target_end, they are different things for different variables
@@ -265,7 +256,7 @@ typedef struct {
     uint16_t exon_count;
     uint32_t cds_length;
     uint16_t num_of_low_cov_bases;
-    stringArray * low_cov_regions;    // it will be an array of string structure
+    StringArray * low_cov_regions;    // it will be an array of string structure
 } Gene_Coverage;
 
 typedef struct {
@@ -304,7 +295,7 @@ KHASH_MAP_INIT_INT(m8, uint16_t)
  */
 KHASH_MAP_INIT_STR(khStrStr, char*)
 
-KHASH_MAP_INIT_STR(khStrStrArray, stringArray*)
+KHASH_MAP_INIT_STR(khStrStrArray, StringArray*)
 
 //KHASH_MAP_INIT_STR(khStrInt, uint32_t)
 

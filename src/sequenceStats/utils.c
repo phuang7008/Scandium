@@ -66,7 +66,7 @@ void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint
 	}
 }
 
-void stringArrayDestroy(stringArray *arrayIn) {
+void stringArrayDestroy(StringArray *arrayIn) {
     uint16_t i;
     for(i=0; i<arrayIn->size; i++) {
         if (arrayIn->theArray[i]) {
@@ -187,7 +187,7 @@ uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char *
 	return low_cov_region_size;
 }
 
-uint32_t processLowCovRegionFromStrArray(stringArray *merged_low_cov_regions, char **output) {
+uint32_t processLowCovRegionFromStrArray(StringArray *merged_low_cov_regions, char **output) {
 	uint32_t low_cov_region_size=0, stringLength=0;
 	uint32_t i;
 
@@ -241,7 +241,7 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 		// key doesn't exist
 		//
 		kh_key(gene_transcripts, iter) = strdup(gene_symbol);
-		kh_value(gene_transcripts, iter) = calloc(1, sizeof(stringArray));
+		kh_value(gene_transcripts, iter) = calloc(1, sizeof(StringArray));
 		kh_value(gene_transcripts, iter)->size = 0;
 		kh_value(gene_transcripts, iter)->capacity = 3;
 		kh_value(gene_transcripts, iter)->theArray = calloc(kh_value(gene_transcripts, iter)->capacity, sizeof(char*));
@@ -860,7 +860,7 @@ void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool 
 	int i;
 	if (gc1->low_cov_regions != NULL) {
 		if (gc2->low_cov_regions == NULL && gc1->low_cov_regions->size > 0) {
-			gc2->low_cov_regions = calloc(1, sizeof(stringArray));
+			gc2->low_cov_regions = calloc(1, sizeof(StringArray));
 			gc2->low_cov_regions->size = gc1->low_cov_regions->size;
 			gc2->low_cov_regions->capacity = gc1->low_cov_regions->size;
 			gc2->low_cov_regions->theArray = calloc(gc2->low_cov_regions->size, sizeof(char*));
@@ -902,7 +902,7 @@ void copyGeneCoverageLowCovRegions(Gene_Coverage* gc1, Gene_Coverage* gc2, bool 
 
 // if there is only one low coverage region, we just need to make a copy and return the copy
 //
-void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray) {
+void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *mergedArray) {
 	mergedArray->theArray=calloc(1, sizeof(char*));                                                
 	mergedArray->capacity = 1;                                                                     
 	mergedArray->size = 0;
@@ -917,7 +917,7 @@ void getOneLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *m
 	}
 }
 
-void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, stringArray *mergedArray, uint32_t size_in,  uint32_t cds_t_start, uint32_t cds_t_end) {
+void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *mergedArray, uint32_t size_in,  uint32_t cds_t_start, uint32_t cds_t_end) {
 	// first store everything into starts and ends hashs
 	//
 	uint32_t i, k;
@@ -1318,17 +1318,6 @@ void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist
 	fprintf(out_fp, "\n");
 	fclose(out_fp);
 }
-
-// the following comparison is used to compare the uint32_t array
-//
-int compare(const void * val1, const void * val2) {
-	uint32_t tmp_val1 = *((uint32_t*) val1);
-	uint32_t tmp_val2 = *((uint32_t*) val2);
-
-	if (tmp_val1 == tmp_val2) return 0;
-	else if (tmp_val1 < tmp_val2) return -1;
-	else return 1;
-}	
 
 void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes) {
 	uint32_t i;
