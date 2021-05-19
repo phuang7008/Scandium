@@ -66,18 +66,6 @@ void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint
 	}
 }
 
-void stringArrayDestroy(StringArray *arrayIn) {
-    uint16_t i;
-    for(i=0; i<arrayIn->size; i++) {
-        if (arrayIn->theArray[i]) {
-            free(arrayIn->theArray[i]);
-        }
-    }
-
-    if (arrayIn->theArray != NULL)
-        free(arrayIn->theArray);
-}
-
 // to process StrInt Hash variable to get the low coverage regions base count
 //
 uint32_t processLowCovRegionFromKhash(khash_t(khStrInt) *low_cov_regions, char ** output) {

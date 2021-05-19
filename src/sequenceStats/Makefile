@@ -21,11 +21,13 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB) -L$(MYLIB)
 LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 
 # define dependent header files
-_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h user_inputs.h
+#_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h user_inputs.h
+_DEPS = $(wildcard *.h)
 DEPS=$(patsubst %,$(CODEDIR)/%,$(_DEPS))
 
 # define the C ssource files
-SRCS = main.c stats.c targets.c utils.c annotation.c reports.c user_defined_annotation.c user_inputs.c
+#SRCS = main.c stats.c targets.c utils.c annotation.c reports.c user_defined_annotation.c user_inputs.c
+SRCS = $(wildcard *.c)
 
 # define the C object files 
 #
@@ -59,7 +61,8 @@ $(MAIN): $(OBJS)
 # (see the gnu make manual section about automatic variables)
 #$(CODEDIR)/%.o: %.c $(DEPS)
 #.c.o:
-.c.o: $(DEPS)
+#.c.o: $(DEPS)
+%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:

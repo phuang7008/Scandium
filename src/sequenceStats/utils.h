@@ -48,8 +48,6 @@
 */ 
 void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint8_t index);
 
-void stringArrayDestroy(StringArray *arrayIn);
-
 /*
  * it is used to calculation the size of low coverage regions from a StrInt Hash table
  * In addition, it will generate the low coverage regions in sorted order in string format
