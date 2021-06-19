@@ -11,7 +11,7 @@ CFLAGS= -g -Wall -Wextra -O0 -fopenmp
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
 
 # define any directories containing header files other than /usr/bin
-INCLUDES= -I$(IDIR) -I$(HTSDIR) -I$(MYSQLDIR) -I$(MYLIB)
+include_dirs= -I$(IDIR) -I$(HTSDIR) -I$(MYSQLDIR) -I$(MYLIB)
 
 # define library paths in addition to /usr/lib
 LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB) -L$(MYLIB)
@@ -53,7 +53,7 @@ MAIN = scandium
 all:	$(MAIN)
 
 $(MAIN): $(OBJS)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) $(include_dirs) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
 
 # this is a suffix replacement rule for building .o's from .c's
 # it uses automatic variables $<: the name of the prerequisite of
@@ -63,12 +63,12 @@ $(MAIN): $(OBJS)
 #.c.o:
 #.c.o: $(DEPS)
 %.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CC) $(CFLAGS) $(include_dirs) -c $<  -o $@
 
 clean:
 	$(RM) *.o *~ $(MAIN)
 
 depend: $(SRCS)
-	makedepend $(INCLUDES) $^
+	makedepend $(include_dirs) $^
 
 # DO NOT DELETE THIS LINE -- make depend needs it
