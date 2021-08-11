@@ -76,8 +76,11 @@ void writeCoverage(char *chrom_id, Bed_Info **target_info, Chromosome_Tracking *
 }
 
 void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Stats_Info *stats_info, int32_t chrom_idx, uint8_t target_file_index) {
-    FILE * capture_cov_fp = NULL;
-    if (user_inputs->Write_Capture_cov_fasta) capture_cov_fp = fopen(user_inputs->capture_cov_files[target_file_index], "a");
+    FILE *capture_cov_fp = NULL, *capture_cov_bed_fp = NULL;
+    if (user_inputs->Write_Capture_cov_fasta) {
+        capture_cov_fp = fopen(user_inputs->capture_cov_files[target_file_index], "a");
+        capture_cov_bed_fp = fopen(user_inputs->capture_cov_bedfiles[target_file_index], "a");
+    }
 
     uint32_t i;
     for(i = 0; i < target_info->size; i++) {
@@ -137,7 +140,11 @@ void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Trac
 
             // output to the cov.fasta file
             //
-            if (user_inputs->Write_Capture_cov_fasta) fprintf(capture_cov_fp, "%d ", cov);
+            if (user_inputs->Write_Capture_cov_fasta) {
+                fprintf(capture_cov_fp, "%d ", cov);
+
+                fprintf(capture_cov_bed_fp, "%s\t%"PRIu32"\t%"PRIu32"\t%d\n", chrom_id, start+j, start+j+1, cov);
+            }
 
             if (collect_target_cov) {
                 float num, den;
@@ -151,7 +158,7 @@ void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Trac
             }
         }
 
-        // output a newline char to the cov.fasta file 
+        // output a newline char to the cov.fasta file
         if (user_inputs->Write_Capture_cov_fasta) fputc('\n', capture_cov_fp);
 
         if (collect_target_cov) {
@@ -191,6 +198,7 @@ void generateCaptureStats(char *chrom_id, Bed_Info *target_info, Chromosome_Trac
     }
     
     if (user_inputs->Write_Capture_cov_fasta && capture_cov_fp != NULL) fclose(capture_cov_fp);
+    if (user_inputs->Write_Capture_cov_fasta && capture_cov_bed_fp != NULL) fclose(capture_cov_bed_fp);
 }
 
 void produceReportsOnThresholds(char *chrom_id, Bed_Info *target_info, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, Regions_Skip_MySQL *intronic_regions, Regions_Skip_MySQL **exon_regions, uint8_t target_file_index) {
