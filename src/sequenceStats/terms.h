@@ -104,6 +104,7 @@ typedef struct {
     //char * missed_targets_file;       // for target regions that have no coverage at all
     char ** capture_wig_files;          // output the off target good hit in wig formatted
     char ** capture_cov_files;          // output the capture target regions coverage count information
+    char ** capture_cov_bedfiles;       // output the capture target regions coverage count information
     char ** capture_cov_reports;        // output the capture target regions coverage summary report
     char ** capture_low_cov_files;      // for target regions with lower coverage and their detailed annotation
     char ** capture_high_cov_files;     // for target regions with high overage without detailed annotation

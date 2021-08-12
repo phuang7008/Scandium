@@ -609,9 +609,15 @@ void setupOutputReportFiles(User_Input *user_inputs) {
         // for cov.fasta file name
         //
         if (user_inputs->Write_Capture_cov_fasta) {
+            user_inputs->capture_cov_bedfiles = calloc(user_inputs->num_of_target_files, sizeof(char*));
+            for (p=0; p<user_inputs->num_of_target_files; p++) {
+                sprintf(string_to_add, ".%s.Capture_cov.bed", user_inputs->target_file_basenames[p]);
+                createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_bedfiles[p], string_to_add, VERSION_);
+            }
+
             user_inputs->capture_cov_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_target_files; p++) {
-                sprintf(string_to_add, "%s.Capture_cov.fasta", user_inputs->target_file_basenames[p]);
+                sprintf(string_to_add, ".%s.Capture_cov.fasta", user_inputs->target_file_basenames[p]);
                 createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_cov_files[p], string_to_add, VERSION_);
             }
         }
@@ -621,7 +627,7 @@ void setupOutputReportFiles(User_Input *user_inputs) {
         if (user_inputs->Write_WIG) {
             user_inputs->capture_wig_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
             for (p=0; p<user_inputs->num_of_target_files; p++) {
-                sprintf(string_to_add, "%s.Capture_off_target_good_hits.wig.fasta", user_inputs->target_file_basenames[p]);
+                sprintf(string_to_add, ".%s.Capture_off_target_good_hits.wig.fasta", user_inputs->target_file_basenames[p]);
                 createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->capture_wig_files[p], string_to_add, VERSION_);
             }
         }
@@ -1028,7 +1034,8 @@ User_Input * userInputInit() {
     //
     user_inputs->capture_wig_files = NULL;
     user_inputs->capture_cov_files = NULL;
-    user_inputs->capture_cov_reports = NULL;
+    user_inputs->capture_cov_bedfiles = NULL;
+    user_inputs->capture_cov_reports  = NULL;
     user_inputs->capture_low_cov_files = NULL;
     user_inputs->capture_high_cov_files = NULL;
     user_inputs->capture_all_site_files = NULL;
@@ -1087,6 +1094,7 @@ void userInputDestroy(User_Input *user_inputs) {
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->target_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->target_file_basenames);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_files);
+    cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_bedfiles);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_wig_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_cov_reports);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->capture_all_site_files);
