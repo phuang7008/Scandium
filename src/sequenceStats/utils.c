@@ -711,6 +711,7 @@ void combineCoverageStats(Stats_Info *stats_info, Stats_Info *tmp_stats_info, Us
 }
 
 void copyReadCoverageStats(Read_Coverage_Stats *read_cov_stats, Read_Coverage_Stats *tmp_read_cov_stats) {
+    fprintf(stderr, "%"PRIu64"\n", tmp_read_cov_stats->total_reads_produced);
 	read_cov_stats->total_reads_produced  += tmp_read_cov_stats->total_reads_produced;
 	read_cov_stats->total_reads_aligned   += tmp_read_cov_stats->total_reads_aligned;
 	read_cov_stats->total_chimeric_reads  += tmp_read_cov_stats->total_chimeric_reads;
