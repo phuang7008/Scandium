@@ -172,9 +172,9 @@ int main(int argc, char *argv[]) {
 
     // setup the stats_info for each individual chromosome for each threads and initialize them
     //
-    Stats_Info **stats_info_per_chr = calloc(chrom_tracking->number_of_chromosomes, sizeof(Stats_Info*));
-    uint32_t chrom_index = 0;
-    for (chrom_index=0; chrom_index<chrom_tracking->number_of_chromosomes; ++chrom_index) {
+    Stats_Info **stats_info_per_chr = calloc(headers[0]->n_targets, sizeof(Stats_Info*));
+    int32_t chrom_index = 0;
+    for (chrom_index=0; chrom_index<headers[0]->n_targets; ++chrom_index) {
         stats_info_per_chr[chrom_index] = calloc(1, sizeof(Stats_Info));
         statsInfoInit(stats_info_per_chr[chrom_index], user_inputs);
     }
@@ -337,12 +337,12 @@ int main(int argc, char *argv[]) {
     if(user_inputs->percentage < 1.0)
         srand((uint32_t)time(NULL));    // set random seed
 
-    // first we need to handle unmapped reads and all other mapped reads that we are not intested in 
+    // first we need to handle unmapped reads 
     // as these reads will be used for final stats calculation
     //
-    hts_itr_t *iter = sam_itr_querys(sfh_idx[0], headers[0], "*");
+    hts_itr_t *iter_o = sam_itr_querys(sfh_idx[0], headers[0], "*");
     bam1_t *b = bam_init1();
-    while (sam_itr_next(sfh[0], iter, b) >= 0)
+    while (sam_itr_next(sfh[0], iter_o, b) >= 0)
         processCurrentRecord(user_inputs, b, headers[0], stats_info, chrom_tracking, 0, target_buffer_status);
 
 
@@ -352,40 +352,45 @@ int main(int argc, char *argv[]) {
     {
 #pragma omp single
       {
-        for (chrom_index=0; chrom_index<chrom_tracking->number_of_chromosomes; ++chrom_index)
-        {
-            // need to check if we need to process current chromosome
-            // 
-            if (wanted_chromosome_hash != NULL) {
-                khiter_t iter = kh_get(khStrInt, wanted_chromosome_hash, chrom_tracking->chromosome_ids[chrom_index]);
-                if (iter == kh_end(wanted_chromosome_hash)) {
-                    // skip it if not needed
-                    //
-                    continue;
-                }
-            }
+          // we need to process all chromosomes even though some of them we are not interested in
+          // it is because we have to get the WGS stats which includes these reads
+          //
+          int32_t index;
+          //for ( index = 0; index < headers[0]->n_targets; index++)
+          while (index < headers[0]->n_targets) {
 #pragma omp task
-            {
-                //int num_of_threads = omp_get_num_threads();
-                int thread_id = omp_get_thread_num();
-                printf("Current thread id: %d\n", thread_id);
+          {
+            // get the iterator for the current chromosome
+            //
+            int thread_id = omp_get_thread_num();
+            printf("Current thread id: %d\n", thread_id);
+            hts_itr_t *iter_h = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], headers[0]->target_name[index]);
+            if (iter_h == NULL) {
+                fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", headers[0]->target_name[index]);
+                exit(EXIT_FAILURE);
+            }
 
-                // get the iterator for the current chromosome
+            khiter_t iter_k = kh_get(khStrInt, wanted_chromosome_hash, headers[0]->target_name[index]);
+            if (iter_k == kh_end(wanted_chromosome_hash)) {
+                // we are not interested in this chromosome, so just get the simple stats from this chromosome id
                 //
-                hts_itr_t *iter = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], chrom_tracking->chromosome_ids[chrom_index]);
-                if (iter == NULL) {
-                    fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", chrom_tracking->chromosome_ids[chrom_index]);
-                    exit(EXIT_FAILURE);
-                }
+                bam1_t *b = bam_init1();
+                while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
+                    stats_info_per_chr[index]->read_cov_stats->total_reads_produced++;
 
+                bam_destroy1(b);
+                hts_itr_destroy(iter_h);
+            } else {
+                int32_t chrom_index;
+                chrom_index = findChromsomeIndex(chrom_tracking, headers[0], index);
                 chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_lengths[chrom_index], chrom_index);
 
                 bam1_t *b = bam_init1();
-                while (sam_itr_next(sfh[thread_id], iter, b) >= 0)
+                while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
                     processCurrentRecord(user_inputs, b, headers[thread_id], stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status);
 
                 bam_destroy1(b);
-                hts_itr_destroy(iter);
+                hts_itr_destroy(iter_h);
 
                 if (N_FILE_PROVIDED)
                     zeroAllNsRegions(chrom_tracking->chromosome_ids[chrom_index], Ns_bed_info, chrom_tracking, target_buffer_status, 0);
@@ -484,14 +489,16 @@ int main(int argc, char *argv[]) {
                     }
                 }
               }
-            }
 
-            // clean-up chrom_tracking->coverage[chrom_index], which store the base coverage in array
-            //
-            if (chrom_tracking->coverage[chrom_index]) {
+              // clean-up chrom_tracking->coverage[chrom_index], which store the base coverage in array
+              //
+              if (chrom_tracking->coverage[chrom_index]) {
                 free(chrom_tracking->coverage[chrom_index]);
                 chrom_tracking->coverage[chrom_index] = NULL;
+              }
             }
+          }
+          index++;
         }
 
 #pragma omp taskwait
@@ -499,9 +506,9 @@ int main(int argc, char *argv[]) {
         //
 #pragma omp critical
         {
-            for (chrom_index=0; chrom_index<chrom_tracking->number_of_chromosomes; ++chrom_index) {
-                fprintf(stderr, "\nFor chrom id %d and chrom %s\t", chrom_index, chrom_tracking->chromosome_ids[chrom_index]);
-                combineCoverageStats(stats_info, stats_info_per_chr[chrom_index], user_inputs);
+            for ( index = 0; index < headers[0]->n_targets; index++) {
+                fprintf(stderr, "\nFor chrom id %d and chrom %s\t", index, headers[0]->target_name[index]);
+                combineCoverageStats(stats_info, stats_info_per_chr[index], user_inputs);
 
                 // clean up the array allocated
                 //

@@ -167,7 +167,7 @@ void usage() {
     printf("                    coverage count info for each targeted base. Default: OFF\n");
     printf("--duplicate     -d  Specify this flag only when you want to keep Duplicates reads.\n");
     printf("                    Default: Remove Duplicate is ON\n");
-    printf("--supplemental  -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: off\n");
+    printf("--supplemental  -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: keep them for stats\n");
     printf("--wgs           -w  conducting whole genome coverage analysis. Default: off\n");
     printf("--wig_output    -G  Write/Dump the WIG formatted file. Default: off\n");
     printf("--hgmd          -M  Use HGMD annotation. Default: off\n");

@@ -29,7 +29,6 @@
  * generate target and buffer lookup table for quick access. The khash.h file is used for hash table setup
  * @param bed_info: the bed information that is stored for the future usage
  * @param stat_info, statistical information for the reads/bases
- * @param header, the bam/sam/cram header pointer that hold the length info of each chromosome
  * @param user_inputs, contains all the user inputs information, including target_buffer_size
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */

@@ -449,6 +449,17 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
 	return -1;
 }
 
+int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *header, int32_t index) {
+    int32_t chrom_index;
+    for (chrom_index=0; chrom_index<(int32_t)chrom_tracking->number_of_chromosomes; chrom_index++) {
+        if (strcmp(header->target_name[index], chrom_tracking->chromosome_ids[chrom_index]) == 0)
+            return chrom_index;
+    }
+
+    fprintf(stderr, "Can't find the corresponding chromosome tracking index for header's index %d\n", index);
+    return -1;      // something might be wrong here
+}
+
 void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
 	if (!stats_info) {
 		fprintf(stderr, "ERROR: Memory allocation failed for Stats_Info\n");
