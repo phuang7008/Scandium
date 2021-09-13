@@ -31,13 +31,12 @@
  * @param user_inputs: variable that contains all the user input info
  * @param rec: the individual alignment record to be processed
  * @param tmp_stats_info: variable used to store all the statistical information regarding bases and reads
- * @param header: bam/cram file header information that has chromosome id and length info 
  * @param chrom_tracking: the variable to store all the base coverage count information
  * @param chrom_index: current chromosome id to be handled
  * @param target_buffer_status: it contains the target and buffer info for capture sequencing
  *
  */
-void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, bam_hdr_t *header, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status);
+void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status);
 
 /**
  * This function is used to process individual aligned read and put the results into a hash table where the key is the chromosome location

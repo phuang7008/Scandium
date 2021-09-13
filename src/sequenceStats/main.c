@@ -173,10 +173,10 @@ int main(int argc, char *argv[]) {
     // setup the stats_info for each individual chromosome for each threads and initialize them
     //
     Stats_Info **stats_info_per_chr = calloc(headers[0]->n_targets, sizeof(Stats_Info*));
-    int32_t chrom_index = 0;
-    for (chrom_index=0; chrom_index<headers[0]->n_targets; ++chrom_index) {
-        stats_info_per_chr[chrom_index] = calloc(1, sizeof(Stats_Info));
-        statsInfoInit(stats_info_per_chr[chrom_index], user_inputs);
+    int32_t chrom_idx = 0;
+    for (chrom_idx=0; chrom_idx<headers[0]->n_targets; ++chrom_idx) {
+        stats_info_per_chr[chrom_idx] = calloc(1, sizeof(Stats_Info));
+        statsInfoInit(stats_info_per_chr[chrom_idx], user_inputs);
     }
 
     // For target bed file and Ns region bed file
@@ -343,8 +343,7 @@ int main(int argc, char *argv[]) {
     hts_itr_t *iter_o = sam_itr_querys(sfh_idx[0], headers[0], "*");
     bam1_t *b = bam_init1();
     while (sam_itr_next(sfh[0], iter_o, b) >= 0)
-        processCurrentRecord(user_inputs, b, headers[0], stats_info, chrom_tracking, 0, target_buffer_status);
-
+        processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status);
 
     // now let's do the parallelism
     //
@@ -387,10 +386,13 @@ int main(int argc, char *argv[]) {
 
                 bam1_t *b = bam_init1();
                 while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
-                    processCurrentRecord(user_inputs, b, headers[thread_id], stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status);
+                    processCurrentRecord(user_inputs, b, stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status);
 
                 bam_destroy1(b);
                 hts_itr_destroy(iter_h);
+
+                if (strcmp(chrom_tracking->chromosome_ids[chrom_index], "chr1") == 0)
+                    printf("chr1 stopped here");
 
                 if (N_FILE_PROVIDED)
                     zeroAllNsRegions(chrom_tracking->chromosome_ids[chrom_index], Ns_bed_info, chrom_tracking, target_buffer_status, 0);
@@ -406,10 +408,14 @@ int main(int argc, char *argv[]) {
                         chrom_tracking, user_inputs, stats_info, intronic_regions, exon_regions);
 
                 // now write the off target regions with high coverage into a wig file if the Write_WIG flag is set
-                //
-                if (TARGET_FILE_PROVIDED)
-                    produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[chrom_index], 
-                            target_bed_info[chrom_index], user_inputs, stats_info, chrom_index);
+                // TODO
+                if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG) {
+                    int j;
+                    for (j=0; j<user_inputs->num_of_target_files; j++) {
+                        produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[chrom_index],
+                                target_bed_info[j], user_inputs, stats_info, j);
+                    }
+                }
 
                 // For Whole Genome Annotations (use MySQL for the annotation)
                 // if the annotation is not on, it will just output . . . . . . . )
@@ -512,8 +518,8 @@ int main(int argc, char *argv[]) {
 
                 // clean up the array allocated
                 //
-                if (stats_info_per_chr[chrom_index])
-                    statsInfoDestroy(stats_info_per_chr[chrom_index], user_inputs);
+                if (stats_info_per_chr[index])
+                    statsInfoDestroy(stats_info_per_chr[index], user_inputs);
             }
         }
 

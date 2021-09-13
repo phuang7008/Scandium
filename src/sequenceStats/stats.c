@@ -25,7 +25,7 @@
 #include "utils.h"
 
 
-void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, bam_hdr_t *header, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status) {
+void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status) {
 
 	tmp_stats_info->read_cov_stats->total_reads_produced++;
 
@@ -88,17 +88,11 @@ void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, bam_hdr_t *heade
 		    return;
 	}
 
-	// skip if RNAME is "*"
-	//
-	if (strcmp("*", header->target_name[rec->core.tid]) == 0)
-		return;
-
     if (tmp_stats_info->read_cov_stats->read_length <= 0)
         tmp_stats_info->read_cov_stats->read_length = rec->core.l_qseq;
 
     processRecord(user_inputs, tmp_stats_info, rec, chrom_tracking, chrom_index, target_buffer_status);
 
-    //printf("Done read bam for thread %d\n", thread_id);
 }
 
 void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *rec, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status) {
