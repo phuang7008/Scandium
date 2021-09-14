@@ -354,34 +354,33 @@ int main(int argc, char *argv[]) {
           // we need to process all chromosomes even though some of them we are not interested in
           // it is because we have to get the WGS stats which includes these reads
           //
-          int32_t index;
-          //for ( index = 0; index < headers[0]->n_targets; index++)
-          while (index < headers[0]->n_targets) {
+          int32_t idx;
+          //while (idx < headers[0]->n_targets)
+          for ( idx = 0; idx < headers[0]->n_targets; idx++) {
 #pragma omp task
           {
             // get the iterator for the current chromosome
             //
             int thread_id = omp_get_thread_num();
             printf("Current thread id: %d\n", thread_id);
-            hts_itr_t *iter_h = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], headers[0]->target_name[index]);
+            hts_itr_t *iter_h = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], headers[0]->target_name[idx]);
             if (iter_h == NULL) {
-                fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", headers[0]->target_name[index]);
+                fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", headers[0]->target_name[idx]);
                 exit(EXIT_FAILURE);
             }
 
-            khiter_t iter_k = kh_get(khStrInt, wanted_chromosome_hash, headers[0]->target_name[index]);
+            khiter_t iter_k = kh_get(khStrInt, wanted_chromosome_hash, headers[0]->target_name[idx]);
             if (iter_k == kh_end(wanted_chromosome_hash)) {
                 // we are not interested in this chromosome, so just get the simple stats from this chromosome id
                 //
                 bam1_t *b = bam_init1();
                 while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
-                    stats_info_per_chr[index]->read_cov_stats->total_reads_produced++;
+                    stats_info_per_chr[idx]->read_cov_stats->total_reads_produced++;
 
                 bam_destroy1(b);
                 hts_itr_destroy(iter_h);
             } else {
-                int32_t chrom_index;
-                chrom_index = findChromsomeIndex(chrom_tracking, headers[0], index);
+                int32_t chrom_index = findChromsomeIndex(chrom_tracking, headers[0], idx);
                 chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_lengths[chrom_index], chrom_index);
 
                 bam1_t *b = bam_init1();
@@ -406,16 +405,6 @@ int main(int argc, char *argv[]) {
                 //
                 writeCoverage(chrom_tracking->chromosome_ids[chrom_index], target_bed_info, 
                         chrom_tracking, user_inputs, stats_info, intronic_regions, exon_regions);
-
-                // now write the off target regions with high coverage into a wig file if the Write_WIG flag is set
-                // TODO
-                if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG) {
-                    int j;
-                    for (j=0; j<user_inputs->num_of_target_files; j++) {
-                        produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[chrom_index],
-                                target_bed_info[j], user_inputs, stats_info, j);
-                    }
-                }
 
                 // For Whole Genome Annotations (use MySQL for the annotation)
                 // if the annotation is not on, it will just output . . . . . . . )
@@ -494,6 +483,19 @@ int main(int argc, char *argv[]) {
                         gene_transcripts=NULL;
                     }
                 }
+
+                // now write the off target regions with high coverage into a wig file if the Write_WIG flag is set
+                // Note: this function is destructive as it will try to erase the coverage at the target/buffer sites
+                // thus, it is run as the last one
+                //
+                if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG) {
+                    int j;
+                    for (j=0; j<user_inputs->num_of_target_files; j++) {
+                        produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[chrom_index],
+                                target_bed_info[j], user_inputs, stats_info, j);
+                    }
+                }
+
               }
 
               // clean-up chrom_tracking->coverage[chrom_index], which store the base coverage in array
@@ -504,7 +506,6 @@ int main(int argc, char *argv[]) {
               }
             }
           }
-          index++;
         }
 
 #pragma omp taskwait
@@ -512,14 +513,14 @@ int main(int argc, char *argv[]) {
         //
 #pragma omp critical
         {
-            for ( index = 0; index < headers[0]->n_targets; index++) {
-                fprintf(stderr, "\nFor chrom id %d and chrom %s\t", index, headers[0]->target_name[index]);
-                combineCoverageStats(stats_info, stats_info_per_chr[index], user_inputs);
+            for ( idx = 0; idx < headers[0]->n_targets; idx++) {
+                fprintf(stderr, "\nFor chrom id %d and chrom %s\t", idx, headers[0]->target_name[idx]);
+                combineCoverageStats(stats_info, stats_info_per_chr[idx], user_inputs);
 
                 // clean up the array allocated
                 //
-                if (stats_info_per_chr[index])
-                    statsInfoDestroy(stats_info_per_chr[index], user_inputs);
+                if (stats_info_per_chr[idx])
+                    statsInfoDestroy(stats_info_per_chr[idx], user_inputs);
             }
         }
 

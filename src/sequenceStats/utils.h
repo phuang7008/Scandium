@@ -112,6 +112,8 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
 
 int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *header, int32_t index);
 
+char* createTmpFileName(char* base_file_name, char* string_to_add);
+
 /**
  * Initialize the member of the Stats_Info variable
  * @param stats_info: an instance of Stats_Info to store the whole genome coverage stat info

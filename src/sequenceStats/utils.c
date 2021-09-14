@@ -460,6 +460,16 @@ int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *heade
     return -1;      // something might be wrong here
 }
 
+char* createTmpFileName(char* base_file_name, char* string_to_add) {
+    uint16_t s_len = strlen(base_file_name) + strlen(string_to_add) + 5;
+    char *tmp_file_name = calloc(s_len, sizeof(char));
+    strcpy(tmp_file_name, base_file_name);
+    strcat(tmp_file_name, ".");
+    strcat(tmp_file_name, string_to_add);
+
+    return tmp_file_name;
+}
+
 void statsInfoInit(Stats_Info *stats_info, User_Input *user_inputs) {
 	if (!stats_info) {
 		fprintf(stderr, "ERROR: Memory allocation failed for Stats_Info\n");
