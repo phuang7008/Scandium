@@ -25,7 +25,7 @@
 #include "utils.h"
 
 
-void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status) {
+void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status, int32_t target_buffer_index) {
 
 	tmp_stats_info->read_cov_stats->total_reads_produced++;
 
@@ -91,11 +91,11 @@ void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_
     if (tmp_stats_info->read_cov_stats->read_length <= 0)
         tmp_stats_info->read_cov_stats->read_length = rec->core.l_qseq;
 
-    processRecord(user_inputs, tmp_stats_info, rec, chrom_tracking, chrom_index, target_buffer_status);
+    processRecord(user_inputs, tmp_stats_info, rec, chrom_tracking, chrom_index, target_buffer_status, target_buffer_index);
 
 }
 
-void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *rec, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status) {
+void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *rec, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status, int32_t target_buffer_index) {
 
 	uint32_t i=0;
     uint32_t chrom_len = chrom_tracking->chromosome_lengths[chrom_index];
@@ -162,7 +162,7 @@ void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *
 				if (pos_r >= chrom_len) break;
 
                 if (TARGET_FILE_PROVIDED) {
-                    setTargetBufferFlags(target_buffer_status, on_target, on_buffer, chrom_index, pos_r);
+                    setTargetBufferFlags(target_buffer_status, on_target, on_buffer, target_buffer_index, pos_r);
 				}
 
                 if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {

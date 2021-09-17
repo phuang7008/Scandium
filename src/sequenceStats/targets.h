@@ -32,7 +32,7 @@
  * @param user_inputs, contains all the user inputs information, including target_buffer_size
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, User_Input *user_inputs, khash_t(khStrInt)* wanted_chromosome_hash, int number_of_chromosomes, short target_file_index, short type);
+void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_status, int32_t target_buffer_index, User_Input *user_inputs, char* chrom_id, short target_file_index, short type);
 
 /**
  * process bed-formatted file and populate the coordinates and lookup hash table
@@ -42,7 +42,7 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
  * @param target_buffer_status: a variable to store target/buffer info
  * @param type: either target bed (type 1) or Ns regions in the reference sequences (type 2)
  */
-void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, Stats_Info *stats_info, Target_Buffer_Status *target_buffer_status, khash_t(khStrInt)* wanted_chromosome_hash, char* bedfile_name, int number_of_chromosomes, short target_file_index, short type);
+void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, khash_t(khStrInt)* wanted_chromosome_hash, char* bedfile_name);
 
 uint8_t getTargetBufferBit(uint8_t target_file_index);
 

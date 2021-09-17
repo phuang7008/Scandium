@@ -186,8 +186,7 @@ int main(int argc, char *argv[]) {
 
     if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
-        processBedFiles(user_inputs, Ns_bed_info, stats_info, target_buffer_status, 
-                wanted_chromosome_hash, user_inputs->n_file,chrom_tracking->number_of_chromosomes,0, 2);
+        processBedFiles(user_inputs, Ns_bed_info, wanted_chromosome_hash, user_inputs->n_file);
         fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
     }
 
@@ -195,8 +194,7 @@ int main(int argc, char *argv[]) {
         target_bed_info = calloc(user_inputs->num_of_target_files, sizeof(Bed_Info*));
         for (i=0; i<user_inputs->num_of_target_files; i++) {
             target_bed_info[i] = calloc(1, sizeof(Bed_Info));
-            processBedFiles(user_inputs, target_bed_info[i], stats_info, target_buffer_status, 
-                    wanted_chromosome_hash, user_inputs->target_files[i], chrom_tracking->number_of_chromosomes, i, 1);
+            processBedFiles(user_inputs, target_bed_info[i], wanted_chromosome_hash, user_inputs->target_files[i]);
         }
     }
 
@@ -343,7 +341,7 @@ int main(int argc, char *argv[]) {
     hts_itr_t *iter_o = sam_itr_querys(sfh_idx[0], headers[0], "*");
     bam1_t *b = bam_init1();
     while (sam_itr_next(sfh[0], iter_o, b) >= 0)
-        processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status);
+        processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status, -1);
 
     // now let's do the parallelism
     //
@@ -383,22 +381,39 @@ int main(int argc, char *argv[]) {
                 int32_t chrom_index = findChromsomeIndex(chrom_tracking, headers[0], idx);
                 chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_lengths[chrom_index], chrom_index);
 
+                int32_t target_buffer_index = findTargetBufferIndex(target_buffer_status, 
+                        chrom_tracking->number_of_chromosomes, chrom_tracking->chromosome_ids[chrom_index]);
+
+#pragma omp critical
+              {
+                if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
+                    TargetBufferStatusUpdate(target_buffer_status, target_buffer_index);
+                    for (i=0; i<user_inputs->num_of_target_files; i++) {
+                        generateBedBufferStats(target_bed_info[i], stats_info, target_buffer_status, target_buffer_index,
+                                user_inputs, chrom_tracking->chromosome_ids[chrom_index], i, 1);
+                    }
+                }
+
+                if (N_FILE_PROVIDED)
+                    generateBedBufferStats(Ns_bed_info, stats_info, target_buffer_status, target_buffer_index,
+                            user_inputs, chrom_tracking->chromosome_ids[chrom_index], 0, 2);
+              }
+
                 bam1_t *b = bam_init1();
                 while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
-                    processCurrentRecord(user_inputs, b, stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status);
+                    processCurrentRecord(user_inputs, b, stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status, target_buffer_index);
 
                 bam_destroy1(b);
                 hts_itr_destroy(iter_h);
 
                 if (strcmp(chrom_tracking->chromosome_ids[chrom_index], "chr1") == 0)
                     printf("chr1 stopped here");
-
+                        
                 if (N_FILE_PROVIDED)
                     zeroAllNsRegions(chrom_tracking->chromosome_ids[chrom_index], Ns_bed_info, chrom_tracking, target_buffer_status, 0);
 
                 printf("Thread %d is now producing coverage information for chromosome %s\n", 
                         thread_id, chrom_tracking->chromosome_ids[chrom_index]);
-                        
 #pragma omp critical
               {
                 // The following will be produced no matter whether annotation_on is set or not
@@ -420,7 +435,7 @@ int main(int argc, char *argv[]) {
                     coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[chrom_index], chrom_tracking, user_inputs);
                 }
 
-                if (TARGET_FILE_PROVIDED) {
+                if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
                     printf("Thread %d is now calculating gene/transcript/cds coverage percentage for chromosome %s\n", 
                               thread_id, chrom_tracking->chromosome_ids[chrom_index]);
 
@@ -485,10 +500,11 @@ int main(int argc, char *argv[]) {
                 }
 
                 // now write the off target regions with high coverage into a wig file if the Write_WIG flag is set
-                // Note: this function is destructive as it will try to erase the coverage at the target/buffer sites
+                // Note 1: we need to run the following code to get the stats: non_target_good_hits
+                // Note 2: this function is destructive as it will try to erase the coverage at the target/buffer sites
                 // thus, it is run as the last one
                 //
-                if (TARGET_FILE_PROVIDED && user_inputs->Write_WIG) {
+                if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
                     int j;
                     for (j=0; j<user_inputs->num_of_target_files; j++) {
                         produceOffTargetWigFile(chrom_tracking, chrom_tracking->chromosome_ids[chrom_index],
@@ -504,6 +520,13 @@ int main(int argc, char *argv[]) {
                 free(chrom_tracking->coverage[chrom_index]);
                 chrom_tracking->coverage[chrom_index] = NULL;
               }
+
+              // clean-up target array
+              //
+              if (TARGET_FILE_PROVIDED && target_buffer_index != -1)
+                TargetBufferStatusDestroyCurrentChromosome(target_buffer_status, 
+                      chrom_tracking->number_of_chromosomes, chrom_tracking->chromosome_ids[chrom_index]);
+
             }
           }
         }

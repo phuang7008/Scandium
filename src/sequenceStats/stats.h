@@ -36,7 +36,7 @@
  * @param target_buffer_status: it contains the target and buffer info for capture sequencing
  *
  */
-void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status);
+void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_stats_info, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status, int32_t target_buffer_index);
 
 /**
  * This function is used to process individual aligned read and put the results into a hash table where the key is the chromosome location
@@ -48,7 +48,7 @@ void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_
  * @param chrom_index: current chromosome index to be used
  * @param target_buffer_status: it contains the target and buffer info for capture sequencing
  */
-void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *rec, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status);
+void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *rec, Chromosome_Tracking *chrom_tracking, uint32_t chrom_index, Target_Buffer_Status *target_buffer_status, int32_t target_buffer_index);
 
 //void setTargetBufferFlags(Target_Buffer_Status *target_buffer_status, uint8_t *on_target, uint8_t *on_buffer, uint32_t chrom_idx, uint32_t pos_idx);
 void setTargetBufferFlags(Target_Buffer_Status *target_buffer_status, bool *on_target, bool *on_buffer, uint32_t chrom_idx, uint32_t pos_idx);

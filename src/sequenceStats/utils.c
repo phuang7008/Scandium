@@ -460,6 +460,17 @@ int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *heade
     return -1;      // something might be wrong here
 }
 
+int32_t findTargetBufferIndex(Target_Buffer_Status *target_buffer_status, int32_t number_of_chromosomes, char* chrom_id) {
+    int32_t i;
+    for (i=0; i<number_of_chromosomes; i++) {
+        if (strcmp(chrom_id, target_buffer_status[i].chrom_id) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 char* createTmpFileName(char* base_file_name, char* string_to_add) {
     uint16_t s_len = strlen(base_file_name) + strlen(string_to_add) + 5;
     char *tmp_file_name = calloc(s_len, sizeof(char));

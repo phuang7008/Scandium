@@ -112,6 +112,8 @@ int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MyS
 
 int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *header, int32_t index);
 
+int32_t findTargetBufferIndex(Target_Buffer_Status *target_buffer_status, int32_t number_of_chromosomes, char* chrom_id);
+
 char* createTmpFileName(char* base_file_name, char* string_to_add);
 
 /**
