@@ -65,4 +65,6 @@ void outputForDebugging(Bed_Info *bed_info);
  */
 void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_buffer_regions, Bed_Coords *coords);
 
+void processTargetAnnotationFile(User_Input *user_inputs);
+
 #endif //TARGETS_H

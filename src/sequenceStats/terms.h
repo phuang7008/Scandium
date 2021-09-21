@@ -89,6 +89,8 @@ typedef struct {
     char ** user_defined_annotation_files;  // users can provide multiple annotation files
     char ** annotation_file_basenames;      // the basename w/o extension of user defined annotation files
     char ** target_file_basenames;      // the basename w/o extension of target bed files
+    char * target_list_file;
+    char * annotation_list_file;
     char * database_version;            // either hg19 (hg37) or hg38
     char * user_name;                   // user name for the database
     char * passwd;                      // password for the user

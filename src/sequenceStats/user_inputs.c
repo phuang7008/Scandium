@@ -126,56 +126,59 @@ void usage() {
     printf("                    It is Mandatory for CRAM files\n\n");
 
     printf("The Followings Are Optional:\n");
-    printf("--min_base_qual -b  minimal base quality\n");
-    printf("                    to filter out any bases with base quality less than b. Default 0\n");
-    printf("--min_map_qual  -m  minimal mapping quality\n");
-    printf("                    to filter out any reads with mapping quality less than m. Default 0\n");
-    printf("--f1 --f2 ... --f8  user defined annotation file (one tag per annotation file).\n");
-    printf("                    Note, the maximum number of annotatioin files allowed is 8\n");
-    printf("--t1 --t2 ... --t8  capture target file. (one tag per capture file)\n");
-    printf("                    Note: the maximum number of capture files allowed is 8\n");
-    printf("--gvcf_block    -g  the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
-    printf("                    The value of gvcf_block should be larger than or equal to 1\n");
-    printf("--peak_size     -k  number of points around peak (eg, Mode) area for the area \n");
-    printf("                    under histogram calculation (for WGS Uniformity only)\n");
-    printf("                    Dynamically Selected Based on Average Coverage of the Sample\n");
-    printf("--Ns_regions    -n  file name that contains regions of Ns in the reference genome in bed format\n");
-    printf("--percentage    -p  the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)\n");
-    printf("--chr_list      -r  file name that contains chromosomes and their regions \n");
-    printf("                    need to be processed in bed format. Default: Not Provided\n");
-    printf("--buffer        -B  the Buffer size immediate adjacent to a target region. Default: 100\n");
-    printf("--DB_version    -D  the version of human genome database (either hg19 [or hg37], or hg38).\n");
-    printf("                    Default: hg19/hg37>\n");
-    printf("--threshold_high -H the high coverage threshold/cutoff value.\n");
-    printf("                    Any coverages larger than or equal to it will be outputted. Default=10000\n");
-    printf("--threshold_low -L  the low coverage threshold/cutoff value.\n");
-    printf("                    Any coverages smaller than it will be outputted. Default: 20\n");
-    printf("--password      -P  the MySQL DB login user's Password\n");
-    printf("--threads       -T  the number of threads \n");
-    printf("                    (Note: when used with HPC's msub, make sure that the number of\n"); 
-    printf("                    processors:ppn matches to number of threads). Default 3\n");
-    printf("--username      -U  the MySQL DB login User name\n");
+    printf("--min_base_qual     -b  minimal base quality\n");
+    printf("                        to filter out any bases with base quality less than b. Default 0\n");
+    printf("--min_map_qual      -m  minimal mapping quality\n");
+    printf("                        to filter out any reads with mapping quality less than m. Default 0\n");
+    printf("--annotation_list_file\n");
+    printf("                    -a  a file contains a list of user defined annotation files.\n");
+    printf("                        The file list should be in the same order as in the target list file\n");
+    printf("                        Note, the maximum number of annotatioin files allowed is 8\n");
+    printf("--target_list_file  -t  a file contains a list of capture target files.\n");
+    printf("                        The file list should be in the same order as in the annotation list file\n");
+    printf("                        Note: the maximum number of capture files allowed is 8\n");
+    printf("--gvcf_block        -g  the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
+    printf("                        The value of gvcf_block should be larger than or equal to 1\n");
+    printf("--peak_size         -k  number of points around peak (eg, Mode) area for the area \n");
+    printf("                        under histogram calculation (for WGS Uniformity only)\n");
+    printf("                        Dynamically Selected Based on Average Coverage of the Sample\n");
+    printf("--Ns_regions        -n  file name that contains regions of Ns in the reference genome in bed format\n");
+    printf("--percentage        -p  the percentage (fraction) of reads used for this analysis. Default 1.0 (ie, 100%%)\n");
+    printf("--chr_list          -r  file name that contains chromosomes and their regions \n");
+    printf("                        need to be processed in bed format. Default: Not Provided\n");
+    printf("--buffer            -B  the Buffer size immediate adjacent to a target region. Default: 100\n");
+    printf("--DB_version        -D  the version of human genome database (either hg19 [or hg37], or hg38).\n");
+    printf("                        Default: hg19/hg37>\n");
+    printf("--threshold_high    -H  the high coverage threshold/cutoff value.\n");
+    printf("                        Any coverages larger than or equal to it will be outputted. Default=10000\n");
+    printf("--threshold_low     -L  the low coverage threshold/cutoff value.\n");
+    printf("                        Any coverages smaller than it will be outputted. Default: 20\n");
+    printf("--password          -P  the MySQL DB login user's Password\n");
+    printf("--threads           -T  the number of threads \n");
+    printf("                        (Note: when used with HPC's msub, make sure that the number of\n"); 
+    printf("                        processors:ppn matches to number of threads). Default 3\n");
+    printf("--username          -U  the MySQL DB login User name\n");
 
     printf("\nThe Followings generate block regions used for data smoothing in Coverage Uniformity Analysis\n");
-    printf("--lower_bound   -l  the lower bound for the block region output. Default: 1\n");
-    printf("--upper_bound   -u  the upper bound for the block region output. Default: 150\n\n");
+    printf("--lower_bound       -l  the lower bound for the block region output. Default: 1\n");
+    printf("--upper_bound       -u  the upper bound for the block region output. Default: 150\n\n");
 
     printf("The Followings Are Flags\n");
-    printf("--annotation    -a  Specify this flag only when you want to Turn ON the annotation for WGS only.\n");
-    printf("                    Default: Annotation is OFF>\n");
-    printf("--capture_depth -C  To produce Capture coverage depth (cov.fasta) file that contains \n");
-    printf("                    coverage count info for each targeted base. Default: OFF\n");
-    printf("--duplicate     -d  Specify this flag only when you want to keep Duplicates reads.\n");
-    printf("                    Default: Remove Duplicate is ON\n");
-    printf("--supplemental  -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: keep them for stats\n");
-    printf("--wgs           -w  conducting whole genome coverage analysis. Default: off\n");
-    printf("--wig_output    -G  Write/Dump the WIG formatted file. Default: off\n");
-    printf("--hgmd          -M  Use HGMD annotation. Default: off\n");
-    printf("--overlap       -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
-    printf("--high_cov_out  -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
-    printf("--wgs_depth     -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
-    printf("                    (both -w and -W needed). Default: off\n");
-    printf("--help          -h  Print this help/usage message\n");
+    printf("--annotation        -A  Specify this flag only when you want to Turn ON the annotation for WGS only.\n");
+    printf("                        Default: Annotation is OFF>\n");
+    printf("--capture_depth     -C  To produce Capture coverage depth (cov.fasta) file that contains \n");
+    printf("                        coverage count info for each targeted base. Default: OFF\n");
+    printf("--duplicate         -d  Specify this flag only when you want to keep Duplicates reads.\n");
+    printf("                        Default: Remove Duplicate is ON\n");
+    printf("--supplemental      -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: keep them for stats\n");
+    printf("--wgs               -w  conducting whole genome coverage analysis. Default: off\n");
+    printf("--wig_output        -G  Write/Dump the WIG formatted file. Default: off\n");
+    printf("--hgmd              -M  Use HGMD annotation. Default: off\n");
+    printf("--overlap           -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
+    printf("--high_cov_out      -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
+    printf("--wgs_depth         -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
+    printf("                        (both -w and -W needed). Default: off\n");
+    printf("--help              -h  Print this help/usage message\n");
 }
 
 // Get command line arguments in and check the sanity of user inputs 
@@ -197,22 +200,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             //{"verbose",  no_argument,  &verbose_flag,  9},
             //{"brief",    no_argument,  &verbose_flag,  0},
             /* These options don't set a flag. We distinguish them by their indices. */
-            {"f1",      required_argument,  0,  'e'},
-            {"f2",      required_argument,  0,  'j'},
-            {"f3",      required_argument,  0,  'x'},
-            {"f4",      required_argument,  0,  'z'},
-            {"f5",      required_argument,  0,  'E'},
-            {"f6",      required_argument,  0,  'J'},
-            {"f7",      required_argument,  0,  'X'},
-            {"f8",      required_argument,  0,  'Z'},
-            {"t1",      required_argument,  0,  '1'},
-            {"t2",      required_argument,  0,  '2'},
-            {"t3",      required_argument,  0,  '3'},
-            {"t4",      required_argument,  0,  '4'},
-            {"t5",      required_argument,  0,  '5'},
-            {"t6",      required_argument,  0,  '6'},
-            {"t7",      required_argument,  0,  '7'},
-            {"t8",      required_argument,  0,  '8'},
             {"buffer",          required_argument,  0,  'B'},
             {"chr_list",        required_argument,  0,  'r'},
             {"DB_version",      required_argument,  0,  'D'},
@@ -226,13 +213,15 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             {"min_map_qual",    required_argument,  0,  'm'},
             {"output_dir",      required_argument,  0,  'o'},
             {"reference",       required_argument,  0,  'R'},
+            {"target_list_file",     required_argument,  0,  't'},
+            {"annotation_list_file", required_argument,  0,  'a'},
             {"percentage",      required_argument,  0,  'p'},
             {"peak_size",       required_argument,  0,  'k'},
             {"password",        required_argument,  0,  'P'},
             {"username",        required_argument,  0,  'U'},
             {"Ns_regions",      required_argument,  0,  'n'},
             {"threads",         required_argument,  0,  'T'},
-            {"annotation",          no_argument,  0,  'a'},
+            {"annotation",          no_argument,  0,  'A'},
             {"capture_depth",       no_argument,  0,  'C'},
             {"duplicate",           no_argument,  0,  'd'},
             {"help",                no_argument,  0,  'h'},
@@ -250,7 +239,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         int option_index = 0;
 
         arg = getopt_long_only (argc, argv, 
-                    "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
+                    "a:Ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
                     long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -258,87 +247,12 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
         //printf("User options for %c is %s\n", arg, optarg);
         switch(arg) {
-            case '1':
-                addValueToKhashBucketStrStr(capture_files, "1", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '2':
-                addValueToKhashBucketStrStr(capture_files, "2", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '3':
-                addValueToKhashBucketStrStr(capture_files, "3", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '4':
-                addValueToKhashBucketStrStr(capture_files, "4", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '5':
-                addValueToKhashBucketStrStr(capture_files, "5", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '6':
-                addValueToKhashBucketStrStr(capture_files, "6", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '7':
-                addValueToKhashBucketStrStr(capture_files, "7", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case '8':
-                addValueToKhashBucketStrStr(capture_files, "8", optarg);
-                user_inputs->num_of_target_files++;
-                TARGET_FILE_PROVIDED = true;
-                break;
-            case 'e':
-                addValueToKhashBucketStrStr(annotation_files, "1", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'j':
-                addValueToKhashBucketStrStr(annotation_files, "2", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'x':
-                addValueToKhashBucketStrStr(annotation_files, "3", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'z':
-                addValueToKhashBucketStrStr(annotation_files, "4", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'E':
-                addValueToKhashBucketStrStr(annotation_files, "5", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'J':
-                addValueToKhashBucketStrStr(annotation_files, "6", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'X':
-                addValueToKhashBucketStrStr(annotation_files, "7", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
-            case 'Z':
-                addValueToKhashBucketStrStr(annotation_files, "8", optarg);
-                user_inputs->num_of_annotation_files++;
-                USER_DEFINED_DATABASE = true;
-                break;
             case 'a':
+                user_inputs->annotation_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
+                strcpy(user_inputs->annotation_list_file, optarg);
+                USER_DEFINED_DATABASE = true;
+                break;
+            case 'A':
                 user_inputs->wgs_annotation_on = true; break;
             case 'b':
                 if (!isNumber(optarg)) {
@@ -445,6 +359,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 strcpy(user_inputs->reference_file, optarg);
                 break;
             case 's': user_inputs->remove_supplementary_alignments = true; break;
+            case 't':
+                user_inputs->target_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
+                strcpy(user_inputs->target_list_file, optarg);
+                TARGET_FILE_PROVIDED = true;
+                break;
             case 'T':
                 if (!isNumber(optarg)) {
                     fprintf (stderr, "ERROR: Entered number of threads %s is not a number\n", optarg);
@@ -1018,7 +937,9 @@ User_Input * userInputInit() {
     user_inputs->output_dir = NULL;
     user_inputs->target_files = NULL;
     user_inputs->reference_file = NULL;
-    user_inputs->chromosome_bed_file = NULL;
+    user_inputs->target_list_file = NULL;
+    user_inputs->chromosome_bed_file  = NULL;
+    user_inputs->annotation_list_file = NULL;
     user_inputs->annotation_file_basenames = NULL;
     user_inputs->user_defined_annotation_files = NULL;
 
