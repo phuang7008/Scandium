@@ -170,7 +170,8 @@ void usage() {
     printf("                        coverage count info for each targeted base. Default: OFF\n");
     printf("--duplicate         -d  Specify this flag only when you want to keep Duplicates reads.\n");
     printf("                        Default: Remove Duplicate is ON\n");
-    printf("--supplemental      -s  Remove Supplementary alignments and DO NOT use them for statistics. Default: keep them for stats\n");
+    printf("--supplemental      -s  Specify this flag only when you want to Keep Supplementary reads.\n");
+    printf("                        Default: Remove Supplementary reads is ON\n");
     printf("--wgs               -w  conducting whole genome coverage analysis. Default: off\n");
     printf("--wig_output        -G  Write/Dump the WIG formatted file. Default: off\n");
     printf("--hgmd              -M  Use HGMD annotation. Default: off\n");
@@ -187,8 +188,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
     int arg, i;
     bool input_error_flag=false;
     bool flag_float=true;
-    khash_t(khStrStr) *capture_files = kh_init(khStrStr);
-    khash_t(khStrStr) *annotation_files = kh_init(khStrStr);
 
     // Flag set by '--verbose'
     //static int verbose_flag;
@@ -250,6 +249,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'a':
                 user_inputs->annotation_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
                 strcpy(user_inputs->annotation_list_file, optarg);
+                readTargetAnnotationFilesIn(user_inputs, optarg, 2);
                 USER_DEFINED_DATABASE = true;
                 break;
             case 'A':
@@ -358,11 +358,12 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 user_inputs->reference_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
                 strcpy(user_inputs->reference_file, optarg);
                 break;
-            case 's': user_inputs->remove_supplementary_alignments = true; break;
+            case 's': user_inputs->remove_supplementary_alignments = false; break;
             case 't':
                 user_inputs->target_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
                 strcpy(user_inputs->target_list_file, optarg);
                 TARGET_FILE_PROVIDED = true;
+                readTargetAnnotationFilesIn(user_inputs, optarg, 1);
                 break;
             case 'T':
                 if (!isNumber(optarg)) {
@@ -409,9 +410,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         }
     }
 
-    outputUserInputOptions(user_inputs, capture_files, annotation_files);
+    outputUserInputOptions(user_inputs);
     checkInputCaptureAndAnnotationFiles(user_inputs);
-    formTargetAnnotationFileArray(capture_files, annotation_files, user_inputs);
+    //formTargetAnnotationFileArray(capture_files, annotation_files, user_inputs);
 
     // don't proceed if the user doesn't specify either -t or -w or both
     //
@@ -485,8 +486,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    cleanKhashStrStr(annotation_files);
-    cleanKhashStrStr(capture_files);
 }
 
 void setupOutputReportFiles(User_Input *user_inputs) {
@@ -712,6 +711,44 @@ void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khS
     free(capture_only_files);
 }
 
+//type: 1 for target, 2 for annotation
+//
+void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type) {
+    FILE *fp = fopen(file_in, "r");
+    if (type == 1) {
+        user_inputs->num_of_target_files = getLineCount(file_in);
+        user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+    } else {
+        user_inputs->num_of_annotation_files = getLineCount(file_in);
+        user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+    }
+
+    int counter=0;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    while ((read = getline(&line, &len, fp)) != -1) {
+        if (*line == '\n')
+            continue;
+
+        if (line[strlen(line)-1] == '\n')
+            line[strlen(line)-1] = '\0';
+
+        if (line[strlen(line)-1] == '\r')
+            line[strlen(line)-1] = '\0';
+
+        if (type == 1) {
+            user_inputs->target_files[counter] = (char*) malloc(strlen(line)+1 * sizeof(char));
+            strcpy(user_inputs->target_files[counter], line);
+        } else {
+            user_inputs->user_defined_annotation_files[counter] = (char*) malloc(strlen(line)+1 * sizeof(char));
+            strcpy(user_inputs->user_defined_annotation_files[counter], line);
+        }
+        counter++;
+    }
+}
+
 void checkRepeatedCaptureFiles(User_Input *user_inputs) {
     int i, j;
     for (i=0; i< user_inputs->num_of_target_files; i++) {
@@ -789,7 +826,7 @@ void writeHeaderLine(char *file_in, User_Input *user_inputs, int annotation_file
     fclose(out_fp);
 }
 
-void outputUserInputOptions(User_Input *user_inputs, khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files) {
+void outputUserInputOptions(User_Input *user_inputs) {
     fprintf(stderr, "The following are the options you have chosen:\n");
     fprintf(stderr, "\tInput bam/cram file: %s\n", user_inputs->bam_file);
     fprintf(stderr, "\tOutput directory is: %s\n", user_inputs->output_dir);
@@ -804,23 +841,17 @@ void outputUserInputOptions(User_Input *user_inputs, khash_t(khStrStr) *capture_
     if (user_inputs->reference_file)
         fprintf(stderr, "\tThe reference sequence file is: %s\n", user_inputs->reference_file);
 
-    const char *keys[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
     uint8_t i;
-    fprintf(stderr, "\n\tCapture Input Files:\n");
-    for (i=0; i<8; i++) {
-        khiter_t c_iter = kh_get(khStrStr, capture_files, keys[i]);
-
-        if (c_iter != kh_end(capture_files))
-            fprintf(stderr, "\t--t%d capture/target bed file is: %s\n", i+1, kh_value(capture_files, c_iter));
+    if (TARGET_FILE_PROVIDED) {
+        fprintf(stderr, "\n\tCapture Input File with target file list %s: \n", user_inputs->target_list_file);
+        for (i=0; i<user_inputs->num_of_target_files; i++)
+            fprintf(stderr, "\t--t%d capture/target bed file is: %s\n", i+1, user_inputs->target_files[i]);
     }
-    fprintf(stderr, "\n\tUser Defined Annotation Input Files:\n");
 
     if (USER_DEFINED_DATABASE) {
-        for (i=0; i<8; i++) {
-            khiter_t a_iter = kh_get(khStrStr, annotation_files, keys[i]);
-            if (a_iter != kh_end(annotation_files))
-                fprintf(stderr, "\t--f%d for user provided database is %s.\n", i+1, kh_value(annotation_files, a_iter));
-        }
+        fprintf(stderr, "\n\tAnnotation Input File with user-defined annotation file list %s: \n", user_inputs->annotation_list_file);
+        for (i=0; i<user_inputs->num_of_annotation_files; i++)
+            fprintf(stderr, "\t--f%d for user provided database is %s.\n", i+1, user_inputs->user_defined_annotation_files[i]);
     }
     fprintf(stderr, "\n");
 
@@ -930,7 +961,7 @@ User_Input * userInputInit() {
     user_inputs->Write_WIG = false;
     user_inputs->excluding_overlapping_bases = false;
     user_inputs->remove_duplicate = true;
-    user_inputs->remove_supplementary_alignments = false;
+    user_inputs->remove_supplementary_alignments = true;
 
     user_inputs->n_file = NULL;
     user_inputs->bam_file = NULL;

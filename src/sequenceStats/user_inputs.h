@@ -52,6 +52,8 @@ void usage();
 //void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type);
 void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs);
 
+void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type);
+
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs);
 
 void checkRepeatedCaptureFiles(User_Input *user_inputs);
@@ -66,7 +68,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]);
  * Output the User Input Options to the end user so he/she can double-check if all the options are correct!
  * @param user_inputs: a variable contains all the user input options
  */
-void outputUserInputOptions(User_Input *user_inputs, khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files);
+void outputUserInputOptions(User_Input *user_inputs);
 
 void setupOutputReportFiles(User_Input *user_inputs);
 

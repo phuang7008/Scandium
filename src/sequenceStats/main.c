@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
     if (N_FILE_PROVIDED) {      // the file that contains regions of Ns in the reference genome
         Ns_bed_info = calloc(1, sizeof(Bed_Info));
         processBedFiles(user_inputs, Ns_bed_info, wanted_chromosome_hash, user_inputs->n_file);
-        fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
+        //fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
     }
 
     if (TARGET_FILE_PROVIDED) {
@@ -386,8 +386,10 @@ int main(int argc, char *argv[]) {
 
 #pragma omp critical
               {
-                if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
+                if (TARGET_FILE_PROVIDED || N_FILE_PROVIDED)
                     TargetBufferStatusUpdate(target_buffer_status, target_buffer_index);
+
+                if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
                     for (i=0; i<user_inputs->num_of_target_files; i++) {
                         generateBedBufferStats(target_bed_info[i], stats_info, target_buffer_status, target_buffer_index,
                                 user_inputs, chrom_tracking->chromosome_ids[chrom_index], i, 1);
@@ -551,6 +553,8 @@ int main(int argc, char *argv[]) {
 
       fflush(stdout);
     }   // end parallel loop
+
+    fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
 
     /* calculate the uniformity metric*/
     khash_t(m32) *cov_freq_dist = kh_init(m32);
