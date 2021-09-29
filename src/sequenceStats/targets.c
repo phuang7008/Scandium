@@ -36,36 +36,8 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, khash_t(khStrI
     
     // load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
     //
-    loadBedFiles(user_inputs->database_version, bedfile_name, bed_info->coords, wanted_chromosome_hash);
+    loadBedFiles(user_inputs->database_version, bedfile_name, bed_info->coords, wanted_chromosome_hash, user_inputs->database_version);
     //printf("total size is %"PRIu32"\n", total_size);
-
-    // Now we are going to generate target-buffer lookup table for all the loaded targets
-    // we will store targets and buffers information based on chromosome ID
-    /*
-    generateBedBufferStats(bed_info, stats_info, target_buffer_status, user_inputs, wanted_chromosome_hash, number_of_chromosomes, target_file_index, type);
-
-    // Here we need to check if the bed file is merged and uniqued by comparing two different ways of addition of bases
-    //
-    if (type == 1) {
-        //printf("Total target is %"PRIu32"\n", stats_info->cov_stats->total_targeted_bases);
-        if (total_size != stats_info->capture_cov_stats[target_file_index]->total_targeted_bases) {
-            printf("\nERROR: The target bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
-            printf("\ttotal size: %"PRIu32"\n", total_size);
-            printf("\ttotal target bases: %"PRIu32"\n", stats_info->capture_cov_stats[target_file_index]->total_targeted_bases);
-            //printf("\tThe chromosome ids in the capture file MUST appear in the chromosome input file (--chr_list option)!\n");
-            exit(EXIT_FAILURE);
-        }
-    } else {
-        //printf("Total Ns region is %"PRIu32"\n", stats_info->cov_stats->total_Ns_bases);
-        if (total_size != stats_info->wgs_cov_stats->total_Ns_bases) {
-            printf("\nERROR: The Ns-region bed file \n%s\n needs to be bedtools sorted, merged and uniqued!\n", bedfile_name);
-            printf("\ttotal size: %"PRIu32"\n", total_size);
-            printf("\ttotal N bases: %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
-            //printf("\tThe chromosome ids listed in the Ns-region file MUST appear in the chromosome input file (--chr_list option)!\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-    */
 }
 
 void outputForDebugging(Bed_Info *bed_info) {
@@ -86,12 +58,23 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
     uint32_t i=0, j=0;
     uint32_t chrom_len = target_buffer_status[target_buffer_index].size;  // used to check the boundary
     target_buffer_status[target_buffer_index].index = target_buffer_index;
+    uint32_t prev_end = 0;
 
     for (i = 0; i < bed_info->size; i++) {
 
         if (strcmp(bed_info->coords[i].chrom_id, chrom_id) != 0)
             continue;
         
+        // check if bed file is sorted and merged
+        //
+        if ((prev_end != 0) && (prev_end > bed_info->coords[i].start)) {
+            char error_message[250];
+            sprintf(error_message, "The file %s is not sorted or merged.\n", user_inputs->target_files[target_file_index]);
+            exitWithFailure(error_message);
+        } else {
+            prev_end = bed_info->coords[i].end;
+        }
+
         // for positions on targets or Ns
         // since the chromosome position array is 0 based, we will just use the 0-based bed file as is
         //

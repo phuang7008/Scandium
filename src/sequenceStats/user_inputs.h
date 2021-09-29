@@ -43,15 +43,6 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
  */
 void usage();
 
-/**
- * Handle an input with multiple user defined annotation files
- * @param optarg: the annotation files at the command line separated by comma ','
- * @param user_inputs: a variable to store all of the user provided inputs
- * @param type: the type of file array: 1 for target file, 2 for annotation file
- */
-//void formTargetAnnotationFileArray(char* optarg, User_Input *user_inputs, uint8_t type);
-void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs);
-
 void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type);
 
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs);

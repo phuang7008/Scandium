@@ -67,4 +67,5 @@ void getTargetAndBufferPositions(char * chromosome_id, int size, char *target_bu
 
 void processTargetAnnotationFile(User_Input *user_inputs);
 
+
 #endif //TARGETS_H

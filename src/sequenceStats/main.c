@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
                 khash_t(khStrInt) *cds_counts =NULL;
 
                 // need to check if the annotation format is correct!
-                // Stop is the format is wrong!
+                // Stop if the format is wrong!
                 //
                 checkAnnotationFormat(user_inputs);
 
@@ -294,6 +294,8 @@ int main(int argc, char *argv[]) {
         recordHGMD(dbs, hgmd_genes, hgmd_transcripts);
     }
 
+    setupOutputReportFiles(user_inputs);
+
     // initialize the Gene_Transcript_Percentage variable
     //
     khash_t(khStrGTP) **gene_transcript_percentage_hash = NULL;
@@ -304,7 +306,7 @@ int main(int argc, char *argv[]) {
         
         // here we need to check if we have more capture files than annotation files
         //
-        uint8_t num_of_additional_annotations = user_inputs->num_of_target_files > user_inputs->num_of_annotation_files;
+        uint8_t num_of_additional_annotations = user_inputs->num_of_target_files - user_inputs->num_of_annotation_files;
         if (num_of_additional_annotations > 0) {
             if (exon_regions == NULL) {
                 exon_regions = calloc(user_inputs->num_of_target_files, sizeof(Regions_Skip_MySQL*));
@@ -326,7 +328,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    setupOutputReportFiles(user_inputs);
+    //setupOutputReportFiles(user_inputs);
 
     fflush(stdout);
 
@@ -448,7 +450,7 @@ int main(int argc, char *argv[]) {
                         khash_t(khStrLCG) *transcript_hash = kh_init(khStrLCG);
                         khash_t(khStrStrArray) *gene_transcripts = kh_init(khStrStrArray);
 
-                        if (USER_DEFINED_DATABASE) {
+                        if (USER_DEFINED_DATABASE && (x < user_inputs->num_of_annotation_files)) {
                             khash_t(khStrLCG) *user_defined_cds_gene_hash = kh_init(khStrLCG);
 
                             if (raw_user_defined_databases[x]) {

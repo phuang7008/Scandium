@@ -412,7 +412,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
     outputUserInputOptions(user_inputs);
     checkInputCaptureAndAnnotationFiles(user_inputs);
-    //formTargetAnnotationFileArray(capture_files, annotation_files, user_inputs);
 
     // don't proceed if the user doesn't specify either -t or -w or both
     //
@@ -644,73 +643,6 @@ void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
     }
 }
 
-// for handling multiple user defined database annotation files and multiple capture target bed files
-// type 1: target files     2: annotation files
-//
-void formTargetAnnotationFileArray(khash_t(khStrStr) *capture_files, khash_t(khStrStr) *annotation_files, User_Input *user_inputs) {
-    user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-
-    const char *keys[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
-    char **capture_only_files = calloc(8, sizeof(char*));
-    int i;
-    uint8_t counter=0;
-    uint8_t capture_only_counter=0;
-
-    for (i=0; i<8; i++) {
-        khiter_t a_iter = kh_get(khStrStr, annotation_files, keys[i]);
-        khiter_t c_iter = kh_get(khStrStr, capture_files, keys[i]);
-        
-        // no keys for both, just skip
-        //
-        if (a_iter == kh_end(annotation_files) && c_iter == kh_end(capture_files))
-            continue;
-
-        // annotation only without capture file
-        //
-        if (a_iter != kh_end(annotation_files) && c_iter == kh_end(capture_files)) {
-            fprintf(stderr, "ERROR: you have entered an annotation file \n%s\n", kh_value(annotation_files, a_iter));
-            fprintf(stderr, "without the corresponding capture file\n");
-            fprintf(stderr, "Please check your inputs and try again. Thanks!\n");
-            exit(EXIT_FAILURE);
-        }
-
-        // capture only without annotation file
-        //
-        if (a_iter == kh_end(annotation_files) && c_iter != kh_end(capture_files)) {
-            capture_only_files[capture_only_counter] = 
-                (char*) malloc(strlen(kh_value(capture_files, c_iter))+1 * sizeof(char));
-            strcpy(capture_only_files[capture_only_counter], kh_value(capture_files, c_iter));
-            capture_only_counter++;
-        }
-
-        // both have keys
-        //
-        if (a_iter != kh_end(annotation_files) && c_iter != kh_end(capture_files)) {
-            user_inputs->target_files[counter] = 
-                (char*) malloc(strlen(kh_value(capture_files, c_iter))+1 * sizeof(char));
-            strcpy(user_inputs->target_files[counter], kh_value(capture_files, c_iter));
-
-            user_inputs->user_defined_annotation_files[counter] = 
-                (char*) malloc(strlen(kh_value(annotation_files, a_iter))+1 * sizeof(char));
-            strcpy(user_inputs->user_defined_annotation_files[counter], kh_value(annotation_files, a_iter));
-
-            counter++;
-        }
-    }
-
-    for (i=0; i<capture_only_counter; i++) {
-        user_inputs->target_files[counter] = (char*) malloc(strlen(capture_only_files[i])+1 * sizeof(char));
-        strcpy(user_inputs->target_files[counter], capture_only_files[i]);
-        counter++;
-    }
-
-    for (i=0; i<capture_only_counter; i++) {
-        free(capture_only_files[i]);
-    }
-    free(capture_only_files);
-}
-
 //type: 1 for target, 2 for annotation
 //
 void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type) {
@@ -729,8 +661,9 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int typ
     ssize_t read;
 
     while ((read = getline(&line, &len, fp)) != -1) {
-        if (*line == '\n')
-            continue;
+        if (*line == '\n') continue;
+        if (line[0] == '\0') continue;        // skip if it is a blank line
+        if (line[0] == '#')  continue;        // skip if it is a comment line
 
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
