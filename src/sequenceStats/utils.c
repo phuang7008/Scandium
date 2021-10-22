@@ -276,15 +276,6 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 	}
 }
 
-void cleanKhashInt(khash_t(m32) *hash_to_clean) {
-	khint_t k;
-	for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k)
-		if (kh_exist(hash_to_clean, k))
-			kh_del(m32, hash_to_clean, k);
-
-	if (hash_to_clean) kh_destroy(m32, hash_to_clean);
-}
-
 void cleanKhashStr(khash_t(str) *hash_to_clean, uint8_t type) {
 	khint_t k;
 	for (k = kh_begin(hash_to_clean); k != kh_end(hash_to_clean); ++k) {

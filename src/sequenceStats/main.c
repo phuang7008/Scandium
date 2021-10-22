@@ -129,6 +129,10 @@ int main(int argc, char *argv[]) {
         if ((headers[t] = sam_hdr_read(sfh[t])) == 0) return -1;
     }
 
+    // check if the reference version match to the header target_name
+    //
+    checkReferenceVersion(headers[0]->target_name[0], user_inputs->database_version, user_inputs->bam_file);
+
     // setup a tracking variable to track chromosome working status 
     //
     Chromosome_Tracking *chrom_tracking = calloc(1, sizeof(Chromosome_Tracking));

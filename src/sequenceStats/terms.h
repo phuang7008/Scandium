@@ -283,13 +283,6 @@ typedef struct {
 
 #include "htslib/khash.h"
 
-// Instantiate a hash map containing integer keys
-// m32 means the key is 32 bit integer, while the value is of unsigned int type (ie uint16_t)
-//
-KHASH_MAP_INIT_INT(m32, uint32_t)
-KHASH_MAP_INIT_INT(m16, uint16_t)
-KHASH_MAP_INIT_INT(m8, uint16_t)
-
 /**
  * define a khash like structure that has string as key and various structures as values
  * Note: name part of init must be unique for the key, value types.
