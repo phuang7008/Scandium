@@ -43,7 +43,7 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper);
  */
 void usage();
 
-void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type);
+void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in);
 
 void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs);
 

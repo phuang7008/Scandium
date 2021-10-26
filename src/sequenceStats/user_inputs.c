@@ -130,13 +130,11 @@ void usage() {
     printf("                        to filter out any bases with base quality less than b. Default 0\n");
     printf("--min_map_qual      -m  minimal mapping quality\n");
     printf("                        to filter out any reads with mapping quality less than m. Default 0\n");
-    printf("--annotation_list_file\n");
-    printf("                    -a  a file contains a list of user defined annotation files.\n");
-    printf("                        The file list should be in the same order as in the target list file\n");
-    printf("                        Note, the maximum number of annotatioin files allowed is 8\n");
-    printf("--target_list_file  -t  a file contains a list of capture target files.\n");
-    printf("                        The file list should be in the same order as in the annotation list file\n");
-    printf("                        Note: the maximum number of capture files allowed is 8\n");
+    printf("--target_anno_file  -t  a file contains a list of capture target files and annotation files.\n");
+    printf("                        Each line starts with a target file, then its annotation file separated by a tab\n");
+    printf("                        If a target file has not annotation file, leave the annotation file blank\n");
+    printf("                        The target files have not annotation files should be put at the very end \n");
+    printf("                        Note: the maximum number of target/annotation paired files allowed is 8\n");
     printf("--gvcf_block        -g  the percentage used for gVCF blocking: Default 10 for 1000%%>\n");
     printf("                        The value of gvcf_block should be larger than or equal to 1\n");
     printf("--peak_size         -k  number of points around peak (eg, Mode) area for the area \n");
@@ -199,38 +197,37 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             //{"verbose",  no_argument,  &verbose_flag,  9},
             //{"brief",    no_argument,  &verbose_flag,  0},
             /* These options don't set a flag. We distinguish them by their indices. */
-            {"buffer",          required_argument,  0,  'B'},
-            {"chr_list",        required_argument,  0,  'r'},
-            {"DB_version",      required_argument,  0,  'D'},
-            {"input_bam",       required_argument,  0,  'i'},
-            {"gvcf_block",      required_argument,  0,  'g'},
-            {"threshold_high",  required_argument,  0,  'H'},
-            {"threshold_low",   required_argument,  0,  'L'},
-            {"lower_bound",     required_argument,  0,  'l'},
-            {"upper_bound",     required_argument,  0,  'u'},
-            {"min_base_qual",   required_argument,  0,  'b'},
-            {"min_map_qual",    required_argument,  0,  'm'},
-            {"output_dir",      required_argument,  0,  'o'},
-            {"reference",       required_argument,  0,  'R'},
-            {"target_list_file",     required_argument,  0,  't'},
-            {"annotation_list_file", required_argument,  0,  'a'},
-            {"percentage",      required_argument,  0,  'p'},
-            {"peak_size",       required_argument,  0,  'k'},
-            {"password",        required_argument,  0,  'P'},
-            {"username",        required_argument,  0,  'U'},
-            {"Ns_regions",      required_argument,  0,  'n'},
-            {"threads",         required_argument,  0,  'T'},
-            {"annotation",          no_argument,  0,  'A'},
-            {"capture_depth",       no_argument,  0,  'C'},
-            {"duplicate",           no_argument,  0,  'd'},
-            {"help",                no_argument,  0,  'h'},
-            {"hgmd",                no_argument,  0,  'M'},
-            {"overlap",             no_argument,  0,  'O'},
-            {"supplemental",        no_argument,  0,  's'},
-            {"high_cov_out",        no_argument,  0,  'V'},
-            {"wig_output",          no_argument,  0,  'G'},
-            {"wgs",                 no_argument,  0,  'w'},
-            {"wgs_depth",           no_argument,  0,  'W'},
+            {"buffer",           required_argument,  0,  'B'},
+            {"chr_list",         required_argument,  0,  'r'},
+            {"DB_version",       required_argument,  0,  'D'},
+            {"input_bam",        required_argument,  0,  'i'},
+            {"gvcf_block",       required_argument,  0,  'g'},
+            {"threshold_high",   required_argument,  0,  'H'},
+            {"threshold_low",    required_argument,  0,  'L'},
+            {"lower_bound",      required_argument,  0,  'l'},
+            {"upper_bound",      required_argument,  0,  'u'},
+            {"min_base_qual",    required_argument,  0,  'b'},
+            {"min_map_qual",     required_argument,  0,  'm'},
+            {"output_dir",       required_argument,  0,  'o'},
+            {"reference",        required_argument,  0,  'R'},
+            {"target_anno_file", required_argument,  0,  't'},
+            {"percentage",       required_argument,  0,  'p'},
+            {"peak_size",        required_argument,  0,  'k'},
+            {"password",         required_argument,  0,  'P'},
+            {"username",         required_argument,  0,  'U'},
+            {"Ns_regions",       required_argument,  0,  'n'},
+            {"threads",          required_argument,  0,  'T'},
+            {"annotation",       no_argument,  0,  'A'},
+            {"capture_depth",    no_argument,  0,  'C'},
+            {"duplicate",        no_argument,  0,  'd'},
+            {"help",             no_argument,  0,  'h'},
+            {"hgmd",             no_argument,  0,  'M'},
+            {"overlap",          no_argument,  0,  'O'},
+            {"supplemental",     no_argument,  0,  's'},
+            {"high_cov_out",     no_argument,  0,  'V'},
+            {"wig_output",       no_argument,  0,  'G'},
+            {"wgs",              no_argument,  0,  'w'},
+            {"wgs_depth",        no_argument,  0,  'W'},
             {0,  0,  0,  0},
         };
 
@@ -238,7 +235,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         int option_index = 0;
 
         arg = getopt_long_only (argc, argv, 
-                    "a:Ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
+                    "Ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
                     long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -246,12 +243,6 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
 
         //printf("User options for %c is %s\n", arg, optarg);
         switch(arg) {
-            case 'a':
-                user_inputs->annotation_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
-                strcpy(user_inputs->annotation_list_file, optarg);
-                readTargetAnnotationFilesIn(user_inputs, optarg, 2);
-                USER_DEFINED_DATABASE = true;
-                break;
             case 'A':
                 user_inputs->wgs_annotation_on = true; break;
             case 'b':
@@ -360,10 +351,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 break;
             case 's': user_inputs->remove_supplementary_alignments = false; break;
             case 't':
-                user_inputs->target_list_file = (char *) malloc((strlen(optarg)+1) * sizeof(char));
-                strcpy(user_inputs->target_list_file, optarg);
+                user_inputs->target_annotation_list_file = strdup(optarg);
                 TARGET_FILE_PROVIDED = true;
-                readTargetAnnotationFilesIn(user_inputs, optarg, 1);
+                readTargetAnnotationFilesIn(user_inputs, optarg);
+                if (user_inputs->num_of_annotation_files > 0)
+                    USER_DEFINED_DATABASE = true;
                 break;
             case 'T':
                 if (!isNumber(optarg)) {
@@ -645,17 +637,17 @@ void checkInputCaptureAndAnnotationFiles(User_Input *user_inputs) {
 
 //type: 1 for target, 2 for annotation
 //
-void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int type) {
+void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
     FILE *fp = fopen(file_in, "r");
-    if (type == 1) {
-        user_inputs->num_of_target_files = getLineCount(file_in);
-        user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    } else {
-        user_inputs->num_of_annotation_files = getLineCount(file_in);
-        user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
-    }
+
+    user_inputs->num_of_target_files = getLineCount(file_in);
+    user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
+    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+
+    uint32_t num_annotation_file=0;
 
     int counter=0;
+    bool target_wo_anno_starts=false;
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
@@ -671,15 +663,37 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in, int typ
         if (line[strlen(line)-1] == '\r')
             line[strlen(line)-1] = '\0';
 
-        if (type == 1) {
-            user_inputs->target_files[counter] = (char*) malloc(strlen(line)+1 * sizeof(char));
-            strcpy(user_inputs->target_files[counter], line);
-        } else {
-            user_inputs->user_defined_annotation_files[counter] = (char*) malloc(strlen(line)+1 * sizeof(char));
-            strcpy(user_inputs->user_defined_annotation_files[counter], line);
+        char *savePtr = line;
+        char *tokPtr;
+
+        int j=0;
+        while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
+            if (j==0) {
+                // target file
+                //
+                user_inputs->target_files[counter] = strdup(tokPtr);
+            } else {
+                // annotation file
+                //
+                user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
+                num_annotation_file++;
+            }
+            j++;
         }
         counter++;
+        if (j == 1)     // j will be 1 if there is only target file without annotation file
+            target_wo_anno_starts = true;
+
+        if (j==2 && target_wo_anno_starts) {    // j will be 2 if there are both target and annotation files
+            fprintf(stderr, "Error: the target files without the corresponding annotation files should be listed last! Thanks!");
+            exit(EXIT_FAILURE);
+        }
     }
+
+    user_inputs->num_of_annotation_files = num_annotation_file;
+
+    if (line !=NULL) free(line);
+    fclose(fp);
 }
 
 void checkRepeatedCaptureFiles(User_Input *user_inputs) {
@@ -776,13 +790,13 @@ void outputUserInputOptions(User_Input *user_inputs) {
 
     uint8_t i;
     if (TARGET_FILE_PROVIDED) {
-        fprintf(stderr, "\n\tCapture Input File with target file list %s: \n", user_inputs->target_list_file);
+        fprintf(stderr, "\n\tCapture Input File with target file list %s: \n", user_inputs->target_annotation_list_file);
         for (i=0; i<user_inputs->num_of_target_files; i++)
             fprintf(stderr, "\t--t%d capture/target bed file is: %s\n", i+1, user_inputs->target_files[i]);
     }
 
     if (USER_DEFINED_DATABASE) {
-        fprintf(stderr, "\n\tAnnotation Input File with user-defined annotation file list %s: \n", user_inputs->annotation_list_file);
+        fprintf(stderr, "\n\tAnnotation Input File with user-defined annotation file list %s: \n", user_inputs->target_annotation_list_file);
         for (i=0; i<user_inputs->num_of_annotation_files; i++)
             fprintf(stderr, "\t--f%d for user provided database is %s.\n", i+1, user_inputs->user_defined_annotation_files[i]);
     }
@@ -901,10 +915,9 @@ User_Input * userInputInit() {
     user_inputs->output_dir = NULL;
     user_inputs->target_files = NULL;
     user_inputs->reference_file = NULL;
-    user_inputs->target_list_file = NULL;
     user_inputs->chromosome_bed_file  = NULL;
-    user_inputs->annotation_list_file = NULL;
     user_inputs->annotation_file_basenames = NULL;
+    user_inputs->target_annotation_list_file = NULL;
     user_inputs->user_defined_annotation_files = NULL;
 
     // WGS output file
