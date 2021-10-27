@@ -116,8 +116,11 @@ void annotationWrapperDestroy(Annotation_Wrapper *annotation_wrapper) {
 void usage() {
     printf("Version %s\n\n", VERSION_ );
     printf("Usage:  scandium -input_bam bam/cram -output_dir output_directory [options ...]\n");
-    printf("Note:   this is a multi-threading program. Each thread needs 4Gb of memory. So please allocate them accordingly!\n");
-    printf("\tfor example: 3 threads would use 12Gb of memory, while 4 threads would need 16Gb of memory, etc.\n\n");
+    printf("Note:   this is a multi-threading program. Each thread needs 2GB of memory. So please allocate them accordingly!\n");
+    printf("\tFor example: 2 threads would use 4GB of memory, while 4 threads would need 8GB of memory, etc.\n\n");
+    printf("\tIf you choose to use 1 thread, please use 4GB of memory as there are overheads that need more memory.\n\n");
+    printf("\tOur recommendation: using 8 threads and 16GB of memory if possible to get the optimal speed.\n\n");
+    printf("\tFor AWS users: you must use 2 threads and 4GB of memory. Thanks!\n\n");
     printf("Mandatory:\n");
     printf("--input_bam     -i  BAM/CRAM alignment file (multiple files are not allowed!).\n");
     printf("                    It Is Mandatory\n");
