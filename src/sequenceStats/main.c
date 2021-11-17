@@ -374,16 +374,7 @@ int main(int argc, char *argv[]) {
             }
 
             khiter_t iter_k = kh_get(khStrInt, wanted_chromosome_hash, headers[0]->target_name[idx]);
-            if (iter_k == kh_end(wanted_chromosome_hash)) {
-                // we are not interested in this chromosome, so just get the simple stats from this chromosome id
-                //
-                bam1_t *b = bam_init1();
-                while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
-                    stats_info_per_chr[idx]->read_cov_stats->total_reads_produced++;
-
-                bam_destroy1(b);
-                hts_itr_destroy(iter_h);
-            } else {
+            if (iter_k != kh_end(wanted_chromosome_hash)) {
                 int32_t chrom_index = findChromsomeIndex(chrom_tracking, headers[0], idx);
                 chromosomeTrackingUpdate(chrom_tracking, chrom_tracking->chromosome_lengths[chrom_index], chrom_index);
 
