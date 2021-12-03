@@ -175,7 +175,6 @@ void usage() {
     printf("                        Default: Remove Supplementary reads is ON\n");
     printf("--wgs               -w  conducting whole genome coverage analysis. Default: off\n");
     printf("--wig_output        -G  Write/Dump the WIG formatted file. Default: off\n");
-    printf("--hgmd              -M  Use HGMD annotation. Default: off\n");
     printf("--overlap           -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
     printf("--high_cov_out      -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
     printf("--wgs_depth         -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
@@ -224,7 +223,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             {"capture_depth",    no_argument,  0,  'C'},
             {"duplicate",        no_argument,  0,  'd'},
             {"help",             no_argument,  0,  'h'},
-            {"hgmd",             no_argument,  0,  'M'},
+            //{"hgmd",             no_argument,  0,  'M'},
             {"overlap",          no_argument,  0,  'O'},
             {"supplemental",     no_argument,  0,  's'},
             {"high_cov_out",     no_argument,  0,  'V'},
@@ -238,7 +237,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         int option_index = 0;
 
         arg = getopt_long_only (argc, argv, 
-                    "Ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:", 
+                    "Ab:B:CdD:g:GH:i:k:L:l:m:n:No:Op:P:r:R:st:T:u:U:VwW:h", 
                     long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -315,9 +314,10 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 }
                 user_inputs->min_map_quality = atoi(optarg);
                 break;
-            case 'M':
+            /*case 'M':
                 HGMD_PROVIDED = true;
                 break;
+            */
             case 'N':
                 user_inputs->non_MC_tag_ON = true;
                 break;
@@ -381,15 +381,11 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             case 'V': user_inputs->above_10000_on = true; break;
             case 'w': user_inputs->wgs_coverage = true; break;
             case 'W': user_inputs->Write_WGS_cov_fasta = true; break;
-            case '?':   // "ab:B:CdD:f:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwWy:h01:2:3:4:5:6:7:8:9e:E:j:J:x:X:z:Z:"
+            case '?':   // "Ab:B:CdD:g:GH:i:k:L:l:m:Mn:No:Op:P:r:R:st:T:u:U:VwW:h"
                 if (   optopt == 'b' || optopt == 'B' || optopt == 'D' || optopt == 'g' || optopt == 'H'
                     || optopt == 'k' || optopt == 'i' || optopt == 'L' || optopt == 'l' || optopt == 'm'
                     || optopt == 'n' || optopt == 'o' || optopt == 'p' || optopt == 'P' 
-                    || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U'
-                    || optopt == '1' || optopt == '2' || optopt == '3' || optopt == '4' || optopt == '5' 
-                    || optopt == '6' || optopt == '7' || optopt == '8' || optopt == '1' || optopt == 'e'
-                    || optopt == 'E' || optopt == 'j' || optopt == 'J' || optopt == 'x' || optopt == 'X' 
-                    || optopt == 'z' || optopt == 'Z' )
+                    || optopt == 'r' || optopt == 't' || optopt == 'T' || optopt == 'u' || optopt == 'U')
                     fprintf(stderr, "ERROR: Option -%c requires an argument.\n", optopt);
                 //else if (optopt == 0)
                 //    fprintf (stderr, "===>Unknown option `-%d'.\n", optopt);
