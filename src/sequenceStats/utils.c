@@ -402,30 +402,6 @@ void dynamicStringAllocation(char *str_in, char **storage_str) {
 	}
 }
 
-void dynamicStringExpansion(char *str_in, char **storage_str) {
-    if (str_in == NULL) return;     // nothing to add
-
-    int original_str_is_null = 1;   // the original *storage_str is NULL? 1 yes, 0 no
-
-    if (*storage_str) {
-        *storage_str = realloc(*storage_str, (strlen(*storage_str) + strlen(str_in) + 2)*sizeof(char));
-        original_str_is_null = 0;
-    } else {
-        *storage_str = calloc(strlen(str_in) + 1, sizeof(char));
-    }
-
-    if (*storage_str == NULL) {
-        fprintf(stderr, "ERROR: Dynamic Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (original_str_is_null == 0) {
-        strcat(*storage_str, str_in);
-    } else {
-        strcpy(*storage_str, str_in);
-    }
-}
-
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {
 	int32_t i=0;
     for (i = 0; i < regions_in->chrom_list_size; i++) {
@@ -1079,7 +1055,7 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 	size_t len = 0;                                                                                           
 	ssize_t read;                                                                                             
 	char *tokPtr;
-	char *chrom_id = calloc(50, sizeof(char));
+	char *chrom_id = NULL;
 
 	while ((read = getline(&line, &len, uniformity_fp)) != -1) {
 		// skip if it is comment line
@@ -1093,7 +1069,7 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
 			if (i==0)
-				strcpy(chrom_id, tokPtr);
+                dynamicStringExpansion(tokPtr, &chrom_id);
 
 			if (i==3)
 				tmp_len = (uint32_t) strtol(tokPtr, NULL, 10);

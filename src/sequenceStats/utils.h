@@ -95,13 +95,6 @@ void cleanGeneTranscriptPercentage(khash_t(khStrGTP) *gene_transcript_percentage
  */
 void dynamicStringAllocation(char *str_in, char **storage_str);
 
-/**
- * This function is used to dynamically allocate string and grow it accordingly
- * @param str_in, the string to be added
- * @param storage_str, the string to be dynamically allocated/expanded
- */
-void dynamicStringExpansion(char *str_in, char **storage_str);
-
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in);
 
 int32_t findChromsomeIndex(Chromosome_Tracking *chrom_tracking, bam_hdr_t *header, int32_t index);
