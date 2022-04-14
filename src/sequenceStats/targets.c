@@ -36,7 +36,7 @@ void processBedFiles(User_Input *user_inputs, Bed_Info *bed_info, khash_t(khStrI
     
     // load target file or Ns bed file again and store the information (starts, stops and chromosome ids)
     //
-    loadBedFiles(user_inputs->database_version, bedfile_name, bed_info->coords, wanted_chromosome_hash, user_inputs->database_version);
+    loadBedFiles(user_inputs->database_version, bedfile_name, bed_info, wanted_chromosome_hash, user_inputs->database_version);
     //printf("total size is %"PRIu32"\n", total_size);
 }
 
@@ -62,6 +62,11 @@ void generateBedBufferStats(Bed_Info * bed_info, Stats_Info *stats_info, Target_
 
     for (i = 0; i < bed_info->size; i++) {
 
+        // when using user-specified chromosome list, it is possible that the next line is not part of the chromosome list
+        // the bed_info->coords[i].chrom_id will be NULL and stored
+        //
+        //if (bed_info->coords[i].chrom_id == NULL) continue;
+        //fprintf(stderr, "%s\t%s\n", bed_info->coords[i].chrom_id, chrom_id);
         if (strcmp(bed_info->coords[i].chrom_id, chrom_id) != 0)
             continue;
         

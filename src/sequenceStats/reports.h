@@ -100,7 +100,7 @@ void writeAnnotations(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_
  * @param chrom_tracking: contains the coverage information for the current chromosome
  * @param user_inputs: contains all the user_inputs options
  */
-void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs);
+void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, uint32_t *coverage_frequency, bool skip_cov_freq);
 
 /**
  * This is used to generate average coverage information for a range of position based on different binning strategies
@@ -111,7 +111,7 @@ void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tra
  * @param user_inputs: contains all the user_inputs options
  * @param fh_uniformity: an opened uniformity data report file handle
  */
-void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_uniformity);
+void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_uniformity, uint32_t *coverage_frequency, bool skip_cov_freq);
 
 /**
  * output those regions with lower than or higher than user specified coverage values

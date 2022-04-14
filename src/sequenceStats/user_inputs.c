@@ -55,6 +55,10 @@ void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt)
         // check to see if the current gene exists
         //
         khiter_t iter = kh_put(khStrInt, hgmd_genes, row[0], &absent);
+
+        // here the string key is not kept elsewhere, we have to make a deep copy.
+        // as the function kh_put only add pointer to the tmp variable row[0]
+        //
         if (absent) {
             kh_key(hgmd_genes, iter) = strdup(row[0]);
         }
@@ -68,6 +72,10 @@ void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt)
         while ((tokPtr = strtok_r(savePtr, ".", &savePtr))) {
             if (i==0) {
                 iter = kh_put(khStrInt, hgmd_transcripts, tokPtr, &absent);
+
+                // here the string key is not kept elsewhere, we have to make a deep copy.
+                // as the function kh_put only add pointer to the tmp variable tokPtr
+                //
                 if (absent) {
                     kh_key(hgmd_transcripts, iter) = strdup(tokPtr);
                 }
@@ -178,6 +186,7 @@ void usage() {
     printf("--overlap           -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
     printf("--high_cov_out      -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
     printf("--wgs_depth         -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
+    printf("--excl_uniformity   -E  Specify this flag if you don't want uniformity to be produced. Default: false\n");
     printf("                        (both -w and -W needed). Default: off\n");
     printf("--help              -h  Print this help/usage message\n");
 }
@@ -230,6 +239,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             {"wig_output",       no_argument,  0,  'G'},
             {"wgs",              no_argument,  0,  'w'},
             {"wgs_depth",        no_argument,  0,  'W'},
+            {"excl_uniformity",  no_argument,  0,  'E'},
             {0,  0,  0,  0},
         };
 
@@ -237,7 +247,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         int option_index = 0;
 
         arg = getopt_long_only (argc, argv, 
-                    "Ab:B:CdD:g:GH:i:k:L:l:m:n:No:Op:P:r:R:st:T:u:U:VwW:h", 
+                    "Ab:B:CdD:Eg:GH:i:k:L:l:m:n:No:Op:P:r:R:st:T:u:U:VwW:h", 
                     long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -268,6 +278,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 if (strcmp(user_inputs->database_version, "hg19") == 0)
                     strcpy(user_inputs->database_version, "hg37");
 
+                break;
+            case 'E':
+                user_inputs->No_Uniformity = true;
                 break;
             case 'g': 
                 user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10);
@@ -604,9 +617,10 @@ void setupOutputReportFiles(User_Input *user_inputs) {
 
         // output the uniformity data file for Uniformity Analysis
         //
-        sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add, VERSION_);
-
+        if (!user_inputs->No_Uniformity) {
+            sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add, VERSION_);
+        }
         // for whole genome (wgs) file name
         if (user_inputs->Write_WGS_cov_fasta) {
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta", VERSION_);
@@ -641,7 +655,12 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
 
     user_inputs->num_of_target_files = getLineCount(file_in);
     user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+
+    // because the number of target files alwasy equal or larger than the number of annotation files
+    // it is ok for us to do the following. Just remember to free them using num_of_annotation_files
+    // for allocated memory
+    //
+    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
 
     uint32_t num_annotation_file=0;
 
@@ -674,8 +693,10 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
             } else {
                 // annotation file
                 //
-                user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
-                num_annotation_file++;
+                if (tokPtr != NULL && strlen(tokPtr) > 0) {
+                    user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
+                    num_annotation_file++;
+                }
             }
             j++;
         }
@@ -810,8 +831,10 @@ void outputUserInputOptions(User_Input *user_inputs) {
     fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d%%\n", user_inputs->gVCF_percentage * 100);
     fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
-    fprintf(stderr, "\tThe uniformity data file will be produced\n");
-    fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
+    if (!user_inputs->No_Uniformity) {
+        fprintf(stderr, "\tThe uniformity data file will be produced\n");
+        fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
+    }
 
     if (user_inputs->wgs_annotation_on) {
         fprintf(stderr, "\tThe detailed WGS gene annotation is ON\n");
@@ -905,6 +928,7 @@ User_Input * userInputInit() {
     user_inputs->Write_Capture_cov_fasta = false;
     user_inputs->Write_WGS_cov_fasta = false;
     user_inputs->Write_WIG = false;
+    user_inputs->No_Uniformity = false;
     user_inputs->excluding_overlapping_bases = false;
     user_inputs->remove_duplicate = true;
     user_inputs->remove_supplementary_alignments = true;

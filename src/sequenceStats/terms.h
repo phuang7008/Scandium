@@ -139,6 +139,7 @@ typedef struct {
     bool Write_Capture_cov_fasta;
     bool Write_WGS_cov_fasta;           // need two different flags, one for Capture and one for WGS
     bool Write_WIG;
+    bool No_Uniformity;                 // set the flag if you don't want the uniformity to be produced
     //bool primary_chromosomes_only;    // do we need all chromosomes including decoy, alt etc or primary only
 
     // developer testing options

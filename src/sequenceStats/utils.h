@@ -228,21 +228,19 @@ void printLowCoverageGeneStructure(Low_Coverage_Genes *low_cov_genes);
  * calculate uniformity metrics
  * @param stats_info: used to store the uniformity metrics
  * @param user_inputs: it store the file name -> open for writing
- * @param primary_chromosome_hash: lookup hash to store primary chromosomes only
- * @param autosome: it is used to indicate if it is only going to handle non-sex chromosomes
- * @param primary_chromosomes_only: it is used to indicate if it is only going to handle primary chromosome without alt or decoys
+ * @param coverage_frequency: an array to store the base count information for each coverage (coverage as index, the base count as value)
  */
-void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, khash_t(m32) *cov_freq_dist, bool autosome, bool primary_chromosomes_only);
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, uint32_t *coverage_frequency);
 
 /*
  * Instead of taking points around Mode evenly, it will always try to pick the higher points around Mode
  * @param peak: the Mode or Mean or Median. But here we are going to use Mode
- * @param cov_freq_dist: it is hash table that is used to store the sequencing coverage frequency distribution for quick lookup
+ * @param coverage_frequency: an array to store the base count information for each coverage (coverage as index, the base count as value)
  * @param user_inputs: the peak size (default 7) could be defined by the end user and store at user_inputs
  */
-uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs);
+uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, uint32_t *coverage_frequency, User_Input *user_inputs);
 
-void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist);
+void outputFreqDistribution(User_Input *user_inputs, uint32_t *coverge_frequency);
 
 void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs);
 

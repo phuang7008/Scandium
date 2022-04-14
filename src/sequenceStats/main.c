@@ -349,6 +349,14 @@ int main(int argc, char *argv[]) {
     while (sam_itr_next(sfh[0], iter_o, b) >= 0)
         processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status, -1);
 
+    // for uniformity calculation
+    // index will follow and match to the chrom id index
+    //
+    uint32_t **coverage_frequencies = calloc(chrom_tracking->number_of_chromosomes, sizeof(uint32_t*));
+    for (t=0; t<(int)chrom_tracking->number_of_chromosomes; t++) {
+        coverage_frequencies[t] = calloc(1001, sizeof(uint32_t));
+    }
+
     // now let's do the parallelism
     //
 #pragma omp parallel shared(chrom_tracking) num_threads(user_inputs->num_of_threads)
@@ -429,9 +437,22 @@ int main(int argc, char *argv[]) {
 
                     // if user specifies the range information (usually for graphing purpose), need to handle it here
                     //
-                    printf("Thread %d is now writing coverage uniformity data for chromosome %s\n", 
-                              thread_id, chrom_tracking->chromosome_ids[chrom_index]);
-                    coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[chrom_index], chrom_tracking, user_inputs);
+                    if (!user_inputs->No_Uniformity) {
+                        bool skip_coverage_frequency = false;
+
+                        if (strcmp(chrom_tracking->chromosome_ids[chrom_index], "chrX") == 0 || 
+                                strcmp(chrom_tracking->chromosome_ids[chrom_index], "CHRX") == 0 || 
+                                strcmp(chrom_tracking->chromosome_ids[chrom_index], "chrY") == 0 || 
+                                strcmp(chrom_tracking->chromosome_ids[chrom_index], "CHRY") == 0 ||
+                                strcmp(chrom_tracking->chromosome_ids[chrom_index], "X") == 0 ||
+                                strcmp(chrom_tracking->chromosome_ids[chrom_index], "Y") == 0 )
+                            skip_coverage_frequency = true;
+                        
+                        printf("Thread %d is now writing coverage uniformity data for chromosome %s\n", 
+                                thread_id, chrom_tracking->chromosome_ids[chrom_index]);
+                        coverageRangeInfoForGraphing(chrom_tracking->chromosome_ids[chrom_index], chrom_tracking, user_inputs, 
+                                                        coverage_frequencies[chrom_index], skip_coverage_frequency);
+                    }
                 }
 
                 if (TARGET_FILE_PROVIDED && target_buffer_index != -1) {
@@ -554,26 +575,20 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
 
     /* calculate the uniformity metric*/
-    khash_t(m32) *cov_freq_dist = kh_init(m32);
-    if (user_inputs->wgs_coverage) {
-        // Autosomes only including alt decoys, but without X and Y chromosomes
+    uint32_t coverage_frequency[1001] = {0};
+    if (user_inputs->wgs_coverage && !user_inputs->No_Uniformity) {
+        // combine all the coverage frequencies data
         //
-        //calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 1, 0);
+        int i;
+        for (t=0; t<(int)chrom_tracking->number_of_chromosomes; t++) {
+            for (i=0; i<=1000; i++) {
+                coverage_frequency[i] += coverage_frequencies[t][i];
+            }
+        }
 
-        // Primary autosomes only without X, Y, alt and decoys!
+        // Primary autosomes only without X, Y!
         //
-        calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist, 1, 1);
-
-        // All (including X and Y chromosomes), also include alt, decoys
-        //
-        //calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, 0, 0);
-
-        // All Primaries (including X and Y chromosomes), BUT without alt, decoy
-        // need to mock the cov_freq_dist so that they won't affect cov_freq_dist calculation
-        //
-        //khash_t(m32) *cov_freq_dist_XY = kh_init(m32);
-        //calculateUniformityMetrics(stats_info, user_inputs, wanted_chromosome_hash, cov_freq_dist_XY, 0, 1);
-        //cleanKhashInt(cov_freq_dist_XY);
+        calculateUniformityMetrics(stats_info, user_inputs, coverage_frequency);
     }
 
     // Now need to write the report
@@ -581,8 +596,8 @@ int main(int argc, char *argv[]) {
     writeWGSReports(stats_info, user_inputs);
     writeCaptureReports(stats_info, user_inputs);
 
-    if (user_inputs->wgs_coverage)
-        outputFreqDistribution(user_inputs, cov_freq_dist);
+    if (user_inputs->wgs_coverage && !user_inputs->No_Uniformity)
+        outputFreqDistribution(user_inputs, coverage_frequency);
 
     // output gene converage
     //
@@ -593,7 +608,10 @@ int main(int argc, char *argv[]) {
 
     /* clean-up everything*/
 
-    cleanKhashInt(cov_freq_dist);
+    for (t=0; t<(int)chrom_tracking->number_of_chromosomes; t++) {
+        if (coverage_frequencies[t]) free(coverage_frequencies[t]);
+    }
+    if (coverage_frequencies) free(coverage_frequencies);
 
     TargetBufferStatusDestroy(target_buffer_status, chrom_tracking->number_of_chromosomes);
 
@@ -677,7 +695,7 @@ int main(int argc, char *argv[]) {
 
     userInputDestroy(user_inputs);
 
-    printf("Program Finished Successfully!\n\n");
+    fprintf(stderr, "Program Finished Successfully!\n\n");
 
     return 0;
 }

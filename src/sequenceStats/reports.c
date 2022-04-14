@@ -546,20 +546,20 @@ char * getRegionAnnotation(uint32_t start, uint32_t end, char *chrom_id, Regions
 
 // this is just a wrapper function to help run the inner function writeCoverageRanges()
 //
-void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs) {
+void coverageRangeInfoForGraphing(char *chrom_id, Chromosome_Tracking *chrom_tracking, User_Input *user_inputs, uint32_t *coverage_frequency, bool skip_cov_freq) {
     // First, we need to find the index that is used to track current chromosome chrom_id
     // 
     int32_t chrom_idx = locateChromosomeIndexForChromTracking(chrom_id, chrom_tracking);
     FILE *wgs_uniformity_fp = fopen(user_inputs->wgs_uniformity_file, "a");
     
-    writeCoverageRanges(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_idx, user_inputs, wgs_uniformity_fp);
+    writeCoverageRanges(0, chrom_tracking->chromosome_lengths[chrom_idx], chrom_tracking, chrom_idx, user_inputs, wgs_uniformity_fp, coverage_frequency, skip_cov_freq);
 
     fclose(wgs_uniformity_fp);
 }
 
 // here we stick to the bed format for the output
 //
-void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_uniformity) {
+void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *chrom_tracking, uint16_t chrom_idx, User_Input *user_inputs, FILE *fh_uniformity, uint32_t *coverage_frequency, bool skip_cov_freq) {
     // NOTE: the bed format is different here, the end position is included!
     //
     uint32_t i=0;
@@ -585,6 +585,11 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
             if (start <= end) {
                 uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
                 fprintf(fh_uniformity, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+
+                if (!skip_cov_freq) {
+                    if (ave_coverage > 1000) ave_coverage = 1000;
+                    coverage_frequency[ave_coverage] += end-start;
+                }
             }
         }
 
@@ -608,6 +613,11 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
             if (start < end) {
                 uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
                 fprintf(fh_uniformity, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+
+                if (!skip_cov_freq) {
+                    if (ave_coverage > 1000) ave_coverage = 1000;
+                    coverage_frequency[ave_coverage] += end-start;
+                }
             }
         }
 
@@ -649,6 +659,11 @@ void writeCoverageRanges(uint32_t begin, uint32_t length, Chromosome_Tracking *c
             if (start < end) {
                 uint32_t ave_coverage = (uint32_t) ((float)cov_total / (float)(end - start) + 0.5);
                 fprintf(fh_uniformity, "%s\t%"PRIu32"\t%"PRIu32"\t%d\t%"PRIu32"\n", chrom_tracking->chromosome_ids[chrom_idx], start, end, end-start, ave_coverage);
+
+                if (!skip_cov_freq) {
+                    if (ave_coverage > 1000) ave_coverage = 1000;
+                    coverage_frequency[ave_coverage] += end-start;
+                }
             }
         }
 
@@ -836,6 +851,12 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
         fprintf(out_fp, "Total_Overlapped_Aligned_Bases\t%"PRIu32"\n", stats_info->wgs_cov_stats->total_overlapped_bases);
         fprintf(out_fp, "PCT_Overlapped_Aligned_Bases\t%0.2f%%\n", percent);
 
+        fprintf(out_fp, "Median_Coverage\t%d\n", stats_info->wgs_cov_stats->median_genome_coverage);
+        if (!user_inputs->No_Uniformity) {
+            fprintf(out_fp, "Mode_Coverage_For_Uniformity\t%d\n", stats_info->wgs_cov_stats->mode);
+            fprintf(out_fp, "Uniformity_Primary_Autosome_Only\t%.3f\n", stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only);
+        }
+
         percent = calculatePercentage64(stats_info->wgs_cov_stats->base_quality_20, stats_info->wgs_cov_stats->total_mapped_bases);
         fprintf(out_fp, "Aligned_Q20_Bases\t%"PRIu64"\n", stats_info->wgs_cov_stats->base_quality_20);
         fprintf(out_fp, "PCT_Aligned_Q20_Bases\t%0.2f%%\n", percent);
@@ -843,13 +864,6 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
         percent = calculatePercentage64(stats_info->wgs_cov_stats->base_quality_30, stats_info->wgs_cov_stats->total_mapped_bases);
         fprintf(out_fp, "Aligned_Q30_Bases\t%"PRIu64"\n", stats_info->wgs_cov_stats->base_quality_30);
         fprintf(out_fp, "PCT_Aligned_Q30_Bases\t%0.2f%%\n", percent);
-
-        fprintf(out_fp, "Median_Coverage\t%d\n", stats_info->wgs_cov_stats->median_genome_coverage);
-        fprintf(out_fp, "Mode_Coverage_For_Uniformity\t%d\n", stats_info->wgs_cov_stats->mode);
-        fprintf(out_fp, "Uniformity_Primary_Autosome_Only\t%.3f\n", stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only);
-        //fprintf(out_fp, "Uniformity_Primary_Autosome_plus_X_and_Y\t%.3f\n", stats_info->wgs_cov_stats->uniformity_metric_all_primary);
-        //fprintf(out_fp, "Uniformity_Primary_Autosome_plus_Alt_Decoys_HLA\t%.3f\n", stats_info->wgs_cov_stats->uniformity_metric_autosome_only);
-        //fprintf(out_fp, "Uniformity_Primary_Autosome_plus_X_Y_Alt_Decoys_HLA_(Everything)\t%.3f\n", stats_info->wgs_cov_stats->uniformity_metric_all);
 
         for(i=0; i<16; i++) {
             uint32_t val = getValueFromKhash32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, bins[i]);
@@ -1013,10 +1027,10 @@ void outputGeneralInfo(FILE *fp, Stats_Info *stats_info, double average_coverage
     fprintf(fp, "Aligned_Reads(AR)\t%"PRIu64"\n", stats_info->read_cov_stats->total_reads_aligned);
     fprintf(fp, "PCT_Reads_Aligned\t%.2f%%\n", percent);
 
-    yield = stats_info->read_cov_stats->read_length * (uint64_t) (stats_info->read_cov_stats->total_reads_aligned - stats_info->read_cov_stats->total_duplicate_reads);
+    //yield = stats_info->read_cov_stats->read_length * (uint64_t) (stats_info->read_cov_stats->total_reads_aligned - stats_info->read_cov_stats->total_duplicate_reads);
     uint64_t uniquely_aligned = stats_info->read_cov_stats->total_reads_aligned - stats_info->read_cov_stats->total_duplicate_reads;
     percent = calculatePercentage64(uniquely_aligned, stats_info->read_cov_stats->total_reads_produced);
-    fprintf(fp, "Uniquely_Aligned_Yield\t%"PRIu64"\n", yield);
+    //fprintf(fp, "Uniquely_Aligned_Yield\t%"PRIu64"\n", yield);
     fprintf(fp, "Unique_Aligned_Reads\t%"PRIu64"\n", uniquely_aligned); 
     fprintf(fp, "PCT_of_Unique_Aligned_Reads_(agst_TR)\t%.2f%%\n", percent); 
 
@@ -1253,6 +1267,7 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
                     if (iter_tsh == kh_end(transcript_hash)) {
                         // transcript name doesn't exist
                         //
+                        if (transcript_name) free(transcript_name);
                         continue;
                     } else {
                         // It is possible that we have duplicate entries, so we need to remove duplicate here first

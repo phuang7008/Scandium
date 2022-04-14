@@ -63,11 +63,13 @@ void checkAnnotationFormat(User_Input *user_inputs) {
                 if (j==0) {
                     dynamicStringExpansion(tokPtr, &chrom_id);
                     iter = kh_put(khStrInt, prev_start, tokPtr, &absent);
+
+                    // here the string key is not kept elsewhere, we have to make a deep copy.
+                    // as the function kh_put only add pointer to the tokPtr
+                    //
                     if (absent) {
                         kh_key(prev_start, iter) = strdup(tokPtr);
-                        //kh_key(prev_end, iter) = strdup(tokPtr);
-                        kh_value(prev_start, iter) = 0;
-                        //kh_value(prev_end, iter) = 0;
+                        kh_value(prev_start, iter) = 0;                 // initialize the value 
                     }
                 }
                 if (j==1) {
@@ -124,6 +126,7 @@ void checkAnnotationFormat(User_Input *user_inputs) {
         }
 
         if (line != NULL) free(line);
+        cleanKhashStrInt(prev_start);
         fclose(fp);
     }
 }
@@ -183,6 +186,10 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
                 // check to see if the hashkey exists for current chromosome id
                 //
                 iter = kh_put(khStrInt, chromosome_info, tokPtr, &absent);
+
+                // here the string key is not kept elsewhere, we have to make a deep copy.
+                // as the function kh_put only add pointer to the tokPtr
+                //
                 if (absent) {
                     kh_key(chromosome_info, iter) = strdup(tokPtr);
                     kh_value(chromosome_info, iter) = 0;
@@ -217,11 +224,14 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
         // Now record the target_line here
         //
         iter = kh_put(khStrInt, user_defined_targets, target_line, &absent);    // get key iterator for target_line
+
+        // here the string key is not kept elsewhere, we have to make a deep copy.
+        // as the function kh_put only add pointer to the temp variable target_line
+        //
         if (absent) {
             kh_key(user_defined_targets, iter)   = strdup(target_line);
             kh_value(user_defined_targets, iter) = 0;
         }
-
         kh_value(user_defined_targets, iter)++;
 
         // now process gene_info to extract gene_symbol and transcript_name
@@ -262,6 +272,10 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
         dynamicStringExpansion(transcript_name, &gene);
 
         iter = kh_put(khStrInt, cds_lengths, gene, &absent);
+
+        // here the string key is not kept elsewhere, we have to make a deep copy.
+        // as the function kh_put only add pointer to the tmp variable gene
+        //
         if (absent) {
             kh_key(cds_lengths, iter)   = strdup(gene);
             kh_value(cds_lengths, iter) = 0;
@@ -275,6 +289,10 @@ void getUserDefinedDatabaseInfo(User_Input *user_inputs, User_Defined_Database_W
         kh_value(cds_lengths, iter) += end - start;
 
         iter = kh_put(khStrInt, cds_counts, gene, &absent);
+
+        // here the string key is not kept elsewhere, we have to make a deep copy.
+        // as the function kh_put only add pointer to the temp variable gene
+        //
         if (absent) {
             kh_key(cds_counts, iter)   = strdup(gene);
             kh_value(cds_counts, iter) = 0;
@@ -526,10 +544,10 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
                 /*
                 int absent;
                 iter = kh_put(khStrInt, list_of_genes, token, &absent);                                                   
-                if (absent) {                                                                                         
+                if (absent) {
                     kh_key(list_of_genes, iter)   = strdup(token);                                                        
-                    kh_value(list_of_genes, iter) = 0;                                                         
-                }                                                                                                     
+                    kh_value(list_of_genes, iter) = 0;
+                }
                 kh_value(list_of_genes, iter)++;
                 */
                 dynamicStringExpansion(token, &gene);    // store gene symbol for later usage
@@ -622,7 +640,8 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
         if (iter == kh_end(cds_lengths)) {  // iter will be equal to kh_end if key not present
             fprintf(stderr, "The gene-transcript %s not present!\n", gene);
         } else {
-            buf_cds_length = calloc(20, sizeof(char));
+            int length = snprintf(NULL, 0, "%"PRIu32, kh_value(cds_lengths, iter));
+            buf_cds_length = calloc(length+5, sizeof(char));
             sprintf(buf_cds_length, "%"PRIu32, kh_value(cds_lengths, iter));
         }
 
@@ -632,7 +651,8 @@ void processUserDefinedDatabase(User_Input *user_inputs, Regions_Skip_MySQL *exo
         if (iter == kh_end(cds_counts)) {
             fprintf(stderr, "The gene-transcript %s not present!\n", gene);
         } else {
-            buf_cds_count = calloc(20, sizeof(char));
+            int length = snprintf(NULL, 0, "%"PRIu32, kh_value(cds_counts, iter));
+            buf_cds_count = calloc(length+5, sizeof(char));
             sprintf(buf_cds_count, "%"PRIu32, kh_value(cds_counts, iter));
         }
 
