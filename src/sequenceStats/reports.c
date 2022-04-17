@@ -1443,6 +1443,7 @@ void storeGenePercentageCoverage(char *chrom_id, User_Input *user_inputs, khash_
                             // but we still need to clean cds_hash first, otherwise there will be memory leak
                             //
                             genePercentageCoverageDestroy(cds_hash);
+                            if (transcript_name) free(transcript_name);
                             continue;
                         }
 

@@ -897,7 +897,7 @@ bool verifyIndex(Regions_Skip_MySQL *regions_in, uint32_t start, uint32_t end, u
 void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chrom_id, Databases *dbs, khash_t(khStrStrArray) *gene_transcripts) {
 	// mysql to obtain total number of distinct transcript_name for this specific chromosome
 	//
-	char *sql = calloc(350, sizeof(char));
+	char *sql = calloc(500, sizeof(char));
 
 	sprintf(sql, "SELECT cds_target_start, cds_target_end, exon_id, exon_count, cds_start, cds_end, cds_length, gene_symbol, transcript_name FROM %s WHERE chrom='%s' ORDER BY cds_start, cds_end", dbs->db_coords, chrom_id);
 
@@ -926,7 +926,8 @@ void genePercentageCoverageInit(khash_t(khStrLCG) *low_cov_gene_hash, char *chro
 		//
 		uint32_t t_start = (uint32_t) strtol(row[0], NULL, 10);
 		uint32_t t_end   = (uint32_t) strtol(row[1], NULL, 10);
-		char *key_str = calloc(30, sizeof(char));
+        int length = snprintf(NULL, 0, "%"PRIu32, t_start);
+		char *key_str = calloc(length+5, sizeof(char));
 		uint32_t current_key = getHashKey(t_start);
 
 		while (current_key < t_end) {

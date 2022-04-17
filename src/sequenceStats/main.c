@@ -348,6 +348,9 @@ int main(int argc, char *argv[]) {
     bam1_t *b = bam_init1();
     while (sam_itr_next(sfh[0], iter_o, b) >= 0)
         processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status, -1);
+    bam_destroy1(b);
+    hts_itr_destroy(iter_o);
+
 
     // for uniformity calculation
     // index will follow and match to the chrom id index
@@ -375,11 +378,6 @@ int main(int argc, char *argv[]) {
             //
             int thread_id = omp_get_thread_num();
             printf("Current thread id: %d\n", thread_id);
-            hts_itr_t *iter_h = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], headers[0]->target_name[idx]);
-            if (iter_h == NULL) {
-                fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", headers[0]->target_name[idx]);
-                exit(EXIT_FAILURE);
-            }
 
             khiter_t iter_k = kh_get(khStrInt, wanted_chromosome_hash, headers[0]->target_name[idx]);
             if (iter_k != kh_end(wanted_chromosome_hash)) {
@@ -406,6 +404,11 @@ int main(int argc, char *argv[]) {
                             user_inputs, chrom_tracking->chromosome_ids[chrom_index], 0, 2);
               }
 
+                hts_itr_t *iter_h = sam_itr_querys(sfh_idx[thread_id], headers[thread_id], headers[0]->target_name[idx]);
+                if (iter_h == NULL) {
+                    fprintf(stderr, "ERROR: iterator creation failed: chr %s\n", headers[0]->target_name[idx]);
+                    exit(EXIT_FAILURE);
+                }
                 bam1_t *b = bam_init1();
                 while (sam_itr_next(sfh[thread_id], iter_h, b) >= 0)
                     processCurrentRecord(user_inputs, b, stats_info_per_chr[chrom_index], chrom_tracking, chrom_index, target_buffer_status, target_buffer_index);
@@ -613,6 +616,8 @@ int main(int argc, char *argv[]) {
     }
     if (coverage_frequencies) free(coverage_frequencies);
 
+    if (stats_info_per_chr) free(stats_info_per_chr);
+
     TargetBufferStatusDestroy(target_buffer_status, chrom_tracking->number_of_chromosomes);
 
     chromosomeTrackingDestroy(chrom_tracking);
@@ -640,6 +645,9 @@ int main(int argc, char *argv[]) {
         bam_hdr_destroy(headers[t]);
         hts_idx_destroy(sfh_idx[t]);
     }
+    free(sfh);
+    free(headers);
+    free(sfh_idx);
 
     // MYSQL clean-up
     //

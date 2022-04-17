@@ -1026,6 +1026,9 @@ void userInputDestroy(User_Input *user_inputs) {
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_transcript_files);
     cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->annotation_file_basenames);
 
+    if (user_inputs->target_annotation_list_file)
+        free(user_inputs->target_annotation_list_file);
+
     if (user_inputs->chromosome_bed_file)
         free(user_inputs->chromosome_bed_file);
 

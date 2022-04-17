@@ -245,7 +245,7 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 	//
 	khiter_t its = kh_put(khStrInt, seen_transcript, transcript_name, &absent);
 	if (absent) {
-		// key doesn't exist, which means we haven't seen it
+		// need a deep copy as the transcript_name will be disappeared once the sql query is done for this gene
 		//
 		kh_key(seen_transcript, its) = strdup(transcript_name);
 	    kh_value(seen_transcript, its) = 1;
