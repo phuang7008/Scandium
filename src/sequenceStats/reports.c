@@ -909,18 +909,28 @@ void writeCaptureReports(Stats_Info *stats_info, User_Input *user_inputs) {
 
             // First we need to calculate the coverage for median, this is like N50 for sequencing
             uint64_t sum = 0;
+            uint32_t coverage_bins[20000] = {0};    // initialize array contents to 0
+
             khiter_t k_iter;
             for (k_iter=0; k_iter!=kh_end(stats_info->capture_cov_stats[fidx]->target_coverage_for_median); k_iter++) {
                 if (kh_exist(stats_info->capture_cov_stats[fidx]->target_coverage_for_median, k_iter)) {
-
-                    if (sum >= stats_info->capture_cov_stats[fidx]->total_targeted_bases/2) {
-                        stats_info->capture_cov_stats[fidx]->median_target_coverage = k_iter--;
-                        break;
-                    } else {
-                        sum += kh_value(stats_info->capture_cov_stats[fidx]->target_coverage_for_median, k_iter);
-                    }
+                    // the reason we pick 20,000 as a checkpoint is because the median is rarely goes above 20,000
+                    //
+                    if (kh_key(stats_info->capture_cov_stats[fidx]->target_coverage_for_median, k_iter) < 20000)
+                        coverage_bins[kh_key(stats_info->capture_cov_stats[fidx]->target_coverage_for_median, k_iter)] =
+                            kh_value(stats_info->capture_cov_stats[fidx]->target_coverage_for_median, k_iter);
                 }
             }
+
+            for (i=0; i<20000; i++) {
+                if (sum >= stats_info->capture_cov_stats[fidx]->total_targeted_bases/2) {
+                    stats_info->capture_cov_stats[fidx]->median_target_coverage = i--;
+                    break; 
+                }else{ 
+                    sum += coverage_bins[i]; 
+                } 
+            }
+
 
             double average_coverage = (double)stats_info->capture_cov_stats[fidx]->total_target_coverage/(double)stats_info->capture_cov_stats[fidx]->total_targeted_bases;
             FILE *trt_fp = fopen(user_inputs->capture_cov_reports[fidx], "a");    // trt_fp: target_fp

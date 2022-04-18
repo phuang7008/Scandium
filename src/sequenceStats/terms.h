@@ -375,7 +375,7 @@ typedef struct {
 
     uint32_t target_cov_histogram[1001];        // coverage histogram array
     khash_t(m32) *target_base_with_N_coverage;  // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
-    khash_t(m32) *target_coverage_for_median;   // Used for calculating the median coverage for Whole Genome.
+    khash_t(m32) *target_coverage_for_median;   // Used for calculating the median coverage for Capture analysis.
 
 } Capture_Coverage_Stats;
 
