@@ -823,7 +823,7 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
         for (i=0; i<20000; i++) {
 
             if (sum >= (total_genome_non_Ns_bases/2)) {
-                stats_info->wgs_cov_stats->median_genome_coverage = i--;
+                stats_info->wgs_cov_stats->median_genome_coverage = i-1;
                 break;
             }else{
                 sum += coverage_bins[i];
@@ -924,7 +924,7 @@ void writeCaptureReports(Stats_Info *stats_info, User_Input *user_inputs) {
 
             for (i=0; i<20000; i++) {
                 if (sum >= stats_info->capture_cov_stats[fidx]->total_targeted_bases/2) {
-                    stats_info->capture_cov_stats[fidx]->median_target_coverage = i--;
+                    stats_info->capture_cov_stats[fidx]->median_target_coverage = i-1;
                     break; 
                 }else{ 
                     sum += coverage_bins[i]; 

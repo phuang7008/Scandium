@@ -654,6 +654,11 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
     FILE *fp = fopen(file_in, "r");
 
     user_inputs->num_of_target_files = getLineCount(file_in);
+    if (user_inputs->num_of_target_files > 8) {
+        fprintf(stderr, "ERROR: You provided %d target files\n", user_inputs->num_of_target_files);
+        fprintf(stderr, "Please ensure the number of target files is less than or equal to 8\n");
+        exit(EXIT_FAILURE);
+    }
     user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
 
     // because the number of target files alwasy equal or larger than the number of annotation files
