@@ -19,10 +19,10 @@
 #include "user_defined_annotation.h"
 
 void checkAnnotationFormat(User_Input *user_inputs) {
-    // open user-defined-database for read
-    //
     int x;
     for (x=0; x<user_inputs->num_of_annotation_files; x++) {
+        // open user-defined-database for read
+        //
         FILE *fp = fopen(user_inputs->user_defined_annotation_files[x], "r");
 
         if (fp == NULL) {
@@ -30,20 +30,30 @@ void checkAnnotationFormat(User_Input *user_inputs) {
             exit(EXIT_FAILURE);
         }
 
+        // setup a variable to store chromosomes that have been seen
+        // this is used to check if the bed file is sorted!
+        // if the file is not sorted, exit and give an error message!
+        //
+        khash_t(khStrInt) *seen_chromosome_hash = kh_init(khStrInt);
+
+        //only temp setup the memory, will be adjust dynamically later
+        //
+        char *prev_chr_id = calloc(50, sizeof(char));
+        strcpy(prev_chr_id, "nothing99999");
+
         // store previous start and end by chromosome (key)
         //
-        khash_t(khStrInt) *prev_start = kh_init(khStrInt);
-        //khash_t(khStrInt) *prev_end   = kh_init(khStrInt);
-        khiter_t iter;
-
+        bool sorted=true;
+        uint32_t prev_start=0;
         char *line = NULL;
         size_t len = 0;
         ssize_t read;
         char *tokPtr;
 
         while ((read = getline(&line, &len, fp)) != -1) {
-            if (*line == '\n')
-                continue;
+            if (*line   == '\n') continue;
+            if (line[0] == '\0') continue;        // skip if it is a blank line
+            if (line[0] == '#')  continue;        // skip if it is a comment line
 
             char *savePtr = line;
 
@@ -57,31 +67,13 @@ void checkAnnotationFormat(User_Input *user_inputs) {
             char *gene_info = NULL;
             char *chrom_id  = NULL;
             uint32_t start=0, end=0;
-            int absent;
 
             while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
                 if (j==0) {
                     dynamicStringExpansion(tokPtr, &chrom_id);
-                    iter = kh_put(khStrInt, prev_start, tokPtr, &absent);
-
-                    // here the string key is not kept elsewhere, we have to make a deep copy.
-                    // as the function kh_put only add pointer to the tokPtr
-                    //
-                    if (absent) {
-                        kh_key(prev_start, iter) = strdup(tokPtr);
-                        kh_value(prev_start, iter) = 0;                 // initialize the value 
-                    }
                 }
                 if (j==1) {
                     start = (uint32_t) strtol(tokPtr, NULL, 10);
-                    iter = kh_get(khStrInt, prev_start, chrom_id);
-                    if (start < kh_value(prev_start, iter)) {
-                        fprintf(stderr, "\nERROR: The annotation file \n%s\n", user_inputs->user_defined_annotation_files[x]);
-                        fprintf(stderr, "is not sorted between  %"PRIu32" and %"PRIu32"\n", kh_value(prev_start, iter), start);
-                        fprintf(stderr, "Please ensure the annotation file is sorted. Thanks!\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    kh_value(prev_start, iter) = start;
                 }
 
                 if (j==2) {
@@ -89,20 +81,54 @@ void checkAnnotationFormat(User_Input *user_inputs) {
                 }
 
                 if (j==3) {
-                    // check if the annotation contains space
-                    //
-                    /*if (strstr(tokPtr, " ") != NULL) {
-                        fprintf(stderr, "\nERROR: Gene/SNP/miRNA annotation should NOT contain spaces!\n");
-                        fprintf(stderr, "\tPlease correct it before submit runs again. Thank You!\n");
-                        exit(EXIT_FAILURE);
-                    }*/
-
                     dynamicStringExpansion(tokPtr, &gene_info);
                 }
                 j++;
             }
 
             checkChromosomeID(user_inputs->database_version, chrom_id);       // check chromosome id for reference version
+
+            // check if the annotation file is sorted
+            //
+            if (strcmp(chrom_id, prev_chr_id) == 0) {
+                if (prev_start >= start)
+                    sorted = false;
+            } else {
+                // its a new chromosome
+                // need to check if we have seen the chromosome id before
+                //
+                int absent;
+                khiter_t iter = kh_put(khStrInt, seen_chromosome_hash, chrom_id, &absent);
+
+                // here the string key is not kept elsewhere, we have to make a deep copy.
+                //
+                if (absent) {
+                    // haven't seen it, just add to the seen_chromosome_hash 
+                    //
+                    kh_key(seen_chromosome_hash, iter) = strdup(chrom_id);
+                    kh_value(seen_chromosome_hash, iter) = 1;
+
+                    // need to update the prev_chr_id, but first we need to free the prev_chr_id, otherwise, it will append to it
+                    //
+                    if (prev_chr_id) {
+                        free(prev_chr_id);
+                        prev_chr_id=NULL;
+                                                                                }
+                    dynamicStringExpansion(chrom_id, &prev_chr_id);
+                } else {
+                    // seen the current chromosome before, which mean chr id is not in order
+                    //
+                    sorted = false;
+                }
+            }
+
+            if (!sorted) {
+                fprintf(stderr, "ERROR: The input annotation file \n%s\n", user_inputs->user_defined_annotation_files[x]);
+                fprintf(stderr, "\tis not sorted between chrom %s and %s!\n", prev_chr_id, chrom_id);
+                fprintf(stderr, "\tis not sorted between %"PRIu32" and %"PRIu32"!\n", prev_start, start);
+                fprintf(stderr, "Please make sure the annotation file is sorted!\n");
+                exit(EXIT_FAILURE);
+            }
 
             if (start >= end) {
                 fprintf(stderr, "\nERROR: The coordinates for start %"PRIu32" and end %"PRIu32" is not correct!\n", start, end);
@@ -117,16 +143,22 @@ void checkAnnotationFormat(User_Input *user_inputs) {
             }
 
             if (j < 3) {
-                fprintf(stderr, "\nERROR: The gene annotation format is wrong: it should be ABCB1|ENST00000265724|cds_18|gene\n");
+                fprintf(stderr, "\nERROR: The gene annotation format is wrong: it should be gene|transcript_name|cds_id|type\n");
+                fprintf(stderr, "For example: ABCB1|ENST00000265724|cds_18|gene\n");
                 exit(EXIT_FAILURE);
             }
 
             if (gene_info != NULL) free(gene_info);
             if (chrom_id  != NULL) free(chrom_id);
+
+            // reset the prev_start
+            //
+            prev_start = start;
         }
 
         if (line != NULL) free(line);
-        cleanKhashStrInt(prev_start);
+        cleanKhashStrInt(seen_chromosome_hash);
+        if (prev_chr_id) free(prev_chr_id);
         fclose(fp);
     }
 }

@@ -669,6 +669,11 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
 
     uint32_t num_annotation_file=0;
 
+    // need to check if there are duplicated targets as the later one will overwrite the previous one
+    //
+    khash_t(khStrInt) *seen_target_file_hash = kh_init(khStrInt);
+    khiter_t k_iter;
+
     int counter=0;
     bool target_wo_anno_starts=false;
     char *line = NULL;
@@ -679,6 +684,12 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
         if (*line == '\n') continue;
         if (line[0] == '\0') continue;        // skip if it is a blank line
         if (line[0] == '#')  continue;        // skip if it is a comment line
+        if (line[0] == '\t') {
+            fprintf(stderr, "ERROR, the current target-annotation pair starts with a tab \n%s\n", line);
+            fprintf(stderr, "Note: annotation file can't not exist without the corresponding target file\n");
+            fprintf(stderr, "Please fix the file and try it again\n");
+            exit(EXIT_FAILURE);
+        }
 
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
@@ -688,16 +699,40 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
 
         char *savePtr = line;
         char *tokPtr;
+        bool target_flag=true;
 
         int j=0;
         while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
             if (j==0) {
                 // target file
                 //
-                user_inputs->target_files[counter] = strdup(tokPtr);
+                if (tokPtr == NULL || strlen(tokPtr) == 0) {
+                    target_flag = false;
+                } else {
+                    user_inputs->target_files[counter] = strdup(tokPtr);
+                    k_iter = kh_get(khStrInt, seen_target_file_hash, tokPtr);
+                    if (k_iter == kh_end(seen_target_file_hash)) {
+                        int absent;
+                        k_iter = kh_put(khStrInt, seen_target_file_hash, tokPtr, &absent);
+                        if (absent) {
+                            kh_key(seen_target_file_hash, k_iter) = strdup(tokPtr);
+                            kh_value(seen_target_file_hash, k_iter) = 1;
+                        }
+                    } else {
+                        fprintf(stderr, "ERROR: You entered same capture file %s\nmore than once\n", tokPtr);
+                        fprintf(stderr, "Capture target file name should be UNIQUE.\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
             } else {
                 // annotation file
                 //
+                if (!target_flag && strlen(tokPtr) > 0) {
+                    fprintf(stderr, "ERROR: you have entered an annotation file %s\nwithout the corresponding target file\n", tokPtr);
+                    fprintf(stderr, "Please check your inputs and try again. Thanks!\n");
+                    exit(EXIT_FAILURE);
+                }
+
                 if (tokPtr != NULL && strlen(tokPtr) > 0) {
                     user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
                     num_annotation_file++;
@@ -705,18 +740,19 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
             }
             j++;
         }
-        counter++;
         if (j == 1)     // j will be 1 if there is only target file without annotation file
             target_wo_anno_starts = true;
 
         if (j==2 && target_wo_anno_starts) {    // j will be 2 if there are both target and annotation files
-            fprintf(stderr, "Error: the target files without the corresponding annotation files should be listed last! Thanks!");
+            fprintf(stderr, "Error: the target file %s\nwithout the corresponding annotation files should be listed last! Thanks!",user_inputs->target_files[counter-1]);
             exit(EXIT_FAILURE);
         }
+        counter++;
     }
 
     user_inputs->num_of_annotation_files = num_annotation_file;
 
+    cleanKhashStrInt(seen_target_file_hash);
     if (line !=NULL) free(line);
     fclose(fp);
 }
