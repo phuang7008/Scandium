@@ -514,6 +514,7 @@ void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats) {
     wgs_cov_stats->total_genome_coverage = 0;
     wgs_cov_stats->base_quality_20 = 0;
     wgs_cov_stats->base_quality_30 = 0;
+    wgs_cov_stats->base_quality_40 = 0;
     wgs_cov_stats->total_overlapped_bases = 0;
 
     wgs_cov_stats->wgs_max_coverage = 0;
@@ -727,6 +728,7 @@ void copyWGSCoverageStats(WGS_Coverage_Stats *wgs_cov_stats, WGS_Coverage_Stats 
 	//
 	wgs_cov_stats->base_quality_20        += tmp_wgs_cov_stats->base_quality_20;
 	wgs_cov_stats->base_quality_30        += tmp_wgs_cov_stats->base_quality_30;
+	wgs_cov_stats->base_quality_40        += tmp_wgs_cov_stats->base_quality_40;
 	wgs_cov_stats->total_mapped_bases     += tmp_wgs_cov_stats->total_mapped_bases;
 	wgs_cov_stats->total_overlapped_bases += tmp_wgs_cov_stats->total_overlapped_bases;
 	wgs_cov_stats->total_uniquely_aligned_bases += tmp_wgs_cov_stats->total_uniquely_aligned_bases;

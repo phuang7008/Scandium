@@ -4,9 +4,7 @@ HTSDIR=/stornext/snfs130/NGIRD/scratch/phuang/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 MYLIB=/stornext/snfs130/NGIRD/scratch/phuang/repo/common_libs
-CC=/opt/rh/devtoolset-8/root/usr/bin/gcc
-#CC=/hgsc_software/gcc/gcc-7.3.0/bin/gcc
-#CFLAGS= -g -Wall -O2 -fopenmp
+CC=gcc
 CFLAGS= -g -Wall -Wextra -O0 -fopenmp
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
 

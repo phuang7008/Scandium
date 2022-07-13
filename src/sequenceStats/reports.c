@@ -865,6 +865,10 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
         fprintf(out_fp, "Aligned_Q30_Bases\t%"PRIu64"\n", stats_info->wgs_cov_stats->base_quality_30);
         fprintf(out_fp, "PCT_Aligned_Q30_Bases\t%0.2f%%\n", percent);
 
+        percent = calculatePercentage64(stats_info->wgs_cov_stats->base_quality_40, stats_info->wgs_cov_stats->total_mapped_bases);
+        fprintf(out_fp, "Aligned_Q40_Bases\t%"PRIu64"\n", stats_info->wgs_cov_stats->base_quality_40);
+        fprintf(out_fp, "PCT_Aligned_Q40_Bases\t%0.2f%%\n", percent);
+
         for(i=0; i<16; i++) {
             uint32_t val = getValueFromKhash32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, bins[i]);
             if (i==0) { val -= stats_info->wgs_cov_stats->total_Ns_bases; }        // need to remove all Ns

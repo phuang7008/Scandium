@@ -330,8 +330,9 @@ typedef struct {
     uint64_t total_mapped_bases;            // total number of mapped bases
     uint64_t total_uniquely_aligned_bases;  // aka. Reads Usable - where "Usable" is uniquely aligned, non-duplicate, on-target reads
     uint64_t total_genome_coverage;         // total number of read bases aligned to the Genome (used to calculate average coverage)
-    uint64_t base_quality_20;               // total number of aligned bases with quality >= 20
+    uint64_t base_quality_20;               // total number of aligned bases with quality >=20
     uint64_t base_quality_30;               // total number of aligned bases with quality >=30
+    uint64_t base_quality_40;               // total number of aligned bases with quality >=40
     uint32_t total_overlapped_bases;        // total number of overlapped bases from pair-end reads
 
     //misc
