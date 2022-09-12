@@ -58,9 +58,13 @@ open (IN, $file) or die "open failed for reading: $!";
 
 while (<IN>) {
 	chomp;
+
+    # chr1  11873  12227  NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652;NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652
+    #
 	my @items = split "\t";
 
-	# first dump everything to db2
+	# first insert everything to db2
+    #
 	my ($sql, $sth);
 	$sql = "INSERT INTO $db2 VALUES (0, '$items[0]', $items[1], $items[2], '$items[3]')";
 	$sth = $dbh->prepare($sql) or die "Query problem $!\n";
@@ -69,8 +73,8 @@ while (<IN>) {
 	undef $sql;
 	undef $sth;
 
-	# process the 3rd item on the list that contains the exon_id, refseq name and gene symbol
-    # NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652
+	# process the 4rd item on the list that contains the exon_id, refseq name and gene symbol
+    # NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652;NR_046018|exon_0|gene_3=DDX11L1=11873=14409=1652
     #
 	my @info = split(/;/, $items[3]);
 
