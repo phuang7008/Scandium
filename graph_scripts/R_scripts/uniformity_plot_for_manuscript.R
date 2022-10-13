@@ -94,22 +94,22 @@ print("Finishing convert to data frame")
 cov_plot <- ggplot(NULL, aes(x=Position, y=Coverage)) + 
 		geom_point(data=df1, aes(color="orangered3"), size=0.05) +
 		geom_point(data=df2, aes(color="green4"),  size=0.05) +
-		scale_color_manual(labels = c("Sample A Uniformity Metric: 0.958", "Sample B Uniformity Metric: 0.269"), values=c("green4","orangered3"), name="Legend") +
-		guides(colour = guide_legend(title.hjust = 0, keywidth=0.1, keyheight=1.2, override.aes = list(size=2.0))) +
+		scale_color_manual(labels = c("Sample A uniformity Metric: 0.958", "Sample B uniformity Metric: 0.269"), values=c("green4","orangered3"), name="Legend") +
+		guides(colour = guide_legend(title.hjust = 0, keywidth=0.1, keyheight=1.2, override.aes = list(size=1.5))) +
 		labs(title="Coverage Uniformity Comparison (Human Chromosome 7)") + ylim(1, 120) + theme_bw() +
 		theme(
-			plot.title = element_text(color="black", size=17, face="bold.italic"),
-			axis.title.x = element_text(color="black", size=15, face="bold"),
-			axis.title.y = element_text(color="black", size=15, face="bold"),
-			axis.text.x = element_text(size=14,face="bold"),
-			axis.text.y = element_text(size=14,face="bold"),
-			legend.title=element_text(size=14,face="bold"),
-			legend.text=element_text(size=14,face="bold"),
+			plot.title = element_text(color="black", size=17, face="bold", hjust = 0.5),
+			axis.title.x = element_text(color="black", size=16, face="bold"),
+			axis.title.y = element_text(color="black", size=16, face="bold"),
+			axis.text.x = element_text(size=12),
+			axis.text.y = element_text(size=12),
+			legend.title=element_text(size=12),
+			legend.text=element_text(size=11),
 			legend.justification=c(0.9,0.9),
 			legend.position=c(0.9, 0.9)
 	)
   
-png(filename = "comparison7.png", width=19, height=3.5, units="in", res=200)
+png(filename = "comparison-new.png", width=15, height=4, units="in", res=200)
 plot(cov_plot)
 dev.off()
 

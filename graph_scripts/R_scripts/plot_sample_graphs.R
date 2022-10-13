@@ -11,11 +11,15 @@ require(scales)
 #options(echo=TRUE)  # if you want to see commands in output file
 ##options()
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args) != 1) {
-  stop("\nPlease specify the unique pattern of the file you are processing, such as H72CKCCXX-1\n\n")
+if (length(args) != 3) {
+  stop("\nPlease specify the prefix of the file you are processing, such as H72CKCCXX-1\n\n")
+  stop("\nPlease specify the capture file prefix you are processing, such as Parkinson_Genes_hg38\n\n")
+  stop("\nPlease specify the minimal base threshold, such as 20\n\n")
 }
 
 file_pattern <- args[1]
+capture_pattern <- args[2]
+min_base_cutoff <- args[3]
 
 max_x_wgs <- 200
 histogram_vals_wgs_df <- c()
@@ -24,10 +28,11 @@ max_x_capture <- 200
 histogram_vals_capture_df <- c()
 PCT_of_Bases_Coverage_capture_df <- c()
 binned_hist_df <- c()
-categories <- c("<90", "90-97", "97-99", "100")
+categories <- c("<90%", "90-97%", "97-99%", "100%")
 
 process_histogram_data <- function(pattern_in, type_in) {
   tmp_file <- list.files(pattern=glob2rx(pattern_in), ignore.case = TRUE)
+  print(tmp_file)
   
   # open file for reading
   #
@@ -87,6 +92,7 @@ process_histogram_data <- function(pattern_in, type_in) {
       tmp_data <- unlist(strsplit(line, ">>"))
       freqs <- unlist(strsplit(tmp_data[2], ','))
       Frequency<- as.numeric(freqs)
+      Frequency <- Frequency * 100 / sum(Frequency)
       Coverage <- seq(0, length(Frequency)-1, by=1)
       if (type_in == "wgs") histogram_vals_wgs_df <<- data.frame(Coverage, Frequency)
       if (type_in == "capture") histogram_vals_capture_df <<- data.frame(Coverage, Frequency)
@@ -105,7 +111,9 @@ process_histogram_data <- function(pattern_in, type_in) {
       #
       tmp_data <- unlist(strsplit(line, "=="))
       freqs <- unlist(strsplit(tmp_data[2], ','))
+
       Frequency<- as.numeric(freqs)
+      Frequency <- Frequency * 100 / sum(Frequency)
       Coverage <- seq(0, length(Frequency)-1, by=1)
       binned_hist_df <<- data.frame(Coverage, Frequency)
       
@@ -127,8 +135,9 @@ transcript_coverage <- c(0,0,0,0)
 
 process_capture_data <- function(pattern_in, type_in) {
   #print(pattern_in)
+  #pattern_tmp = paste(pattern_in, pattern_in_cap, sep='*')
   tmp_file <- list.files(pattern=glob2rx(pattern_in), ignore.case = TRUE)
-  #print(tmp_file)
+  print(tmp_file)
   
   # open file for reading
   #
@@ -185,20 +194,21 @@ grouping_data <- function(type_in, val_in) {
 
 # First for raw coverage count distribution
 #
-process_histogram_data(paste(file_pattern, "*wgs*summary*", sep=""), "wgs")
-process_histogram_data(paste(file_pattern, "*capture*summary*", sep=""), "capture")
+process_histogram_data(paste(file_pattern, "*WGS*Summary*", sep=""), "wgs")
+process_histogram_data(paste(paste(file_pattern, capture_pattern, sep="*"), "*Capture*Summary*", sep=""), "capture")
 
-png(filename = paste(file_pattern, "_coverage_graphs.png", sep=""), width=19, height=10, units="in", res=200)
+tmp_pattern = paste(file_pattern, capture_pattern, sep="_")
+png(filename = paste(tmp_pattern, "_coverage_graphs.png", sep=""), width=6, height=5, units="in", res=200)
 #pdf(paste(file_pattern, "_coverage_graphs.pdf", sep=""), width=7, height=5)
 
 wgs_hist <- ggplot(histogram_vals_wgs_df, aes(x=Coverage, y=Frequency)) +
-  geom_point(color="green2", size=1) + xlim(0, max_x_wgs) +labs(title="Raw WGS Coverage Frequency Distribution") + 
+  geom_point(color="green2", size=0.3) + xlim(0, max_x_wgs) +labs(title="C: Raw WGS Coverage Frequency Distribution") + ylab("Frequency (%)") +
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(vjust=0,color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
   )
 
 # need to sort the factor level by the numeric number
@@ -207,54 +217,54 @@ PCT_of_Bases_Coverage_wgs_df$Coverage <- factor(PCT_of_Bases_Coverage_wgs_df$Cov
                                                 levels=sort(as.numeric(levels(PCT_of_Bases_Coverage_wgs_df$Coverage)))) 
 
 wgs_pct <- ggplot(PCT_of_Bases_Coverage_wgs_df, aes(x=Coverage, y=Percentage)) + 
-  geom_col(color="lightsalmon1", fill="lightsalmon1") + labs(title="WGS Percentage Base Coverage") + 
+  geom_col(color="lightsalmon1", fill="lightsalmon1") + labs(title="A: WGS Percentage Base Coverage") + 
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(angle = 90, hjust = 1, size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(angle = 90, hjust = 1, size=4),
+    axis.text.y = element_text(size=4)
   )
 
 capture_hist <- ggplot(histogram_vals_capture_df, aes(x=Coverage, y=Frequency)) + 
-  geom_point(color="tomato1", size=1) + xlim(0, max_x_capture) + labs(title="Raw Capture Coverage Frequency Distribution") + 
+  geom_point(color="tomato1", size=0.3) + xlim(0, max_x_capture) + labs(title="D: Raw Capture Coverage Frequency Distribution") + ylab("Frequency (%)") +
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(vjust=0,color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(vjust=0,size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
   )
 
 PCT_of_Bases_Coverage_capture_df$Coverage <- factor(PCT_of_Bases_Coverage_capture_df$Coverage, 
                                                     levels=sort(as.numeric(levels(PCT_of_Bases_Coverage_capture_df$Coverage))))
 
 capture_pct <- ggplot(PCT_of_Bases_Coverage_capture_df, aes(x=Coverage, y=Percentage)) + 
-  geom_col(color="sky blue", fill="sky blue") + labs(title="Capture Percentage Base Coverage") + 
-  #geom_col(color="slategray4", fill="slategray4") + labs(title="Capture Percentage Base Coverage") + 
+  geom_col(color="slategray4", fill="slategray4") + labs(title="B: Capture Percentage Base Coverage") + 
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(angle = 90, hjust = 1, size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(angle = 90, hjust = 1, size=4),
+    axis.text.y = element_text(size=4)
   )
 
-#binned_graph <- ggplot(binned_hist_df, aes(x=Coverage, y=Frequency)) + 
-#  geom_point(color="green4", size=1) + xlim(0, max_x_capture) + labs(title="Smoothed WGS Coverage Frequency Distribution") + 
-#  theme(
-#    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-#    axis.title.x = element_text(color="black", size=14, face="bold"),
-#    axis.title.y = element_text(color="black", size=14, face="bold"),
-#    axis.text.x = element_text(size=14,face="bold"),
-#    axis.text.y = element_text(size=14,face="bold")
-#  )
+binned_graph <- ggplot(binned_hist_df, aes(x=Coverage, y=Frequency)) + 
+  geom_point(color="green4", size=0.3) + xlim(0, max_x_capture) + labs(title="E: Smoothed WGS Coverage Frequency Distribution") + ylab("Frequency (%)") + 
+  theme(
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
+  )
 
 # Next for Capture Annotation Graphing
 #
-process_capture_data(paste(file_pattern, "*Capture*Exon_pct*", sep=""), "exon")
-process_capture_data(paste(file_pattern, "*Capture*Gene_pct*", sep=""), "gene")
-process_capture_data(paste(file_pattern, "*Capture*Transcript_pct*",sep=""), "transcript")
+tmp_pattern = paste(file_pattern, capture_pattern, sep="*")
+process_capture_data(paste(tmp_pattern, "*Capture_CDS_pct*", sep=""), "exon")
+process_capture_data(paste(tmp_pattern, "*Capture_Gene_pct*", sep=""), "gene")
+process_capture_data(paste(tmp_pattern, "*Capture_Transcript_pct*",sep=""), "transcript")
 
 # For Exon
 #
@@ -274,18 +284,28 @@ for (id in 1:4) {
 # lock in factor level order
 exon_coverage_df$categories <- factor(exon_coverage_df$categories, levels = exon_coverage_df$categories)
 
-e_title = paste("Exon Coverage Stats (total # of exons: ", num_of_exons)
+e_title = paste("F: Exon Coverage Stats (total # of exons: ", num_of_exons)
 e_title = paste(e_title, ")")
 
+print(exon_coverage[4])
+y_limit = 125
+if (exon_coverage[4] > 80.0) y_limit = 135
+if (exon_coverage[4] > 90.0) y_limit = 150
+if (exon_coverage[4] < 60.0) y_limit = 110
+#print(y_limit)
+
+x_label <- paste("Base Coverage Percentages of Exons (min base coverage >= ", min_base_cutoff, sep="")
+x_label <- paste(x_label, ")", sep="")
+
 exon_hist <- ggplot(exon_coverage_df, aes(y=exon_coverage, x=categories)) + 
-  geom_col(color="cyan4", fill="cyan4", width=0.5) + geom_text(aes(label=ec_text,fontface=2), size=5, vjust=-0.25) +
-  labs(title=e_title, x="Range of Exon Coverage", y="Coverage Stats") +  ylim(0, 160) +
+  geom_col(color="cyan4", fill="cyan4", width=0.5) + geom_text(aes(label=ec_text), size=1.6, vjust=-0.5) +
+  labs(title=e_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(vjust=0, color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
   )
 
 # For Transcript
@@ -297,28 +317,35 @@ transcript_coverage_df <- data.frame(transcript_coverage)
 transcript_coverage_df <- cbind(categories, transcript_coverage_df)
 tc_text <- c()
 for (id in 1:4) {
-	tc_text[id] = paste(transcript_coverage[id], "%\n", sep="")                                                      
-    tc_text[id] = paste(tc_text[id], "(", sep="")                                                             
-    tc_text[id] = paste(tc_text[id], tc[id], sep="")                                                          
+	tc_text[id] = paste(transcript_coverage[id], "%\n", sep="")
+    tc_text[id] = paste(tc_text[id], "(", sep="")
+    tc_text[id] = paste(tc_text[id], tc[id], sep="")
     tc_text[id] = paste(tc_text[id], ")", sep="")
 }
 
 # lock in factor level order
 transcript_coverage_df$categories <- factor(transcript_coverage_df$categories, levels = transcript_coverage_df$categories)
 
-t_title = paste("Transcript Coverage Stats (total # of transcript: ", num_of_transcripts)
+t_title = paste("G: Transcript Coverage Stats (total # of transcript: ", num_of_transcripts)
 t_title = paste(t_title, ")")
 
+y_limit = 120
+if (transcript_coverage[4] > 80.0) y_limit = 135
+if (transcript_coverage[4] > 90.0) y_limit = 150
+if (transcript_coverage[4] < 60.0) y_limit = 110
+
+x_label <- paste("Base Coverage Percentage of Transcripts (min base coverage >= ", min_base_cutoff, sep="")
+x_label <- paste(x_label, ")", sep="")
+
 transcript_hist <- ggplot(transcript_coverage_df, aes(y=transcript_coverage, x=categories)) + 
-  geom_col(color="red", fill="red", width=0.5) + geom_text(aes(label=tc_text,fontface=2), size=5, vjust=-0.25) +
-  #geom_col(color="cornsilk4", fill="cornsilk4", width=0.5) + geom_text(aes(label=tc_text), size=1.6, vjust=-0.5) +
-  labs(title=t_title, x="Range of Transcript Coverage", y="Coverage Stats") +  ylim(0, 160) +
+  geom_col(color="cornsilk4", fill="cornsilk4", width=0.5) + geom_text(aes(label=tc_text), size=1.6, vjust=-0.5) +
+  labs(title=t_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(vjust=0,color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(size=14,face="bold"),
-    axis.text.y = element_text(size=14,face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
   )
 
 # For Gene
@@ -330,33 +357,39 @@ gene_coverage_df <- data.frame(gene_coverage)
 gene_coverage_df <- cbind(categories, gene_coverage_df)
 gc_text <- c()
 for (id in 1:4) {                                                                                          
-    gc_text[id] = paste(gene_coverage[id], "%\n", sep="")                                                
-    gc_text[id] = paste(gc_text[id], "(", sep="")                                                             
-    gc_text[id] = paste(gc_text[id], gc[id], sep="")                                                          
-    gc_text[id] = paste(gc_text[id], ")", sep="")                                                             
+    gc_text[id] = paste(gene_coverage[id], "%\n", sep="")
+    gc_text[id] = paste(gc_text[id], "(", sep="")
+    gc_text[id] = paste(gc_text[id], gc[id], sep="")
+    gc_text[id] = paste(gc_text[id], ")", sep="")
 }
 
 # lock in factor level order
 gene_coverage_df$categories <- factor(gene_coverage_df$categories, levels = gene_coverage_df$categories)
 
-g_title = paste("Gene Coverage Stats (total # of genes: ", num_of_genes)
+g_title = paste("H: Gene Coverage Stats (total # of genes: ", num_of_genes)
 g_title = paste(g_title, ")")
 
+y_limit = 120
+if (gene_coverage[4] > 80.0) y_limit = 135
+if (gene_coverage[4] > 90.0) y_limit = 150
+if (gene_coverage[4] < 60.0) y_limit = 110
+
+x_label <- paste("Base Coverage Percentages of Genes (min base coverage >= ", min_base_cutoff, sep="")
+x_label <- paste(x_label, ")", sep="")
 gene_hist <- ggplot(gene_coverage_df, aes(y=gene_coverage, x=categories)) + 
-  geom_col(color="goldenrod2", fill="goldenrod2", width=0.5) + geom_text(aes(label=gc_text,fontface=2), size=5, vjust=-0.25) +
-  labs(title=g_title, x="Range of Gene Coverage", y="Coverage Stats") +  ylim(0, 160) +
+  geom_col(color="goldenrod2", fill="goldenrod2", width=0.5) + geom_text(aes(label=gc_text), size=1.6, vjust=-0.5) +
+  labs(title=g_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
-    plot.title = element_text(color="blue4", size=16, face="bold.italic"),
-    axis.title.x = element_text(vjust=0,color="black", size=14, face="bold"),
-    axis.title.y = element_text(color="black", size=14, face="bold"),
-    axis.text.x = element_text(vjust=0,size=14, face="bold"),
-    axis.text.y = element_text(size=14, face="bold")
+    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=5, face="bold"),
+    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.text.x = element_text(size=4),
+    axis.text.y = element_text(size=4)
   )
 ###############################
 # Combine everything together
 #
-#grid.arrange(wgs_pct, capture_pct, wgs_hist, capture_hist, binned_graph, exon_hist, transcript_hist, gene_hist, ncol=2)
-grid.arrange(wgs_pct, capture_pct, wgs_hist, capture_hist, exon_hist, transcript_hist, gene_hist, ncol=2)
+grid.arrange(wgs_pct, capture_pct, wgs_hist, capture_hist, binned_graph, exon_hist, transcript_hist, gene_hist, ncol=2)
 
 dev.off()
 
