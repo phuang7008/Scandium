@@ -39,26 +39,25 @@ else
 	#printf "Producing rearranged miRNA file $new_miRNA_file \n"
 fi
 
-# for HGNC official gene_symbol and dump them into the MySQL database
+# We are going to use MANE official gene symbol instead of HGNC
+# and dump them into the MANE database
+# Note: we are going to use MANE.GRCh38 for both GRCh38 and GRCh37
 #
-rsync -a -P rsync://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt .
-HGNC='hgnc_complete_set.txt'
-HGNC_simplified='hgnc_simplified'
-cat $HGNC | cut -f 1,2,9,11,20,21,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed s/\|/,/g > $HGNC_simplified
+#rsync -a -P rsync://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.0/MANE.GRCh38.v1.0.summary.txt.gz
+wget https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.0/MANE.GRCh38.v1.0.summary.txt.gz .
+MANE='MANE.GRCh38.v1.0.summary.txt.gz'
+MANE_simplified='MANE_simplified'
+zcat $MANE | cut -f 1,2,4,6,8 | sed "s/GeneID://" | grep -v "Ensembl_Gene" > $MANE_simplified
 
-# when you first run it, please un-comment out the line: processHGNCtoDB.pl
-# As I am testing, I don't want to do it over and over
-#
-printf "dump $HGNC_simplified info into DB using processHGNCtoDB.pl \n"
-$SCRIPT_PATH/processHGNCtoDB.pl "$HGNC_simplified" "$gene_db_version"
+printf "dump $MANE_simplified info into DB using processMANEtoDB.pl \n"
+$SCRIPT_PATH/processMANEtoDB.pl "$MANE_simplified"
+
+# need to remove MANE gip file as it will interfere with other databases for intersection
+rm $MANE
 
 # now get rid of .txt file extension before preceed, as we will unzip the tar file into .txt
 #
 for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
-
-#if [ ${HGNC: -4} == ".txt" ]; then
-#	mv $HGNC "hgnc_complete_set"
-#fi
 
 # now we need to download the newest gene annotation from various sources (such as refseq, ccds and gencode)
 #
@@ -108,7 +107,6 @@ fi
 tmp_timestamp=$(date +%Y'_'%m'_'%d)
 printf "time stamp is $tmp_timestamp\n"
 for f in $BASEDIR/*.txt; do gzip $f; mv "$f.gz" "$f.$tmp_timestamp.gz"; done
-#mv "hgnc_complete_set" "hgnc_complete_set.txt"
 
 # need to combine all the bed files into a single bed file and then remove the original bed files
 #

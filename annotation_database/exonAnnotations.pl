@@ -8,7 +8,7 @@ use DBI;
 my $file = shift || die "Please enter the name of the exon/gene annotation file\n";
 my $type = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
 my $database = $type=~/hg38/i ? "Gene_Annotations38" : "Gene_Annotations37";
-my $hgnc     = $type=~/hg38/i ? "HGNC38" : "HGNC37";
+my $mane     = "MANE_GRCh38";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -46,6 +46,9 @@ open (IN, $file) or die "open failed for reading: $!";
 while (<IN>) {
 	chomp;
 	my @items = split "\t";
+    if ($items[1] == 1642346) {
+        print "stop\n";
+    }
 
 	# each line looks like the following:
 	# 1		11868	11873	NR_148357_exon_0_3=LOC102725121=11868=14362=1610;ENST00000456328.2_exon_0_3=DDX11L1=11868=14409=1657
@@ -58,7 +61,7 @@ while (<IN>) {
 
 	my %genes;
     my %main_genes;
-	my %prev_genes;
+    my %alias_symbols;
 	my %exons;
     my %seen;
     #my ($refseq_gname, $ucsc_gname, $ensembl_gname, $ccds_gname, $miRNA_gname)=(".",".",".",".",".");
@@ -76,107 +79,73 @@ while (<IN>) {
 	}
 
 	# handle exon part which is NR_148357|exon_0|gene_3
+    # to get gene symbol and main transcript
 	#
 	foreach my $ex (keys %exons) {
-		#$ex=~s/\_exon_\d+\_\d+$//;
 		my @ex_info = split(/\|/, $ex);
 
-		my $sql;
-        my ($refseq_flag, $ucsc_flag, $ensembl_flag, $ccds_flag, $miRNA_flag) = (0,0,0,0,0);
+		my $sql="";
+        my ($refseq_flag, $ensembl_flag) = (0,0);
 
 		# handle refseq gene symbols
 		#
         if ($ex_info[0]=~/^N.*/ || $ex_info[0]=~/^X.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (refseq_accession IS NOT NULL AND find_in_set('$ex_info[0]', replace(refseq_accession, '|', ',')))";
+            $sql = "SELECT symbol, alias_symbol FROM $mane WHERE (refseq_transcript IS NOT NULL AND refseq_transcript like '$ex_info[0]%')";
             $refseq_flag = 1;
         }
-
-		# handle UCSC gene symbols
-		#
-		if ($ex_info[0]=~/^uc.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ucsc_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ucsc_id, '|', ',')))";
-            $ucsc_flag=1;
-		}
 
 		# handle ENSEMBL gene symbols
 		#
 		if ($ex_info[0]=~/^EN.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ensembl_gene_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ensembl_gene_id, '|', ',')))";
+            $sql = "SELECT symbol, alias_symbol FROM $mane WHERE (refseq_transcript IS NOT NULL AND ensembl_transcript='$ex_info[0]')";
             $ensembl_flag=1;
 		}
 
-		# handle CCDS gene symbols
-		#
-        if ($ex_info[0]=~/^CCDS.*/) {
-            $sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (ccds_id IS NOT NULL AND find_in_set('$ex_info[0]', replace(ccds_id, '|', ',')))";
-            $ccds_flag=1;
-        }
-
-		# handle miRNA information
-		#
-		if ($ex_info[0]=~/^hsa.*/) {
-			$sql = "SELECT symbol, prev_symbol FROM $hgnc WHERE (mirbase IS NOT NULL AND find_in_set('$ex_info[0]', replace(mirbase, '|', ',')))";
-            $miRNA_flag=1;
-		}
-
+        next if $sql eq "";
 		my $sth = $dbh->prepare($sql) or die "DB query error: $!";
 		$sth->execute() or die "DB execution error: $!";
 
-		while ( my($gene_symbol, $prev_gene_symbol) = $sth->fetchrow_array) {
+		while ( my($gene_symbol, $alias_symbol) = $sth->fetchrow_array) {
             if (defined $gene_symbol && $gene_symbol ne "") {
                 if ($refseq_flag == 1)  { $main_genes{$gene_symbol}{"refseq"} = "$ex_info[0]|$ex_info[1]|gene"; }
                 if ($ensembl_flag == 1) { $main_genes{$gene_symbol}{"ensembl"}= "$ex_info[0]|$ex_info[1]|gene"; }
-                if ($ucsc_flag == 1)    { $main_genes{$gene_symbol}{"ucsc"}  = "$ex_info[0]|$ex_info[1]|gene"; }
-                if ($ccds_flag == 1)    { $main_genes{$gene_symbol}{"ccds"}  = "$ex_info[0]|$ex_info[1]|gene"; }
-                if ($miRNA_flag == 1)   { $main_genes{$gene_symbol}{"miRNA"} = "$ex_info[0]|$ex_info[1]|gene"; }
                 
             }
-			$prev_genes{$prev_gene_symbol}++ if (defined $prev_gene_symbol && $prev_gene_symbol ne "");
+            $alias_symbols{$alias_symbol}++ if (defined $alias_symbol && $alias_symbol ne "");
 		}
 	}
 
-	# now produce compound gene and prev_gene info
+	# now produce compound gene  info
 	#
 	my $gene=".";
 	my $Synonymous=".";
 	my ($refseq, $ccds, $gencode, $miRNA) = (".", ".", ".", ".", ".");
     my %seen_transcripts;
+    my %seen_genes;
 
     foreach my $gn (keys %main_genes) {
+        next if $seen_genes{$gn};
+
         if (defined $main_genes{$gn}{"refseq"}) {
             if ($gene eq ".") { 
                 $gene = $gn; 
                 $refseq = $main_genes{$gn}{"refseq"};
                 $seen_transcripts{$refseq}++;
+                $seen_genes{$gene}++;
             }
         } elsif (defined $main_genes{$gn}{"ensembl"}) {
             if ($gene eq ".") {
                 $gene = $gn;
                 $gencode = $main_genes{$gn}{"ensembl"};
                 $seen_transcripts{$gencode}++;
-            }
-        } elsif (defined $main_genes{$gn}{"ucsc"}) {
-            if ($gene eq ".") {
-                $gene = $gn;
-            }
-        } elsif (defined $main_genes{$gn}{"ccds"}) {
-            if ($gene eq ".") { 
-                $gene = $gn; 
-                $ccds = $main_genes{$gn}{"ccds"};
-                $seen_transcripts{$ccds}++;
-            }
-        } elsif (defined $main_genes{$gn}{"miRNA"}) {
-            if ($gene eq ".") { 
-                $gene = $gn;
-                $miRNA = $main_genes{$gn}{"miRNA"};
-                $seen_transcripts{$miRNA}++;
+                $seen_genes{$gene}++;
             }
         }
     }
 
 	foreach my $gn (sort keys %genes) {
+        next if $seen_genes{$gn};
 		next if ($gn eq "." || $gn eq "");
-        next if ($gn eq $gene);
 
 		if ($gene eq ".") {
 			$gene = $gn;
@@ -187,19 +156,20 @@ while (<IN>) {
 				$Synonymous = $Synonymous.";".$gn;
 			}
 		}
+        $seen_genes{$gn}++;
 	}
 
-	my $prev_gene=".";
-	foreach my $pg (sort keys %prev_genes) {
-		next if ($pg eq "." || $pg eq "");
+    foreach my $as (sort keys %alias_symbols) {
+        next if $seen_genes{$as};
+        next if ($as eq "." || $as eq "");
 
-		if ($prev_gene eq ".") {
-			$prev_gene = $pg;
-		} else {
-			$prev_gene = $prev_gene.";".$pg;
-		}
-	}
-
+        if ($Synonymous eq ".") {
+            $Synonymous = $as;
+        } else {
+            $Synonymous = $Synonymous.";".$as;
+        }
+        $seen_genes{$as}++;
+    }
 
 	foreach my $ex (sort keys %exons) {
 		next if ($ex eq "." || $ex eq "");
@@ -217,11 +187,6 @@ while (<IN>) {
 			$ccds = $ccds eq "." ? $ex : "$ccds;$ex";
 		}
 
-        #if ($ex=~/^uc.*/) {
-        #    next if $gencode eq $ex;
-        #	$gencode = $gencode eq "." ? $ex : "$gencode;$ex";
-        #}
-
 		if ($ex=~/^EN.*/) {
             next if $gencode eq $ex;
             $gencode = $gencode eq "." ? $ex : "$gencode;$ex";
@@ -237,7 +202,7 @@ while (<IN>) {
 	#
 	my $annotations = "$refseq\t$ccds\t$gencode\t$miRNA\t.";
 
-	my $sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '$prev_gene', '$annotations')";
+	my $sql = "INSERT INTO $database VALUES (0, '$items[0]', $items[1], $items[2], '$gene', '$Synonymous', '', '$annotations')";
 	my $sth = $dbh->prepare($sql) or die "Query problem $!\n";
 	$sth->execute() or die "Execution problem $!\n";
 }
