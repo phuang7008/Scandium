@@ -204,11 +204,11 @@ png(filename = paste(tmp_pattern, "_coverage_graphs.png", sep=""), width=6, heig
 wgs_hist <- ggplot(histogram_vals_wgs_df, aes(x=Coverage, y=Frequency)) +
   geom_point(color="green2", size=0.3) + xlim(0, max_x_wgs) +labs(title="C: Raw WGS Coverage Frequency Distribution") + ylab("Frequency (%)") +
   theme(
-    plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
-    axis.text.x = element_text(size=4),
-    axis.text.y = element_text(size=4)
+    plot.title = element_text(color="blue4", size=6, face="bold.italic", family="Helvetica"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.text.x = element_text(size=4, family="Helvetica Condensed"),
+    axis.text.y = element_text(size=4, family="Helvetica Condensed")
   )
 
 # need to sort the factor level by the numeric number
@@ -220,8 +220,8 @@ wgs_pct <- ggplot(PCT_of_Bases_Coverage_wgs_df, aes(x=Coverage, y=Percentage)) +
   geom_col(color="lightsalmon1", fill="lightsalmon1") + labs(title="A: WGS Percentage Base Coverage") + 
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(angle = 90, hjust = 1, size=4),
     axis.text.y = element_text(size=4)
   )
@@ -230,8 +230,8 @@ capture_hist <- ggplot(histogram_vals_capture_df, aes(x=Coverage, y=Frequency)) 
   geom_point(color="tomato1", size=0.3) + xlim(0, max_x_capture) + labs(title="D: Raw Capture Coverage Frequency Distribution") + ylab("Frequency (%)") +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(size=4),
     axis.text.y = element_text(size=4)
   )
@@ -243,8 +243,8 @@ capture_pct <- ggplot(PCT_of_Bases_Coverage_capture_df, aes(x=Coverage, y=Percen
   geom_col(color="slategray4", fill="slategray4") + labs(title="B: Capture Percentage Base Coverage") + 
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(angle = 90, hjust = 1, size=4),
     axis.text.y = element_text(size=4)
   )
@@ -253,8 +253,8 @@ binned_graph <- ggplot(binned_hist_df, aes(x=Coverage, y=Frequency)) +
   geom_point(color="green4", size=0.3) + xlim(0, max_x_capture) + labs(title="E: Smoothed WGS Coverage Frequency Distribution") + ylab("Frequency (%)") + 
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(size=4),
     axis.text.y = element_text(size=4)
   )
@@ -302,8 +302,8 @@ exon_hist <- ggplot(exon_coverage_df, aes(y=exon_coverage, x=categories)) +
   labs(title=e_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(size=4),
     axis.text.y = element_text(size=4)
   )
@@ -342,8 +342,8 @@ transcript_hist <- ggplot(transcript_coverage_df, aes(y=transcript_coverage, x=c
   labs(title=t_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(size=4),
     axis.text.y = element_text(size=4)
   )
@@ -381,8 +381,8 @@ gene_hist <- ggplot(gene_coverage_df, aes(y=gene_coverage, x=categories)) +
   labs(title=g_title, x=x_label, y="Coverage Stats") +  ylim(0, y_limit) +
   theme(
     plot.title = element_text(color="blue4", size=6, face="bold.italic"),
-    axis.title.x = element_text(color="black", size=5, face="bold"),
-    axis.title.y = element_text(color="black", size=5, face="bold"),
+    axis.title.x = element_text(color="black", size=5, family="Helvetica Condensed"),
+    axis.title.y = element_text(color="black", size=5, family="Helvetica Condensed"),
     axis.text.x = element_text(size=4),
     axis.text.y = element_text(size=4)
   )
