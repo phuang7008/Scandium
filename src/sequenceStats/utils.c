@@ -55,7 +55,7 @@ void splitStringToKhash(char *stringPtr, khash_t(khStrInt) **khashArrayPtr, uint
 		if (absent) {
 			kh_key(khashArrayPtr[index], iter)   = strdup(tokPtr);
 			kh_value(khashArrayPtr[index], iter) = 0;
-		}
+        }
 		kh_value(khashArrayPtr[index], iter)++;
 		j++;
     }
@@ -229,6 +229,7 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 		// key doesn't exist
 		//
 		kh_key(gene_transcripts, iter) = strdup(gene_symbol);
+    
 		kh_value(gene_transcripts, iter) = calloc(1, sizeof(StringArray));
 		kh_value(gene_transcripts, iter)->size = 0;
 		kh_value(gene_transcripts, iter)->capacity = 3;
@@ -244,28 +245,28 @@ void addToGeneTranscriptKhashTable(char *gene_symbol, char *transcript_name, kha
 	//
 	khiter_t its = kh_put(khStrInt, seen_transcript, transcript_name, &absent);
 	if (absent) {
-		// key doesn't exist, which means we haven't seen it
+		// need a deep copy as the transcript_name will be disappeared once the sql query is done for this gene
 		//
 		kh_key(seen_transcript, its) = strdup(transcript_name);
-		kh_value(seen_transcript, its) = 1;
+	    kh_value(seen_transcript, its) = 1;
 
-		// Need to check if we have allocated enough space for the current gene symbol of the gene_transcripts
-		//
-		if (kh_value(gene_transcripts, iter)->size == kh_value(gene_transcripts, iter)->capacity) {
-			kh_value(gene_transcripts, iter)->capacity *= 2;
-			kh_value(gene_transcripts, iter)->theArray =
-				realloc(kh_value(gene_transcripts, iter)->theArray, kh_value(gene_transcripts, iter)->capacity * sizeof(char*));
+        // Need to check if we have allocated enough space for the current gene symbol of the gene_transcripts
+        //
+        if (kh_value(gene_transcripts, iter)->size == kh_value(gene_transcripts, iter)->capacity) {
+            kh_value(gene_transcripts, iter)->capacity *= 2;
+            kh_value(gene_transcripts, iter)->theArray =
+                realloc(kh_value(gene_transcripts, iter)->theArray, kh_value(gene_transcripts, iter)->capacity * sizeof(char*));
 
-			if (kh_value(gene_transcripts, iter)->theArray == NULL) {
-				fprintf(stderr, "ERROR: Memory re-allocation failed at addToGeneTranscriptKhashTable()!\n");
-				exit(EXIT_FAILURE);
-			}
+            if (kh_value(gene_transcripts, iter)->theArray == NULL) {
+                fprintf(stderr, "ERROR: Memory re-allocation failed at addToGeneTranscriptKhashTable()!\n");
+                exit(EXIT_FAILURE);
+            }
 
-			// Initialize the theArray
-			//
-			for (i=kh_value(gene_transcripts, iter)->size; i<kh_value(gene_transcripts, iter)->capacity; i++)
-				kh_value(gene_transcripts, iter)->theArray[i]=NULL;
-		}
+        // Initialize the theArray
+        //
+        for (i=kh_value(gene_transcripts, iter)->size; i<kh_value(gene_transcripts, iter)->capacity; i++)
+            kh_value(gene_transcripts, iter)->theArray[i]=NULL;
+        }
 
 		// add the transcript_name to the gene_transcripts array for the current gene_symbol key
 		//
@@ -402,30 +403,6 @@ void dynamicStringAllocation(char *str_in, char **storage_str) {
 	}
 }
 
-void dynamicStringExpansion(char *str_in, char **storage_str) {
-    if (str_in == NULL) return;     // nothing to add
-
-    int original_str_is_null = 1;   // the original *storage_str is NULL? 1 yes, 0 no
-
-    if (*storage_str) {
-        *storage_str = realloc(*storage_str, (strlen(*storage_str) + strlen(str_in) + 2)*sizeof(char));
-        original_str_is_null = 0;
-    } else {
-        *storage_str = calloc(strlen(str_in) + 1, sizeof(char));
-    }
-
-    if (*storage_str == NULL) {
-        fprintf(stderr, "ERROR: Dynamic Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (original_str_is_null == 0) {
-        strcat(*storage_str, str_in);
-    } else {
-        strcpy(*storage_str, str_in);
-    }
-}
-
 int32_t locateChromosomeIndexForRegionSkipMySQL(char *chrom_id, Regions_Skip_MySQL *regions_in) {
 	int32_t i=0;
     for (i = 0; i < regions_in->chrom_list_size; i++) {
@@ -537,6 +514,7 @@ void WGSCoverageStatsInit(WGS_Coverage_Stats * wgs_cov_stats) {
     wgs_cov_stats->total_genome_coverage = 0;
     wgs_cov_stats->base_quality_20 = 0;
     wgs_cov_stats->base_quality_30 = 0;
+    wgs_cov_stats->base_quality_40 = 0;
     wgs_cov_stats->total_overlapped_bases = 0;
 
     wgs_cov_stats->wgs_max_coverage = 0;
@@ -663,14 +641,14 @@ uint32_t getValueFromKhash32(khash_t(m32) *hash32, uint32_t pos_key) {
 void addValueToKhashBucketStrStr(khash_t(khStrStr) *hash_in, char *key, char * val) {
     int ret;
     khiter_t k_iter = kh_put(khStrStr, hash_in, key, &ret);
-    if (ret == 1) {
+    if (ret) {
         kh_key(hash_in, k_iter) = strdup(key);
-        kh_value(hash_in, k_iter) = strdup(val);
-        //strcpy(kh_value(hash_in, k_iter), val);
     } else if (ret == -1) {
         fprintf(stderr, "ERROR: can't find the key  %s\n", key);
         exit(EXIT_FAILURE);
     }
+        
+    kh_value(hash_in, k_iter) = strdup(val);
 }
 
 char * getValueFromKhashStrStr(khash_t(khStrStr) *hash_in, char* key) {
@@ -750,6 +728,7 @@ void copyWGSCoverageStats(WGS_Coverage_Stats *wgs_cov_stats, WGS_Coverage_Stats 
 	//
 	wgs_cov_stats->base_quality_20        += tmp_wgs_cov_stats->base_quality_20;
 	wgs_cov_stats->base_quality_30        += tmp_wgs_cov_stats->base_quality_30;
+	wgs_cov_stats->base_quality_40        += tmp_wgs_cov_stats->base_quality_40;
 	wgs_cov_stats->total_mapped_bases     += tmp_wgs_cov_stats->total_mapped_bases;
 	wgs_cov_stats->total_overlapped_bases += tmp_wgs_cov_stats->total_overlapped_bases;
 	wgs_cov_stats->total_uniquely_aligned_bases += tmp_wgs_cov_stats->total_uniquely_aligned_bases;
@@ -958,8 +937,7 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *me
 						beg = cds_t_start;
 
 					k_iter = kh_put(m32, starts, beg, &ret);
-					if (ret)
-						kh_value(starts, k_iter) = 0;	// initialize it to 0
+					kh_value(starts, k_iter) = 0;	// initialize it to 0
 
 					kh_value(starts, k_iter)++;
 				}
@@ -970,8 +948,7 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *me
 						end = cds_t_end;
 
 					k_iter = kh_put(m32, ends, end, &ret);
-					if (ret)
-						kh_value(ends, k_iter) = 0;		// initialize it to 0
+					kh_value(ends, k_iter) = 0;		// initialize it to 0
 
 					kh_value(ends, k_iter)++;
 				}
@@ -1053,119 +1030,20 @@ void mergeLowCovRegions(khash_t(khStrInt) *low_cov_regions_hash, StringArray *me
 	free(allNum);
 }
 
-void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, khash_t(khStrInt) *wanted_chromosome_hash, khash_t(m32) *cov_freq_dist, bool autosome, bool primary_chromosomes_only) {
+void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs, uint32_t * coverage_frequency) {
 	// need to set peak_size based on average coverage
 	//
 	set_peak_size_around_mode(stats_info, user_inputs);
 
-	// initialize the hash table, so that the key will be in order
-	//
-	int i, absent=0;
-	khiter_t iter;
-	for (i=0; i<=1000; i++) {
-		iter = kh_put(m32, cov_freq_dist, i, &absent);
-		if (absent) {
-			kh_key(cov_freq_dist, iter) = i;
-			kh_value(cov_freq_dist, iter) = 0;
-		}
-	}
-
-	uint64_t uniformity_total_bases = 0;
-
-	// open uniformity data file for read
-	//
-	FILE *uniformity_fp = fopen(user_inputs->wgs_uniformity_file, "r");
-	char *line = NULL;                                                                                        
-	size_t len = 0;                                                                                           
-	ssize_t read;                                                                                             
-	char *tokPtr;
-	char *chrom_id = calloc(50, sizeof(char));
-
-	while ((read = getline(&line, &len, uniformity_fp)) != -1) {
-		// skip if it is comment line
-		//
-		if (strstr(line, "#") != NULL)
-			continue;
-
-		char *savePtr = line;                                                                                 
-		uint8_t i=0;
-		uint32_t tmp_cov=0, tmp_len=0;
-
-		while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
-			if (i==0)
-				strcpy(chrom_id, tokPtr);
-
-			if (i==3)
-				tmp_len = (uint32_t) strtol(tokPtr, NULL, 10);
-
-			if (i==4) 
-				tmp_cov = (uint32_t) strtol(tokPtr, NULL, 10);
-
-			i++;
-		}
-
-		// skip sex chromosomes if we are only interested in autosomes
-		//
-		if (autosome == 1) {
-			if ( (strcmp(chrom_id, "chrX") == 0) || (strcmp(chrom_id, "X") == 0) || (strcmp(chrom_id, "CHRX") == 0)
-				 || (strcmp(chrom_id, "chrY") == 0) || (strcmp(chrom_id, "Y") == 0) || (strcmp(chrom_id, "CHRY") == 0) ) {
-				continue;
-			}
-		}
-
-		// if we are only handle primary chromosomes for this calculation, we need to check it here
-		//
-		if (primary_chromosomes_only && wanted_chromosome_hash) {
-			khiter_t iter_p = kh_get(khStrInt, wanted_chromosome_hash, chrom_id);
-			if (iter_p == kh_end(wanted_chromosome_hash))
-				// chrom_id is not one of the primary chromosomes, so skip it!
-				//
-				continue;
-		}
-
-		if (tmp_cov > 1000) tmp_cov = 1000;
-		iter = kh_put(m32, cov_freq_dist, tmp_cov, &absent);
-		if (absent)
-			fprintf(stderr, "Hash table initialization failed for current coverage: %d\n", tmp_cov);
-
-		kh_value(cov_freq_dist, iter) += tmp_len;
-
-		uniformity_total_bases += tmp_len;
-	}
-
-	if (line != NULL) free(line);
-	fclose(uniformity_fp);
-	free(chrom_id);
-
-	// need to remove Ns_bases, (the number of Ns bases need to be calculated based on the user input)
-	//
-	uniformity_total_bases -= stats_info->wgs_cov_stats->total_Ns_bases; 
-
-	// now walk through the hash table, find the mode 
-	//
 	uint32_t count_at_mode=0;
 	uint64_t total_area_under_histogram=0;
-	for (iter = kh_begin(cov_freq_dist); iter != kh_end(cov_freq_dist); ++iter) {
-		if (kh_exist(cov_freq_dist, iter)) {
+    int j;
+    for (j=0; j<=1000; j++) {
+        total_area_under_histogram += coverage_frequency[j];
 
-			total_area_under_histogram += kh_value(cov_freq_dist, iter);
-
-			if (kh_key(cov_freq_dist, iter) == 0) {
-				// remove Ns bases and continue
-				//
-				if (kh_value(cov_freq_dist, iter) > stats_info->wgs_cov_stats->total_Ns_bases) {
-					kh_value(cov_freq_dist, iter) -= stats_info->wgs_cov_stats->total_Ns_bases;
-				} else {
-					fprintf(stderr, "The Ns region %"PRIu32" is larger than calculated one %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases, kh_value(cov_freq_dist, iter));
-				}
-
-				continue;
-			}
-
-			if (kh_value(cov_freq_dist, iter) > count_at_mode) {
-				stats_info->wgs_cov_stats->mode = kh_key(cov_freq_dist, iter);
-				count_at_mode = kh_value(cov_freq_dist, iter);
-			}
+        if (j > 0 && coverage_frequency[j] > count_at_mode) {
+            stats_info->wgs_cov_stats->mode = j;
+            count_at_mode = coverage_frequency[j];
 		}
 	}
 
@@ -1175,81 +1053,36 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 
 	// calculate the peak area under histogram
 	//
-	uint64_t peak_area_under_hist = dynamicCalculateAreaUnderHistogram(stats_info->wgs_cov_stats->mode, cov_freq_dist, user_inputs);
-	if (autosome == 1) {
-		// Here we need to adjust the total_area_under_histogram as it didn't add Ns for X and Y, but we subtract them anyway
-		// Therefore, we need to add them back to make up the loss
-		//
-		total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrX;
-		total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrY;
+    uint64_t peak_area_under_hist = dynamicCalculateAreaUnderHistogram(stats_info->wgs_cov_stats->mode, coverage_frequency, user_inputs);
+	fprintf(stderr, "peak__area_under_histogram\t%"PRIu64"\n", peak_area_under_hist);
 
-		if (primary_chromosomes_only) {
-			printf("\nUniformity for primary autosome ONLY, without alt, decoys etc.\n");
-			stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
-		} else {
-			printf("\nUniformity for autosome ONLY (including alt, decoy etc.)\n");
-			stats_info->wgs_cov_stats->uniformity_metric_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
-		}
-	} else {
-		// for all chromosome
-		//
-		if (primary_chromosomes_only) {
-			printf("\nUniformity for All Primary Chromosomes, including X and Y chromosomes. But without alt, decoys etc.\n");
-			stats_info->wgs_cov_stats->uniformity_metric_all_primary = (double) peak_area_under_hist / (double) total_area_under_histogram;
-		} else {
-			printf("\nUniformity for All (including X, Y chromosomes, alt and decoys etc.\n");
-			stats_info->wgs_cov_stats->uniformity_metric_all = (double) peak_area_under_hist / (double) total_area_under_histogram;
-		}
-	}
-
-	printf("peak__area_under_histogram\t%"PRIu64"\n", peak_area_under_hist);
-	printf("total_area_under_histogram\t%"PRIu64"\n", total_area_under_histogram);
-	//printf("uniformity_total_bases is %"PRIu64"\n", uniformity_total_bases);
-	
-	// clean-up
+	// Here we need to adjust the total_area_under_histogram as it didn't add Ns for X and Y, but we subtract them anyway
+	// Therefore, we need to add them back to make up the loss
 	//
-	//cleanKhashInt(cov_freq_dist);
+	total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrX;
+	total_area_under_histogram += stats_info->wgs_cov_stats->total_Ns_bases_on_chrY;
+	fprintf(stderr, "total_area_under_histogram\t%"PRIu64"\n", total_area_under_histogram);
+
+	stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only = (double) peak_area_under_hist / (double) total_area_under_histogram;
+	fprintf(stderr, "\nUniformity for primary autosome ONLY, without X and Y: %f.3\n", stats_info->wgs_cov_stats->uniformity_metric_primary_autosome_only);
+
 }
 
-uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, khash_t(m32) *cov_freq_dist, User_Input *user_inputs) {
-
-	uint64_t peak_area_under_histogram=0;
-	uint8_t counter=0;
-
-	khiter_t iter;
-	iter = kh_get(m32, cov_freq_dist, peak);
-	if (iter == kh_end(cov_freq_dist)) {
-		fprintf(stderr, "ERROR: Peak hash value shouldn't be empty\n");
-		exit(EXIT_FAILURE);
-	}
-	peak_area_under_histogram = kh_value(cov_freq_dist, iter);
-	counter = 1;
+uint64_t dynamicCalculateAreaUnderHistogram(uint32_t peak, uint32_t *coverage_frequency, User_Input *user_inputs) {
+    uint64_t peak_area_under_histogram = coverage_frequency[peak];
+	uint8_t counter=1;
 
 	uint32_t left  = peak - 1;
 	uint32_t right = peak + 1;
+    if (peak == 0) left = 0;
 
 	while(1) {
-		// the left side could go down to 0. if left side coverage is 0, we should skip it
+		// the left side could go down to 0. if left is 0, we should skip it
 		//
-		uint32_t left_val = 0;
-		//if (left > 0) {
-			iter = kh_get(m32, cov_freq_dist, left);
-			if (iter != kh_end(cov_freq_dist)) {
-				left_val = kh_value(cov_freq_dist, iter);
-			} else {
-				//fprintf(stderr, "Peak left side has no more values\n");
-				left_val = 0;
-			}
-		//}
-
-		uint32_t right_val=0;
-		iter = kh_get(m32, cov_freq_dist, right);
-		if (iter != kh_end(cov_freq_dist)) {
-			right_val = kh_value(cov_freq_dist, iter);
-		} else {
-			//fprintf(stderr, "Peak right side has no more values\n");
-			right_val = 0;
-		}
+        uint32_t left_val = coverage_frequency[left];
+        uint32_t right_val= coverage_frequency[right];
+        if (left == 0) left_val = 0;      // reset the left_value so that it will be skipped!
+        if (left_val == 0 && right_val == 0) break;
 
 		if (left_val > right_val) {
 			peak_area_under_histogram += left_val;
@@ -1316,17 +1149,16 @@ void set_peak_size_around_mode(Stats_Info *stats_info, User_Input *user_inputs) 
     }
 }
 
-void outputFreqDistribution(User_Input *user_inputs, khash_t(m32) *cov_freq_dist) {
+void outputFreqDistribution(User_Input *user_inputs, uint32_t *coverage_frequency) {
 	// open WGS coverage summary report file handle
 	//
 	FILE *out_fp = fopen(user_inputs->wgs_cov_report, "a");
 	fprintf(out_fp, "\n#Smoothed_Coverage_Frequency_Distribution_for_Whole_Genome\n");
 	fprintf(out_fp, "==");
-	khiter_t iter;
-	for (iter=kh_begin(cov_freq_dist); iter!=kh_end(cov_freq_dist); iter++) {
-		if (kh_exist(cov_freq_dist, iter))
-			fprintf(out_fp, "%"PRIu32",", kh_value(cov_freq_dist, iter));
-	}
+    int i;
+    for (i=0; i<=1000; i++) {
+        fprintf(out_fp, "%"PRIu32",", coverage_frequency[i]);
+    }
 	fprintf(out_fp, "\n");
 	fclose(out_fp);
 }

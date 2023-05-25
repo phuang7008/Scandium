@@ -168,6 +168,7 @@ void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *
                 if ( (!flag_overlap) || (flag_overlap && (pos_r < m_pos_r || (m_pos_r_end > 0 && pos_r > m_pos_r_end)) ) ) {
 				    if (qual[pos_q] >= 20) tmp_stats_info->wgs_cov_stats->base_quality_20++;
 				    if (qual[pos_q] >= 30) tmp_stats_info->wgs_cov_stats->base_quality_30++;
+				    if (qual[pos_q] >= 40) tmp_stats_info->wgs_cov_stats->base_quality_40++;
                 }
 
 				if ( (user_inputs->min_base_quality) > 0 && (qual[pos_q] < user_inputs->min_base_quality) ) {	
@@ -205,6 +206,7 @@ void processRecord(User_Input *user_inputs, Stats_Info *tmp_stats_info, bam1_t *
 				//
 				if (qual[pos_q] >= 20) tmp_stats_info->wgs_cov_stats->base_quality_20++;
 				if (qual[pos_q] >= 30) tmp_stats_info->wgs_cov_stats->base_quality_30++;
+				if (qual[pos_q] >= 40) tmp_stats_info->wgs_cov_stats->base_quality_40++;
 				pos_q++;
 			}
 

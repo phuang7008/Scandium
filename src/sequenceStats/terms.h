@@ -39,7 +39,7 @@
 #include "coverage_tracking.h"
 
 // The followings are defined as macro/constants. The program should never try to change their values
-#define VERSION_ "##Scandium v3.0.0"
+#define VERSION_ "##Scandium v3.0.2"
 
 #define PRIMER_SIZE         1000    // upstream or downstream of a target
 
@@ -139,6 +139,7 @@ typedef struct {
     bool Write_Capture_cov_fasta;
     bool Write_WGS_cov_fasta;           // need two different flags, one for Capture and one for WGS
     bool Write_WIG;
+    bool No_Uniformity;                 // set the flag if you don't want the uniformity to be produced
     //bool primary_chromosomes_only;    // do we need all chromosomes including decoy, alt etc or primary only
 
     // developer testing options
@@ -329,8 +330,9 @@ typedef struct {
     uint64_t total_mapped_bases;            // total number of mapped bases
     uint64_t total_uniquely_aligned_bases;  // aka. Reads Usable - where "Usable" is uniquely aligned, non-duplicate, on-target reads
     uint64_t total_genome_coverage;         // total number of read bases aligned to the Genome (used to calculate average coverage)
-    uint64_t base_quality_20;               // total number of aligned bases with quality >= 20
+    uint64_t base_quality_20;               // total number of aligned bases with quality >=20
     uint64_t base_quality_30;               // total number of aligned bases with quality >=30
+    uint64_t base_quality_40;               // total number of aligned bases with quality >=40
     uint32_t total_overlapped_bases;        // total number of overlapped bases from pair-end reads
 
     //misc
@@ -374,7 +376,7 @@ typedef struct {
 
     uint32_t target_cov_histogram[1001];        // coverage histogram array
     khash_t(m32) *target_base_with_N_coverage;  // here N stands for 1, 5, 10, 15, 20, 30, 40, 50, 60, 100
-    khash_t(m32) *target_coverage_for_median;   // Used for calculating the median coverage for Whole Genome.
+    khash_t(m32) *target_coverage_for_median;   // Used for calculating the median coverage for Capture analysis.
 
 } Capture_Coverage_Stats;
 

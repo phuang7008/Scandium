@@ -55,6 +55,10 @@ void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt)
         // check to see if the current gene exists
         //
         khiter_t iter = kh_put(khStrInt, hgmd_genes, row[0], &absent);
+
+        // here the string key is not kept elsewhere, we have to make a deep copy.
+        // as the function kh_put only add pointer to the tmp variable row[0]
+        //
         if (absent) {
             kh_key(hgmd_genes, iter) = strdup(row[0]);
         }
@@ -68,6 +72,10 @@ void recordHGMD(Databases *dbs, khash_t(khStrInt) *hgmd_genes, khash_t(khStrInt)
         while ((tokPtr = strtok_r(savePtr, ".", &savePtr))) {
             if (i==0) {
                 iter = kh_put(khStrInt, hgmd_transcripts, tokPtr, &absent);
+
+                // here the string key is not kept elsewhere, we have to make a deep copy.
+                // as the function kh_put only add pointer to the tmp variable tokPtr
+                //
                 if (absent) {
                     kh_key(hgmd_transcripts, iter) = strdup(tokPtr);
                 }
@@ -178,6 +186,7 @@ void usage() {
     printf("--overlap           -O  Remove Overlapping Bases to avoid double counting. Default: off\n");
     printf("--high_cov_out      -V  Output regions with high coverage (used with -H: default 10000). Default: off\n");
     printf("--wgs_depth         -W  Write/Dump the WGS base coverage depth into Coverage.fasta file \n");
+    printf("--excl_uniformity   -E  Specify this flag if you don't want uniformity to be produced. Default: false\n");
     printf("                        (both -w and -W needed). Default: off\n");
     printf("--help              -h  Print this help/usage message\n");
 }
@@ -230,6 +239,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
             {"wig_output",       no_argument,  0,  'G'},
             {"wgs",              no_argument,  0,  'w'},
             {"wgs_depth",        no_argument,  0,  'W'},
+            {"excl_uniformity",  no_argument,  0,  'E'},
             {0,  0,  0,  0},
         };
 
@@ -237,7 +247,7 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
         int option_index = 0;
 
         arg = getopt_long_only (argc, argv, 
-                    "Ab:B:CdD:g:GH:i:k:L:l:m:n:No:Op:P:r:R:st:T:u:U:VwW:h", 
+                    "Ab:B:CdD:Eg:GH:i:k:L:l:m:n:No:Op:P:r:R:st:T:u:U:VwW:h", 
                     long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -268,6 +278,9 @@ void processUserOptions(User_Input *user_inputs, int argc, char *argv[]) {
                 if (strcmp(user_inputs->database_version, "hg19") == 0)
                     strcpy(user_inputs->database_version, "hg37");
 
+                break;
+            case 'E':
+                user_inputs->No_Uniformity = true;
                 break;
             case 'g': 
                 user_inputs->gVCF_percentage = (uint16_t) strtol(optarg, NULL, 10);
@@ -604,9 +617,10 @@ void setupOutputReportFiles(User_Input *user_inputs) {
 
         // output the uniformity data file for Uniformity Analysis
         //
-        sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
-        createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add, VERSION_);
-
+        if (!user_inputs->No_Uniformity) {
+            sprintf(string_to_add, ".WGS_uniformity_REPORT.txt");
+            createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_uniformity_file, string_to_add, VERSION_);
+        }
         // for whole genome (wgs) file name
         if (user_inputs->Write_WGS_cov_fasta) {
             createFileName(user_inputs->output_dir, tmp_basename, &user_inputs->wgs_cov_file, ".WGS_cov.fasta", VERSION_);
@@ -640,10 +654,25 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
     FILE *fp = fopen(file_in, "r");
 
     user_inputs->num_of_target_files = getLineCount(file_in);
+    if (user_inputs->num_of_target_files > 8) {
+        fprintf(stderr, "ERROR: You provided %d target files\n", user_inputs->num_of_target_files);
+        fprintf(stderr, "Please ensure the number of target files is less than or equal to 8\n");
+        exit(EXIT_FAILURE);
+    }
     user_inputs->target_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
-    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
+
+    // because the number of target files alwasy equal or larger than the number of annotation files
+    // it is ok for us to do the following. Just remember to free them using num_of_annotation_files
+    // for allocated memory
+    //
+    user_inputs->user_defined_annotation_files = calloc(user_inputs->num_of_target_files, sizeof(char*));
 
     uint32_t num_annotation_file=0;
+
+    // need to check if there are duplicated targets as the later one will overwrite the previous one
+    //
+    khash_t(khStrInt) *seen_target_file_hash = kh_init(khStrInt);
+    khiter_t k_iter;
 
     int counter=0;
     bool target_wo_anno_starts=false;
@@ -655,6 +684,12 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
         if (*line == '\n') continue;
         if (line[0] == '\0') continue;        // skip if it is a blank line
         if (line[0] == '#')  continue;        // skip if it is a comment line
+        if (line[0] == '\t') {
+            fprintf(stderr, "ERROR, the current target-annotation pair starts with a tab \n%s\n", line);
+            fprintf(stderr, "Note: annotation file can't not exist without the corresponding target file\n");
+            fprintf(stderr, "Please fix the file and try it again\n");
+            exit(EXIT_FAILURE);
+        }
 
         if (line[strlen(line)-1] == '\n')
             line[strlen(line)-1] = '\0';
@@ -664,33 +699,60 @@ void readTargetAnnotationFilesIn(User_Input *user_inputs, char* file_in) {
 
         char *savePtr = line;
         char *tokPtr;
+        bool target_flag=true;
 
         int j=0;
         while ((tokPtr = strtok_r(savePtr, "\t", &savePtr))) {
             if (j==0) {
                 // target file
                 //
-                user_inputs->target_files[counter] = strdup(tokPtr);
+                if (tokPtr == NULL || strlen(tokPtr) == 0) {
+                    target_flag = false;
+                } else {
+                    user_inputs->target_files[counter] = strdup(tokPtr);
+                    k_iter = kh_get(khStrInt, seen_target_file_hash, tokPtr);
+                    if (k_iter == kh_end(seen_target_file_hash)) {
+                        int absent;
+                        k_iter = kh_put(khStrInt, seen_target_file_hash, tokPtr, &absent);
+                        if (absent) {
+                            kh_key(seen_target_file_hash, k_iter) = strdup(tokPtr);
+                            kh_value(seen_target_file_hash, k_iter) = 1;
+                        }
+                    } else {
+                        fprintf(stderr, "ERROR: You entered same capture file %s\nmore than once\n", tokPtr);
+                        fprintf(stderr, "Capture target file name should be UNIQUE.\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
             } else {
                 // annotation file
                 //
-                user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
-                num_annotation_file++;
+                if (!target_flag && strlen(tokPtr) > 0) {
+                    fprintf(stderr, "ERROR: you have entered an annotation file %s\nwithout the corresponding target file\n", tokPtr);
+                    fprintf(stderr, "Please check your inputs and try again. Thanks!\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (tokPtr != NULL && strlen(tokPtr) > 0) {
+                    user_inputs->user_defined_annotation_files[counter] = strdup(tokPtr);
+                    num_annotation_file++;
+                }
             }
             j++;
         }
-        counter++;
         if (j == 1)     // j will be 1 if there is only target file without annotation file
             target_wo_anno_starts = true;
 
         if (j==2 && target_wo_anno_starts) {    // j will be 2 if there are both target and annotation files
-            fprintf(stderr, "Error: the target files without the corresponding annotation files should be listed last! Thanks!");
+            fprintf(stderr, "Error: the target file %s\nwithout the corresponding annotation files should be listed last! Thanks!",user_inputs->target_files[counter-1]);
             exit(EXIT_FAILURE);
         }
+        counter++;
     }
 
     user_inputs->num_of_annotation_files = num_annotation_file;
 
+    cleanKhashStrInt(seen_target_file_hash);
     if (line !=NULL) free(line);
     fclose(fp);
 }
@@ -810,8 +872,10 @@ void outputUserInputOptions(User_Input *user_inputs) {
     fprintf(stderr, "\tThe percentage used for gVCF block grouping is %d%%\n", user_inputs->gVCF_percentage * 100);
     fprintf(stderr, "\tThe buffer size around a target region is %d\n", user_inputs->target_buffer_size);
 
-    fprintf(stderr, "\tThe uniformity data file will be produced\n");
-    fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
+    if (!user_inputs->No_Uniformity) {
+        fprintf(stderr, "\tThe uniformity data file will be produced\n");
+        fprintf(stderr, "\t\tThe uniformity lower bound and upper bound are %d and %d inclusive! \n", user_inputs->lower_bound, user_inputs->upper_bound);
+    }
 
     if (user_inputs->wgs_annotation_on) {
         fprintf(stderr, "\tThe detailed WGS gene annotation is ON\n");
@@ -905,6 +969,7 @@ User_Input * userInputInit() {
     user_inputs->Write_Capture_cov_fasta = false;
     user_inputs->Write_WGS_cov_fasta = false;
     user_inputs->Write_WIG = false;
+    user_inputs->No_Uniformity = false;
     user_inputs->excluding_overlapping_bases = false;
     user_inputs->remove_duplicate = true;
     user_inputs->remove_supplementary_alignments = true;
@@ -1001,6 +1066,9 @@ void userInputDestroy(User_Input *user_inputs) {
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_exon_pct_files);
     cleanCreatedFileArray(user_inputs->num_of_target_files, user_inputs->low_cov_transcript_files);
     cleanCreatedFileArray(user_inputs->num_of_annotation_files, user_inputs->annotation_file_basenames);
+
+    if (user_inputs->target_annotation_list_file)
+        free(user_inputs->target_annotation_list_file);
 
     if (user_inputs->chromosome_bed_file)
         free(user_inputs->chromosome_bed_file);
