@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
     // For capture targets (-t is on), we always use user_defined_annotation database files if they are provided.
     //      However, if user doesn't provide user_defined_annotatioin files, we will useMySQL for the annotation
     //
-    Regions_Skip_MySQL **exon_regions    = NULL;
+    Regions_Skip_MySQL **exon_regions = NULL;
 
     // We use Raw_User_Defined_Database to store everything from user_defined_database
     // so that we don't have to process the file over and over
@@ -550,30 +550,27 @@ int main(int argc, char *argv[]) {
                 TargetBufferStatusDestroyCurrentChromosome(target_buffer_status, 
                       chrom_tracking->number_of_chromosomes, chrom_tracking->chromosome_ids[chrom_index]);
 
-            }
-          }
-        }
+            }   // End of wanted chromosome check
+          }     // End of task
+        }       // End of for loop before flush for thread
 
 #pragma omp taskwait
-        // now need to combine all the stats_info for the final results
-        //
-#pragma omp critical
-        {
-            for ( idx = 0; idx < headers[0]->n_targets; idx++) {
-                fprintf(stderr, "\nFor chrom id %d and chrom %s\t", idx, headers[0]->target_name[idx]);
-                combineCoverageStats(stats_info, stats_info_per_chr[idx], user_inputs);
-
-                // clean up the array allocated
-                //
-                if (stats_info_per_chr[idx])
-                    statsInfoDestroy(stats_info_per_chr[idx], user_inputs);
-            }
-        }
-
-      }     // End of single
-
+      } // End of the single
       fflush(stdout);
     }   // end parallel loop
+
+    // now need to combine all the stats_info for the final results
+    //
+    uint32_t idx;
+    for ( idx = 0; idx < chrom_tracking->number_of_chromosomes; idx++) {
+        fprintf(stderr, "\nFor chrom id %d and chrom %s\t", idx, chrom_tracking->chromosome_ids[idx]);
+        combineCoverageStats(stats_info, stats_info_per_chr[idx], user_inputs);
+
+        // clean up the stats_info_per_chr array allocated
+        //
+        if (stats_info_per_chr[idx])
+            statsInfoDestroy(stats_info_per_chr[idx], user_inputs);
+    }
 
     fprintf(stderr, "The Ns base is %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
 
