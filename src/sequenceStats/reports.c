@@ -771,6 +771,11 @@ void addBaseStats(Stats_Info *stats_info, uint32_t cov_val, uint8_t target, uint
         if (wgs == 1)    addValueToKhashBucket32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, 100, 1);
     }
 
+    if (cov_val >= 150) {
+        if (target == 1) addValueToKhashBucket32(stats_info->capture_cov_stats[target_file_index]->target_base_with_N_coverage, 150, 1);
+        if (wgs == 1)    addValueToKhashBucket32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, 150, 1);
+    }
+
     if (cov_val >= 500) {
         if (target == 1) addValueToKhashBucket32(stats_info->capture_cov_stats[target_file_index]->target_base_with_N_coverage, 500, 1);
         if (wgs == 1)    addValueToKhashBucket32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, 500, 1);
@@ -800,7 +805,7 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
     uint64_t sum=0;
     int32_t i=0;
     double average_coverage=0.0;
-    uint16_t bins[16] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 500, 1000 };
+    uint16_t bins[17] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 150, 500, 1000 };
     khiter_t k_iter;
     //uint32_t cov_bin_size = 20000;
     uint32_t coverage_bins[20000] = {0};    // initialize array contents to 0
@@ -869,7 +874,7 @@ void writeWGSReports(Stats_Info *stats_info, User_Input *user_inputs) {
         fprintf(out_fp, "Aligned_Q40_Bases\t%"PRIu64"\n", stats_info->wgs_cov_stats->base_quality_40);
         fprintf(out_fp, "PCT_Aligned_Q40_Bases\t%0.2f%%\n", percent);
 
-        for(i=0; i<16; i++) {
+        for(i=0; i<17; i++) {
             uint32_t val = getValueFromKhash32(stats_info->wgs_cov_stats->genome_base_with_N_coverage, bins[i]);
             if (i==0) { val -= stats_info->wgs_cov_stats->total_Ns_bases; }        // need to remove all Ns
 
@@ -986,8 +991,8 @@ void writeCaptureReports(Stats_Info *stats_info, User_Input *user_inputs) {
             fprintf(trt_fp, "Bases_Targeted\t%"PRIu32"\n", stats_info->capture_cov_stats[fidx]->total_targeted_bases);
             fprintf(trt_fp, "Buffer_Bases\t%"PRIu32"\n", stats_info->capture_cov_stats[fidx]->total_buffer_bases);
 
-            uint16_t bins[16] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 500, 1000 };
-            for(i=0; i<16; i++) {
+            uint16_t bins[17] = { 0, 1, 5, 6, 10, 11, 15, 20, 30, 40, 50, 60, 70, 100, 150, 500, 1000 };
+            for(i=0; i<17; i++) {
                 uint32_t val = getValueFromKhash32(stats_info->capture_cov_stats[fidx]->target_base_with_N_coverage, bins[i]);
 
                 float percent = calculatePercentage32(val, stats_info->capture_cov_stats[fidx]->total_targeted_bases);

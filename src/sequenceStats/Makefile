@@ -4,9 +4,18 @@ HTSDIR=/stornext/snfs130/NGIRD/scratch/phuang/htslib
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 MYLIB=/stornext/snfs130/NGIRD/scratch/phuang/repo/common_libs
-CC=gcc
+CC=/opt/rh/devtoolset-8/root/usr/bin/gcc
+#CC=/hgsc_software/gcc/gcc-7.3.0/bin/gcc
+#CFLAGS= -g -Wall -O2 -fopenmp
 CFLAGS= -g -Wall -Wextra -O0 -fopenmp
 #CFLAGS= -g3 -gdwarf-2 -fvar-tracking -fvar-tracking-assignments -Wall -O0 -fopenmp
+
+ifeq ($(shell hostname), analysis-app1.sug.hgsc.bcm.edu)
+	CC=/usr/bin/gcc
+	MYSQLLIB=/usr/lib64/mysql
+else
+	CC=/opt/rh/devtoolset-8/root/usr/bin/gcc
+endif
 
 # define any directories containing header files other than /usr/bin
 include_dirs= -I$(IDIR) -I$(HTSDIR) -I$(MYSQLDIR) -I$(MYLIB)
@@ -16,7 +25,12 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB) -L$(MYLIB)
 
 # define any libraries to be link into executables:
 #LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
-LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
+#LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
+ifeq ($(shell hostname), analysis-app1.sug.hgsc.bcm.edu)
+	LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
+else
+	LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
+endif
 
 # define dependent header files
 #_DEPS = stats.h  targets.h  terms.h  utils.h annotation.h reports.h user_defined_annotation.h user_inputs.h
