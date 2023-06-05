@@ -1041,6 +1041,18 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
     for (j=0; j<=1000; j++) {
         total_area_under_histogram += coverage_frequency[j];
 
+        if (j == 0) {
+            // remove Ns bases from 0 coverage bin and continue
+            //
+            if (coverage_frequency[j] > stats_info->wgs_cov_stats->total_Ns_bases) {
+                coverage_frequency[j] -= stats_info->wgs_cov_stats->total_Ns_bases;
+            } else {
+                fprintf(stderr, "The Ns region %"PRIu32" is larger than calculated one %"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases, coverage_frequency[j]);
+            }
+
+            continue;
+        }
+
         if (j > 0 && coverage_frequency[j] > count_at_mode) {
             stats_info->wgs_cov_stats->mode = j;
             count_at_mode = coverage_frequency[j];
@@ -1050,6 +1062,9 @@ void calculateUniformityMetrics(Stats_Info *stats_info, User_Input *user_inputs,
 	// remove Ns
 	//
 	total_area_under_histogram -= stats_info->wgs_cov_stats->total_Ns_bases;
+    printf("total_Ns regions\t%"PRIu32"\n", stats_info->wgs_cov_stats->total_Ns_bases);
+    printf("total_area_under_histogram before removing Ns regions\t%"PRIu64"\n", total_area_under_histogram);
+    printf("total_area_under_histogram after removing Ns regions\t%"PRIu64"\n", total_area_under_histogram);
 
 	// calculate the peak area under histogram
 	//
