@@ -22,7 +22,6 @@
 //#include <my_global.h>
 //#include <mysql.h>
 //#include <stdbool.h>
-#include "htslib/sam.h"
 #include "terms.h"
 #include "annotation.h"
 

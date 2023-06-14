@@ -33,7 +33,7 @@
 #include <stdio.h>      // for file read and write
 
 // Users defined header files
-#include "htslib/sam.h"
+#include "htslib/include/htslib/sam.h"
 
 #include "data_structure.h"
 #include "coverage_tracking.h"
@@ -282,7 +282,7 @@ typedef struct {
     bool has_HGMD;
 } Gene_Transcript_Percentage;
 
-#include "htslib/khash.h"
+#include "htslib/include/htslib/khash.h"
 
 /**
  * define a khash like structure that has string as key and various structures as values

@@ -19,7 +19,6 @@
 #ifndef ANNOTATION_H
 #define ANNOTATION_H
 
-#include "htslib/sam.h"
 #include "terms.h"
 #include "user_inputs.h"
 

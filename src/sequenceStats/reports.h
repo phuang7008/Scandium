@@ -19,7 +19,6 @@
 #ifndef REPORTS_H
 #define REPORTS_H
 
-#include "htslib/sam.h"
 #include "terms.h"
 #include "annotation.h"
 

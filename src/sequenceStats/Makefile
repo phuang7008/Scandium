@@ -1,6 +1,6 @@
 IDIR=/opt/rh/devtoolset-8/root/usr/include
 CODEDIR=/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/sequenceStats
-HTSDIR=/stornext/snfs130/NGIRD/scratch/phuang/htslib
+HTSDIR=/stornext/snfs130/NGIRD/scratch/phuang/
 MYSQLDIR=/usr/include/mysql
 MYSQLLIB=/usr/lib64
 MYLIB=/stornext/snfs130/NGIRD/scratch/phuang/repo/common_libs
@@ -27,7 +27,7 @@ LFLAGS = -L$(HTSDIR) -L$(MYSQLLIB) -L$(MYLIB)
 #LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl
 #LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 ifeq ($(shell hostname), analysis-app1.sug.hgsc.bcm.edu)
-	LIBS =  $(HTSDIR)/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
+	LIBS =  $(HTSDIR)/htslib/lib/libhts.a $(MYLIB)/libcov_tracking.a -lm -lz -lpthread -lmysqlclient -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 else
 	LIBS =  $(HTSDIR)/libhts.a -lm -lz -lpthread -lmysqlclient_r -lrt -lssl -lcrypto -ldl -lcurl -llzma -lbz2
 endif
