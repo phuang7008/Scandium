@@ -1,10 +1,11 @@
-#!/hgsc_software/perl/perl-5.18.2/bin/perl
+#!/usr/bin/perl
 #
 # some refseq sequence names are the same even though they point to different genomic location
 # to eliminate the problem, we need to add the suffix to separate them apart
 # we will eventually remove these suffix in another script (need to be handled later!)
 #
-use lib '/hgsc_software/perl/perl-5.18.2/lib/site_perl/5.18.2/x86_64-linux-thread-multi';
+use FindBin;
+use lib "$FindBin::Bin";
 use strict;
 
 my $file = shift || die "Please enter the name of the refseq file\n";

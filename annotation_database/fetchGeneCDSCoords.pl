@@ -1,16 +1,17 @@
 #!/hgsc_software/perl/perl-5.18.2/bin/perl
 #
-use lib '/hgsc_software/perl/perl-5.18.2/lib/site_perl/5.18.2/x86_64-linux-thread-multi';
+use FindBin;
+use lib "$FindBin::Bin";
 use strict;
 use Data::Dumper;
 use DBI;
 
 my $file = shift || die "Please enter the name of the RefSeq annotation\n";
-my $type = shift || die "Please enter the version of annotation hg38 or hg37\n";
-my $project_name = shift || die "Please enter the name of the project, such as eMerge, right10K or VCRome_PKv2\n";
+my $type = shift || die "Please enter the type of annotation: either refseq or gencode\n";
+my $version = shift || die "Please enter the version of annotation hg38 or hg37\n";
 
-my $database = $type=~/hg38/i ? "Gene_".$project_name."_CDS_Coords38" : "Gene_".$project_name."_CDS_Coords37";
-my $hgnc     = $type=~/hg38/i ? "HGNC38" : "HGNC37";
+my $database = $version=~/hg38/i ? "Gene_".$type."_CDS_Coords38" : "Gene_".$type."_CDS_Coords37";
+my $hgnc     = $version=~/hg38/i ? "HGNC38" : "HGNC37";
 
 # connect to the database
 my $dbh = DBI->connect('DBI:mysql:GeneAnnotations:sug-esxa-db1', 'phuang', 'phuang') or die "DB connection failed: $!";
@@ -73,10 +74,7 @@ while (<IN>) {
 		} elsif ($ref_exon_id=~/(^E.*)_(\d+)_(\d+)$/) {
 			($refseq_name, $exon_id, $exon_count) = ($1, $2, $3);
 			$refseq_name=~s/\.\d+//;
-		} elsif ($ref_exon_id=~/(^\w.*)_(\d+)_(\d+)$/) {
-            ($refseq_name, $exon_id, $exon_count) = ($1, $2, $3);
-            $refseq_name=~s/\.\d+//;
-        }
+		}
 		
 		my ($sql, $sth);
 		if (!defined $gene_symbol) {

@@ -1,6 +1,7 @@
 #!/hgsc_software/perl/perl-5.18.2/bin/perl
 #
-use lib '/hgsc_software/perl/perl-5.18.2/lib/site_perl/5.18.2/x86_64-linux-thread-multi';
+use FindBin;
+use lib "$FindBin::Bin";
 use strict;
 use Data::Dumper;
 use DBI;

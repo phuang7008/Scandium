@@ -1,11 +1,12 @@
 #!/hgsc_software/perl/perl-5.18.2/bin/perl
 #
-use lib '/hgsc_software/perl/perl-5.18.2/lib/site_perl/5.18.2/x86_64-linux-thread-multi';
+use FindBin;
+use lib "$FindBin::Bin";
 use strict;
 use Data::Dumper;
 use DBI;
 
-my $file = shift || die "Please enter the name of the file that contains all the intronic regions\n";
+my $file = shift || die "Please enter the name of the file that contains all the exon regions\n";
 my $type = shift || die "Please specify the version of gene annotation hg19 or hg38\n";
 my $hgnc = $type eq "hg38" ? "HGNC38" : "HGNC37";
 
@@ -17,7 +18,7 @@ my ($sql, $sth);
 # Here is the detailed item list
 # 0: transcript name; 1: chromosome id; 2: strand orientation; 3: transcript start; 4 transcript end; 
 # 5: cds start; 6: cds end; 7: exon count; 8: exon starts; 9: exon ends; 10: gene symbol
-# NM_001013625 chr1 - 161364732 161367876 161364964 161367868 5 161364732,161365525,161366197,161366438,161367841, 161365150,161365702,161366278,161366501,161367876, CFAP126
+#
 my %refseq_names;
 
 open (IN, $file) or die "open failed for reading: $!";
@@ -58,8 +59,8 @@ while (<IN>) {
 		}
 	}
 
-	my $cds_start = $items[3];
-	my $cds_end   = $items[4];
+	my $cds_start = $items[5];
+	my $cds_end   = $items[6];
 
 	# we need to loop through the exon regions twice. The first time to calculate the cds size    
 	# while the second time will be to print the combined results out to a file                   

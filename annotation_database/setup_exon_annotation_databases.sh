@@ -3,9 +3,10 @@
 # This script is used to setup the gene/exon annotation database for sequencing analysis
 # First, we need to make sure that user has entered all the required parameters (or arguments)
 #
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 5 ]]; then
 	echo "Illegal Number of Parameters"
-	echo "/SCRIPT_PATH/setup_exon_annotation_databases.sh output_directory db_version(hg38 or hg37)"
+	echo "/SCRIPT_PATH/setup_exon_annotation_databases.sh output_directory Perl_Path Bedops_Path db_version(hg38 or hg37) annotation_source_type"
+    echo "annotation_source_type: refseq or gencode or all (refseq+gencode+ccds+microRNA and vega(only in hg37)"
 	exit
 fi
 
@@ -21,39 +22,45 @@ cd $BASEDIR
 pwd
 printf "$BASEDIR\n"
 
+# get perl interpret
+PERL_PATH=$2
+
+# get bedops path
+BEDOPS_PATH=$3
+
 # get the gene annotation version
-gene_db_version=$2
+gene_db_version=$4
+
+# get annotation source
+annotation_source_type=$5
 
 # now process miRNA file
 new_miRNA_file=hsa_miRNA_simplified.bed
 
-if [ "$gene_db_version" == "hg38" ]; then
-    wget https://mirbase.org/ftp/CURRENT/genomes/hsa.gff3
-	awk -F "\t|" '{print $1"\t"$4"\t"$5"\t"$9}' hsa.gff3 | grep '^chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | awk '{t=$5; $5=$4; $4=t; print}' | awk '{ $4=$4"|exon_1|miRNA_1="$5; print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > $new_miRNA_file
-	#printf "Producing simplified miRNA file $new_miRNA_file \n"
-else 
-    wget https://mirbase.org/ftp/20/genomes/hsa.gff3
+# For microRNA
+if [ $annotation_source_type == "all" ]; then
+    if [ "$gene_db_version" == "hg38" ]; then
+	    wget https://mirbase.org/ftp/CURRENT/genomes/hsa.gff3
+	    #printf "Producing simplified miRNA file $new_miRNA_file \n"
+    else
+        wget https://mirbase.org/ftp/20/genomes/hsa.gff3    # version 20 is the last hg37 available, 21+ are all hg38
+    fi
+
 	awk -F "\t| " '{print $1"\t"$4"\t"$5"\t"$9}' hsa.gff3 | grep '^chr' | tr -s ';' '\t' | cut -f1,2,3,4,6 | sed s/ID=// | sed s/Name=// | sed s/^chr//gi | awk '{t=$5"\t"; $5=$4"\t"; $4=t"\t"; print}' | awk '{ $4=$4"|exon_1|miRNA_1="$5; print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > $new_miRNA_file
-	#new_miRNA_file=`basename ${miRNA_FILE}`_rearranged.bed
-	#$SCRIPT_PATH/rearrange_miRNA_bed.py -i $miRNA_FILE > $new_miRNA_file
-	#printf "Producing rearranged miRNA file $new_miRNA_file \n"
 fi
 
-# We are going to use MANE official gene symbol instead of HGNC
-# and dump them into the MANE database
-# Note: we are going to use MANE.GRCh38 for both GRCh38 and GRCh37
+# for HGNC official gene_symbol and dump them into the MySQL database
 #
-#rsync -a -P rsync://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.0/MANE.GRCh38.v1.0.summary.txt.gz
-wget https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.0/MANE.GRCh38.v1.0.summary.txt.gz .
-MANE='MANE.GRCh38.v1.0.summary.txt.gz'
-MANE_simplified='MANE_simplified'
-zcat $MANE | cut -f 1,2,4,6,8 | sed "s/GeneID://" | grep -v "Ensembl_Gene" > $MANE_simplified
+rsync -a -P rsync://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt .
+HGNC='hgnc_complete_set.txt'
+HGNC_simplified='hgnc_simplified'
+cat $HGNC | cut -f 1,2,9,11,20,21,22,24,25,33 | sed s/HGNC:// | tr -d '"' | sed s/\|/,/g > $HGNC_simplified
 
-printf "dump $MANE_simplified info into DB using processMANEtoDB.pl \n"
-$SCRIPT_PATH/processMANEtoDB.pl "$MANE_simplified"
-
-# need to remove MANE gip file as it will interfere with other databases for intersection
-rm $MANE
+# when you first run it, please un-comment out the line: processHGNCtoDB.pl
+# As I am testing, I don't want to do it over and over
+#
+printf "dump $HGNC_simplified info into DB using processHGNCtoDB.pl \n"
+$SCRIPT_PATH/processHGNCtoDB.pl "$HGNC_simplified" "$gene_db_version"
 
 # now get rid of .txt file extension before preceed, as we will unzip the tar file into .txt
 #
@@ -63,16 +70,32 @@ for f in $BASEDIR/*.txt; do mv -- "$f" "${f%.txt}"; done
 #
 if [ "$gene_db_version" == "hg38" ]; then
 	echo "For hg38"
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV41.txt.gz .
-	#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV41.txt.gz .
+	if [ $annotation_source_type == "all" ] || [ $annotation_source_type == "refseq" ]; then
+        rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz .
+    fi
+
+    if [ $annotation_source_type == "all" ] || [ $annotation_source_type == "gencode" ]; then
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeBasicV26.txt.gz .
+	    #rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/wgEncodeGencodeCompV26.txt.gz .
+    fi
+
+    if [ $annotation_source_type == "all" ]; then
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ccdsGene.txt.gz .
+    fi
 else
 	echo "For hg19"
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
-	rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/wgEncodeGencodeBasicV41lift37.txt.gz .
-	#rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/wgEncodeGencodeCompV41lift37.txt.gz  .
+	if [ $annotation_source_type == "all" ] || [ $annotation_source_type == "refseq" ]; then
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz .
+	    #rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/wgEncodeGencodeCompV19.txt.gz .
+    fi
+	if [ $annotation_source_type == "all" ] || [ $annotation_source_type == "gencode" ]; then
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/wgEncodeGencodeBasicV19.txt.gz .
+    fi
+
+    if [ $annotation_source_type == "all" ]; then
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ccdsGene.txt.gz .
+	    rsync -a -P rsync://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/vegaGene.txt.gz .
+    fi
 fi
 
 # untar the zipped files
@@ -81,19 +104,11 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
 	echo "For Darwin"
     ls $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-	if [ "$gene_db_version" == "hg38" ]; then
-		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
-	else
-		ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi >> "$FILE.bed"; done;
-	fi
+	ls $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $PERL_PATH $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi | awk '$1!~/_/ {print}' > "$FILE.bed"; done;
 elif [ "$(uname)" == "Linux" ]; then
 	echo "For Linux"
     ls --color=never $BASEDIR/*.gz | while read FILE ; do gzip -d "$FILE" ; done ;
-	if [ "$gene_db_version" == "hg38" ]; then
-		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" > "$FILE.bed"; done;
-	else
-		ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi > "$FILE.bed"; done;
-	fi
+	ls --color=never $BASEDIR/*.txt | while read FILE ; do awk -F "\t" '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$13}' "$FILE" > "$FILE.tmp"; $PERL_PATH $SCRIPT_PATH/generate_bed_file.pl "$FILE.tmp" "$gene_db_version" | sed s/^chr//gi | awk '$1!~/_/ {print}' > "$FILE.bed"; done;
 fi
 
 # remove all the tmp files files
@@ -107,6 +122,7 @@ fi
 tmp_timestamp=$(date +%Y'_'%m'_'%d)
 printf "time stamp is $tmp_timestamp\n"
 for f in $BASEDIR/*.txt; do gzip $f; mv "$f.gz" "$f.$tmp_timestamp.gz"; done
+#mv "hgnc_complete_set" "hgnc_complete_set.txt"
 
 # need to combine all the bed files into a single bed file and then remove the original bed files
 #
@@ -135,26 +151,7 @@ do
 	#
 	echo "Merged regions for sorted bed file"
 	tmp_sorted_merged_bed=$tmp_sorted_bed."merged"
-	/stornext/snfs130/NGIRD/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$tmp_sorted_bed" | uniq - > $tmp_sorted_merged_bed
-
-	# dump everything into a database
-	# The -i option of grep says to ignore case.
-	# The -q option says to not emit output and exit after the first match.
-	# The -F option says to treat the argument as a string rather than a regular expression.
-	#
-	if echo $f | grep -iqF "ref" ; then
-	#if [[ $f == *"ref"* ]]; then
-		echo "dumping RefSeq exons"
-		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "refseq"
-	elif echo $f | grep -iqF "ccds"; then
-	#elif [[ $f == *"ccds"* ]]; then
-		echo "dumping CCDS exons"
-		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "ccds"
-	elif echo $f | grep -iqF "gen"; then
-	#elif [[ $f == *"gen"* ]] ; then
-		echo "dumping Gencode exons"
-		#$SCRIPT_PATH/dumpExonAnnotationFromIndividualSource.pl $tmp_sorted_merged_bed $gene_db_version "gencode"
-	fi
+	$BEDOPS_PATH/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$tmp_sorted_bed" | uniq - > $tmp_sorted_merged_bed
 done
 
 # Before we continue, we need to sort the combined_bed_files 
@@ -167,28 +164,48 @@ sort $sort_flag -o $combined_sorted_bed_file $combined_bed_files
 #
 combined_sorted_bed_file_merged_perfect_matches="$combined_sorted_bed_file"_merged_perfect_matches
 echo "merge perfect matched regions in $combined_sorted_bed_file to produce $combined_sorted_bed_file_merged_perfect_matches"
-/stornext/snfs130/NGIRD/scratch/phuang/software/bin/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$combined_sorted_bed_file" | uniq - > "$combined_sorted_bed_file_merged_perfect_matches"
-
-# now need to extract all the exon info for all genes for batch analysis
-#
-#echo "running /hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/geneExonAnnotationForBatchAnalysis.pl $combined_sorted_bed_file_merged_perfect_matches $gene_db_version"
-#/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/geneExonAnnotationForBatchAnalysis.pl "$combined_sorted_bed_file_merged_perfect_matches" "$gene_db_version"
+echo "$BEDOPS_PATH/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 $combined_sorted_bed_file | uniq - > $combined_sorted_bed_file_merged_perfect_matches"
+$BEDOPS_PATH/bedmap --echo-map-range --echo-map-id --delim '\t' --fraction-both 1.0 "$combined_sorted_bed_file" | uniq - > "$combined_sorted_bed_file_merged_perfect_matches"
 
 # Now it is the time to generate exon partition file
 #
-exons_intersected="$combined_sorted_bed_file"_intersected
 exons_partitioned="$combined_sorted_bed_file"_merged_and_partitioned
 printf "partition $combined_sorted_bed_file_merged_perfect_matches to produce $exons_partitioned using bedops \n"
-#/stornext/snfs130/NGIRD/scratch/phuang/software/bin/bedops -p "$combined_sorted_bed_file_merged_perfect_matches" | /stornext/snfs130/NGIRD/scratch/phuang/software/bin/bedmap	--echo	--echo-map-id --delim '\t' - $combined_sorted_bed_file_merged_perfect_matches | uniq - > "$exons_partitioned"
-/stornext/snfs130/NGIRD/scratch/phuang/software/bin/bedops -p "$combined_sorted_bed_file_merged_perfect_matches" | /hgsc_software/BEDTools/bedtools-2.26.0/bin/bedtools intersect -a - -b "$combined_sorted_bed_file_merged_perfect_matches"  -wb | cut -f1-3,7 > $exons_intersected
-/hgsc_software/BEDTools/bedtools-2.26.0/bin/bedtools merge -i $exons_intersected -d -1 -c 4 -o collapse > "$exons_partitioned"
-exons_partitioned_fixed="combined_sorted_bed_file"_merged_and_partitioned_fixed
-sed 's/,/;/g' "$exons_partitioned" > "$exons_partitioned_fixed"
+echo "$BEDOPS_PATH/bedops -p $combined_sorted_bed_file_merged_perfect_matches | $BEDOPS_PATH/bedmap	--echo	--echo-map-id --delim '\t' - $combined_sorted_bed_file_merged_perfect_matches | uniq - > $exons_partitioned"
+$BEDOPS_PATH/bedops -p "$combined_sorted_bed_file_merged_perfect_matches" | $BEDOPS_PATH/bedmap	--echo --echo-map-id --delim '\t' - $combined_sorted_bed_file_merged_perfect_matches | uniq - > "$exons_partitioned"
+
+# BIG NOTE:
+# It seems that the above command doesn't work for chromosome 10-22, thus, I need to do extra things here to handle this
+#
+echo "extract everything from 1-9 and X and Y that have been annotated"
+worked_chromosome_partitioned_file="annotation_for_1_9_X_Y"
+#echo "awk -F\"\t\" '$1<10 || $1>22' $exons_partitioned> $worked_chromosome_partitioned_file"
+awk -F"\t" '$1<10 || $1>22' $exons_partitioned> $worked_chromosome_partitioned_file
+
+echo "extract everything from 10-22 that haven't been annotated"
+partitioned_chr10_22_only="chr10_22_partitioned_bed"
+#echo "awk -F\"\t\" '$1>9' $exons_partitioned  | awk -F\"\t\" '$1<=22' | cut -f1,2,3 > $partitioned_chr10_22_only"
+awk -F"\t" '$1>9' $exons_partitioned  | awk -F"\t" '$1<=22' | cut -f1,2,3 > $partitioned_chr10_22_only
+
+echo "get annotations from merged file"
+merged_annotation_chr10_22_only="merged_annotation_chr10_22_only"
+#echo "awk -F\"\t\" '$1>9' $combined_sorted_bed_file_merged_perfect_matches | awk -F\"\t\" '$1<=22' > $merged_annotation_chr10_22_only"
+awk -F"\t" '$1>9' $combined_sorted_bed_file_merged_perfect_matches | awk -F"\t" '$1<=22' > $merged_annotation_chr10_22_only
+
+echo "now do the bedmap to generated annotated info for chr10 to chr22"
+annotation_for_chr10_22="annotation_for_chr10_22"
+#echo "$BEDOPS_PATH/bedmap --echo --echo-map-id --delim '\t' $partitioned_chr10_22_only $merged_annotation_chr10_22_only > $annotation_for_chr10_22"
+$BEDOPS_PATH/bedmap --echo --echo-map-id --delim '\t' $partitioned_chr10_22_only $merged_annotation_chr10_22_only > $annotation_for_chr10_22
+
+echo "combine them together!"
+final_partitioned_file="final_partitioned_annotations.bed"
+cat $worked_chromosome_partitioned_file > $final_partitioned_file
+cat $annotation_for_chr10_22 >> $final_partitioned_file
 
 # Finally, dump everything into MySQL database named: Gene_Annotations37/38
 #
-printf "dump all partitioned exons into MySQL database Gene_Annotations37/38 ==> exonAnnotations.pl $final_partitioned_file \n"
-/hgsc_software/perl/perl-5.18.2/bin/perl $SCRIPT_PATH/exonAnnotations.pl "$exons_partitioned_fixed" "$gene_db_version"
+#printf "dump all partitioned exons into MySQL database Gene_Annotations37/38 ==> exonAnnotations.pl $final_partitioned_file \n"
+$PERL_PATH $SCRIPT_PATH/exonAnnotations.pl "$final_partitioned_file" "$gene_db_version"
 
 ####
 #END
