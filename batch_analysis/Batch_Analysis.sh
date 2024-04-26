@@ -12,6 +12,8 @@ function help() {
 	echo -e "\t-g: the file name (absolute path) that contains a list of genes user interested in";
    	echo -e "\t-o: the absolute path of your output directory [Mandatory]"
    	echo -e "\t-p: the Percentage of samples have low coverage (such as 10 or 35) [Mandatory]";
+   	echo -e "\t-A: the batch_analysis program path [Mandatory]";
+   	echo -e "\t-B: the bedtools program path [Mandatory]";
 	exit;
 }
 
@@ -51,6 +53,14 @@ while [[ $# -gt 1 ]]; do
 		OUTPUTDIR="$2"
 		shift
 		;;
+        -A|--batchanalysispath)
+        BATCHANALYSIS="$2"
+        shift
+        ;;
+        -B|--bedtoolspath)
+        BEDTOOLS="$2"
+        shift
+        ;;
 		--default)
 		DEFAULT=YES
 		;;
@@ -65,7 +75,7 @@ done
 
 # check user input first
 #
-if [[ (-z "$OUTPUTDIR" ) || (-z "$IN_FILE") || (-z "$Percentage") || (-z "$BED_FILE") ]]; then
+if [[ (-z "$OUTPUTDIR" ) || (-z "$IN_FILE") || (-z "$Percentage") || (-z "$BED_FILE") || (-z "$BEDTOOLS") || (-z "$BATCHANALYSIS") ]]; then
 	help
 fi
 
@@ -102,7 +112,7 @@ done;
 ## we also need to sort it as well
 ##
 SAMPLE_LIST=""
-for FILE in `cat $IN_FILE`; do grep -v "^#" $FILE | cut -f1,2,3 | /hgsc_software/BEDTools/latest/bin/bedtools sort -i - > $OUTPUTDIR/$(basename $FILE).tmp; SAMPLE_LIST=$(printf "%s %s" "$SAMPLE_LIST" "$OUTPUTDIR/$(basename ${FILE}).tmp"); done
+for FILE in `cat $IN_FILE`; do grep -v "^#" $FILE | cut -f1,2,3 | $BEDTOOLS sort -i - > $OUTPUTDIR/$(basename $FILE).tmp; SAMPLE_LIST=$(printf "%s %s" "$SAMPLE_LIST" "$OUTPUTDIR/$(basename ${FILE}).tmp"); done
 #echo "File list:"
 #echo $SAMPLE_LIST
 echo
@@ -110,33 +120,33 @@ echo
 ## intersect all of them (low coverage files) together using bedtools multiinter
 echo "Intersect all sample files using bedtools multiinter"
 LOW_COVERAGE_FILE="Batch_Low_COVERAGE_Multiinter.bed"
-/hgsc_software/BEDTools/latest/bin/bedtools multiinter -i $SAMPLE_LIST | awk -F "\t" -v threshold="$THRESHOLD_i" ' $4>=threshold {print $1 "\t" $2 "\t" $3 "\t" $3-$2;} ' > $OUTPUTDIR/$LOW_COVERAGE_FILE
+$BEDTOOLS multiinter -i $SAMPLE_LIST | awk -F "\t" -v threshold="$THRESHOLD_i" ' $4>=threshold {print $1 "\t" $2 "\t" $3 "\t" $3-$2;} ' > $OUTPUTDIR/$LOW_COVERAGE_FILE
 
 ## merge low coverage regions if they overlap
 echo "Merged low coverage regions if they overlap"
 LOW_COVERAGE_Merged_File="Batch_Low_COVERAGE_Merged.bed"
-/hgsc_software/BEDTools/latest/bin/bedtools sort -i $OUTPUTDIR/$LOW_COVERAGE_FILE | /hgsc_software/BEDTools/latest/bin/bedtools merge -i - > $OUTPUTDIR/$LOW_COVERAGE_Merged_File
+$BEDTOOLS sort -i $OUTPUTDIR/$LOW_COVERAGE_FILE | $BEDTOOLS merge -i - > $OUTPUTDIR/$LOW_COVERAGE_Merged_File
 
 # After talking to Qiaoyan, we decided not to use MySQL database anymore ...
 #
 if [ -z "$User_Defined_DB" ]; then
 	# no user-defined database (annotations)
 	#
-	echo "/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE"
+	echo "$BATCHANALYSIS -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE"
 
-	/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE
+    $BATCHANALYSIS -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -t $BED_FILE
 
 else
 	# Intersect with the user-defined database/annotation with $LOW_COVERAGE_Merged_File
     #
     Low_Coverage_Merged_Annotation=$LOW_COVERAGE_Merged_File"_Annotations"
 	echo "Intersect user-defined annotations with $LOW_COVERAGE_Merged_File"
-	/hgsc_software/BEDTools/latest/bin/bedtools intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
+    $BEDTOOLS intersect -a $OUTPUTDIR/$LOW_COVERAGE_Merged_File -b $User_Defined_DB -wao > $OUTPUTDIR/$Low_Coverage_Merged_Annotation
 
 	echo "Now run the batch analysis"
-	echo "/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE"
+	echo "$BATCHANALYSIS -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE"
 
-	/stornext/snfs130/NGIRD/scratch/phuang/repo/scandium/src/batch_analysis/src/batch_analysis -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE
+    $BATCHANALYSIS -i $OUTPUTDIR/$Low_Coverage_Merged_Annotation -d $Database_Version -o $OUTPUTDIR $GENE_LIST_FILE -f $User_Defined_DB -t $BED_FILE
 fi 
 
 # now remove all the tmp files we just created
