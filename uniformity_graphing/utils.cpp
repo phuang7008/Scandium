@@ -73,6 +73,8 @@ void Utils::processInputFile(User_Inputs *user_inputs, std::vector<Coverage> *co
 				}
 				if (i == 4) coverage = (uint32_t) std::stol(buf);
 
+                if (stop > chr_length) chr_length = stop;
+
 				i++;
 			}
 

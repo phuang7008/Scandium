@@ -100,15 +100,55 @@ int main(int argc, char *argv[]) {
 	*/
 
 	for (i = 0; i < cov_raw->size(); i++) {
-		int32_t val=-1;
+        // this added to handle the case where there are gaps between neighboring regions
+        // Here is the normal case:
+        // chrY    2791233 2791256 23      1
+        // chrY    2791256 2791825 569     0
+        // chrY    2791825 2791847 22      1
+        //
+        // Here is the case with gaps
+        // chrX    1366030 1366244 214     28
+        // chrX    1366676 1367088 412     28
+        // chrX    2500879 2501108 229     33
+        //
+        // because this is used to draw on an entire chromosome, we need to pad here to fill the gaps
+        //
+        if (i > 0) {
+            int counter = 0;
+            int32_t gap_length = cov_raw->at(i).get_start() - cov_raw->at(i-1).get_stop();
+            if (gap_length > 0) {
+                for (j = cov_raw->at(i-1).get_stop(); j < cov_raw->at(i).get_start(); j++) {
+                    if (counter % 2000 == 0) {
+                        // output 1 data point every 2000 bps
+                        //
+                        fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 1);
+                    } else {
+                        // 0 will be invisible
+                        //
+                        fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 0);
+                    }
+                }
+            }
+        }
 
-		for (j = cov_raw->at(i).get_start(); j < cov_raw->at(i).get_stop(); j++) {
-			if (val == -1) {
-				fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, cov_raw->at(i).get_cov());
-				val = 1;
-			} else {
-				fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 0);
-			}
+        //cerr << "From " << cov_raw->at(i).get_start() << " to " << cov_raw->at(i).get_stop() << endl;
+
+		int32_t val=-1;
+        for (j = cov_raw->at(i).get_start(); j < cov_raw->at(i).get_stop(); j++) {
+            if (val == -1) {
+                if ( cov_raw->at(i).get_cov() > 200) {
+                    // as the max drawing is at 200, so we have to reset the values > 200
+                    //
+                    fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 198);
+                } else {
+                    fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, cov_raw->at(i).get_cov());
+                }
+                val = 1;
+            } else {
+                // value 0 will be invisible as the Y-axis minimal is 1
+                //
+                fprintf(gnuplot_pipe, "%" PRIu32" %" PRIu32 "\n", j, 0);
+            }
 		}
 	}
 
