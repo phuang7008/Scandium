@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
     hts_itr_t *iter_o = sam_itr_querys(sfh_idx[0], headers[0], "*");
     bam1_t *b = bam_init1();
     while (sam_itr_next(sfh[0], iter_o, b) >= 0)
-        processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status, -1);
+        processCurrentRecord(user_inputs, b, stats_info, chrom_tracking, 0, target_buffer_status, -5);
     bam_destroy1(b);
     hts_itr_destroy(iter_o);
 

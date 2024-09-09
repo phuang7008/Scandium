@@ -29,6 +29,10 @@ void processCurrentRecord(User_Input *user_inputs, bam1_t *rec, Stats_Info *tmp_
 
 	tmp_stats_info->read_cov_stats->total_reads_produced++;
 
+    if (target_buffer_index == -5) {
+        return;
+    }
+
 	if(user_inputs->percentage < 1.0) {
 		// it is already set at the main.c
 		//
