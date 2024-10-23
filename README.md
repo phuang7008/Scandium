@@ -1,4 +1,4 @@
-<img src="BCM-HGSC-logo.png" width=250>
+<img src="images/BCM-HGSC-logo.png" width=250>
 
 ---
 
