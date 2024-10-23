@@ -48,7 +48,7 @@ For Scandium v3 series, here is an example of the run command:
 
 ## Manuscript Abstract
 
-<img src="Scandium_Abstract_new.png" width=1250>
+<img src="images/Scandium_Abstract_new.png" width=1250>
 
 [Back To The Top](#Table-of-Contents)
 
