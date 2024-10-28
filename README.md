@@ -7,7 +7,6 @@
 - [Description](#description)
 - [Build Scandium](#build-scandium)
 - [How To Use](#how-to-use)
-- [Manuscript Abstract](#Manuscript-Abstract)
 - [Contact Info](#Contact-Info)
 
 ---
