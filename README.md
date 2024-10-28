@@ -14,7 +14,8 @@
 
 ## Description
 
-Scandium is a software program that was developed at Baylor College of Medicine Human Genome Sequencing Center. It produces a set of quantitative and quality metrics, especially the uniformity metric to evaluate Next-Generation sequencing runs for quality control purposes.
+Scandium is an open-source software that delivers a set of comprehensive sequence quality control and coverage metrics, including a new whole genome coverage uniformity metric with user-friendly coverage summary and uniformity plots for visualization. Scandium provides annotations and calculates coverage percentages of user-defined inputs at various granularities from SNPs to exon to gene based on a user-defined minimal base coverage threshold to aid clinical studies. Because Scandium requires minimal computational resources, it is suitable for large sequencing centers or core laboratories. It can be run on desktop terminals, local in-house clusters or cloud-computing platforms such as AWS.
+
 
 [Back To The Top](#Table-of-Contents)
 
@@ -44,11 +45,6 @@ For Scandium v3 series, here is an example of the run command:
 
     scandium-v3+ -i input_bam -o output_dir -R reference -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -t pair_of_target_bedfile_vs_annotation_file_separated_by_tab_one_per_line
 
-[Back To The Top](#Table-of-Contents)
-
-## Manuscript Abstract
-
-<img src="images/Scandium_Abstract_new.png" width=1250>
 
 [Back To The Top](#Table-of-Contents)
 
