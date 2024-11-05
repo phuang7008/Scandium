@@ -36,11 +36,7 @@ See [INSTALL](INSTALL) for complete details. Please download the [release tarbal
 
 ## How To Use
 
-For Scandium v1 series, here is an example of the run command: 
-
-    scandium-v1+ -i input_bam -o output_dir -R reference -t target_bedfile -f annotation_file -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -N Ns_regions_file
-
-For Scandium v3 series, here is an example of the run command: 
+To run Scandium, here is an example of the run command: 
 
     scandium-v3+ -i input_bam -o output_dir -R reference -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -t pair_of_target_bedfile_vs_annotation_file_separated_by_tab_one_per_line
 
