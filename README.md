@@ -20,7 +20,7 @@ Scandium is an open-source software that delivers a set of comprehensive sequenc
 
 ## Build Scandium
 
-See [INSTALL](INSTALL) for complete details. Please download the [release tarballs](https://github.com/phuang7008/kaggle/releases) of your choice and build Scandium using the following steps:
+See [INSTALL](INSTALL) for complete details. Please download the [release tarballs](https://github.com/phuang7008/Scandium/releases) of your choice and build Scandium using the following steps:
 
     wget https://github.com/phuang7008/Scandium/releases/download/Scandium_vXXX/Scandium-vXXX.tar.gz
     tar zxvf Scandium-vXXX.tar.gz 
