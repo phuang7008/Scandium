@@ -13,7 +13,7 @@
 
 ## Description
 
-Scandium is an open-source software that delivers a set of comprehensive sequence quality control and coverage metrics, including a new whole genome coverage uniformity metric with user-friendly coverage summary and uniformity plots for visualization. Scandium provides annotations and calculates coverage percentages of user-defined inputs at various granularities from SNPs to exon to gene based on a user-defined minimal base coverage threshold to aid clinical studies. Because Scandium requires minimal computational resources, it is suitable for large sequencing centers or core laboratories. It can be run on desktop terminals, local in-house clusters or cloud-computing platforms such as AWS.
+Scandium is an open-source software that delivers a set of comprehensive sequence quality control and coverage metrics, including a new whole genome coverage uniformity metric with user-friendly coverage summary and uniformity plots for visualization for short-read NGS data in BAM/CRAM files. Scandium provides annotations and calculates coverage percentages of user-defined inputs at various granularities from SNPs to exon to gene based on a user-defined minimal base coverage threshold to aid clinical studies. Because Scandium requires minimal computational resources, it is suitable for large sequencing centers or core laboratories. It can be run on desktop terminals, local in-house clusters or cloud-computing platforms such as AWS.
 
 
 [Back To The Top](#Table-of-Contents)
