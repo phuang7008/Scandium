@@ -41,6 +41,15 @@ To run Scandium, here is an example of the run command:
 
     scandium -i input_bam -o output_dir -R reference -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -t pair_of_target_bedfile_vs_annotation_file_separated_by_tab_one_per_line
 
+Note: The resources/ folder contains pre-built bedfiles as examples to run Scandium on human genomes. Files are available for both hg37 and hg38 genome builds. Be sure to select the correct version to match your dataset.
+
+- The human genome references can be downloaded from the following links:
+
+        wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa .
+        wget https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/references/GRCh37/hs37d5.fa.gz .
+
+- For the annotations, you can choose the Matched Annotation from NCBI and EMBL-EBI (MANE) transcripts or any other user-defined annotations.
+
 [Back To The Top](#Table-of-Contents)
 
 ## Contact Info
