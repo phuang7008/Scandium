@@ -134,7 +134,7 @@ void usage() {
     printf("                    It Is Mandatory\n");
     printf("--output_dir    -o  output directory. It Is Mandatory\n");
     printf("--reference     -R  the file path of the reference sequence. \n");
-    printf("                    It is Mandatory for CRAM files\n\n");
+    printf("                    It is Mandatory\n\n");
 
     printf("The Followings Are Optional:\n");
     printf("--min_base_qual     -b  minimal base quality\n");
@@ -1125,7 +1125,7 @@ void getBaseFilenameWithoutExtension(User_Input *user_inputs, uint8_t type) {
         user_inputs->annotation_file_basenames = calloc(user_inputs->num_of_annotation_files, sizeof(char*));
     }
 
-    uint8_t p, num_of_items;
+    uint8_t p, num_of_items=0;
     type == 1 ? num_of_items = user_inputs->num_of_target_files : user_inputs->num_of_annotation_files;
     for (p=0; p<num_of_items; p++) {
         const char *bn = (type == 1) ? baseFilename(user_inputs->target_files[p]) 
