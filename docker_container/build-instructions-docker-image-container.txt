@@ -1,0 +1,23 @@
+For REDHat linux system
+
+The followings are the steps used to build docker images for Scandium v1.5.1
+(one can replace buildah with docker based on the system you are using)
+
+1). buildah build -f Dockerfile -t scandium-v1.5.1
+
+2). buildah images
+
+3). the image can be pushed onto the Elastic Container Registry (ECR) at AWS. 
+
+4). Create a job definition based on the AWS Registry URI.
+
+
+The followings are the steps used to build docker container for Scandium v1.5.1
+
+1). apptainer build scandium.sif scandium.def 
+
+2). apptainer exec scandium.sif scandium
+
+3). For real run command using container
+apptainer exec -B cram-bam-path,reference-path,path-to-chromosome-list-to-be-processed,target-bedfile-path path-to/scandium_v1.5.1.sif scandium -i input-cram-path -o output-directory -r path-to-chromosome-list-to-be-processed -R reference-path -t target.bed -f annotated.bed -T 8 -b 3 -O -D hg37
+

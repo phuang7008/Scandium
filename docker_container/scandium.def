@@ -1,0 +1,58 @@
+Bootstrap: docker
+
+#From: ubuntu:20.04
+From: python:3.7-slim-buster
+
+#From: redhat/ubi9-minimal  not working, apt-get not included
+
+%arguments
+    SCANDIUM_VER="1.5.1"
+    HTSLIB_VER="1.19.1"
+    SAMTOOLS_VER="1.19.2"
+
+#Metadata
+%labels
+    Author Peiming (Peter) Huang, phuang@bcm.edu
+    container.base.image="python:3.7-slim-buster"
+    software.name="Scandium with HTSlib/Samtools and python wrapper script to handle integration with AWS Batch and S3"
+    software.version={{SCANDIUM_VER}}
+    software.description="An NGS sequencing QC software used internally at the HGSC"
+    software.website="NA"
+    tags="Genomics"
+
+%post
+    mkdir -p /scratch
+    mkdir -p /scratch/scandium-{{SCANDIUM_VER}}
+    cd /scratch
+
+# copy scandium source files
+%files 
+    /stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v1.5.1/scandium-1.5.1/* /scratch/scandium-1.5.1/
+    #/stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v{{SCANDIUM_VER}}/Scandium-v{{SCANDIUM_VER}}.tar.gz /scratch/
+
+# Install HTSlib/Samtools and necessary packages/dependencies
+%post 
+    apt-get -y update
+    apt-get -y install --no-install-recommends autoconf bzip2 gcc libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev make wget zlib1g-dev tar
+    rm -rf /var/lib/apt/lists/* 
+    wget --no-check-certificate https://github.com/samtools/htslib/releases/download/{{HTSLIB_VER}}/htslib-{{HTSLIB_VER}}.tar.bz2
+    tar -xvjf htslib-{{HTSLIB_VER}}.tar.bz2 
+    cd htslib-{{HTSLIB_VER}} && autoconf && ./configure && make && make install
+    mv /scratch/htslib-{{HTSLIB_VER}} /usr/local/
+    cd /scratch 
+    wget --no-check-certificate https://github.com/samtools/samtools/releases/download/{{SAMTOOLS_VER}}/samtools-{{SAMTOOLS_VER}}.tar.bz2
+    tar --bzip2 -xf samtools-{{SAMTOOLS_VER}}.tar.bz2
+    cd samtools-{{SAMTOOLS_VER}}
+    autoconf && ./configure && make && make install 
+    rm -rf /scratch/htslib-{{HTSLIB_VER}}.tar.bz2 /scratch/samtools-{{SAMTOOLS_VER}}.tar.bz2 && apt-get clean
+
+# Install Scandium and necessary packages/dependencies
+%post 
+    apt-get -y update && apt-get -y install --no-install-recommends default-libmysqlclient-dev libcurl4-openssl-dev libmariadb-dev libssl-dev
+    cd /scratch/scandium-{{SCANDIUM_VER}} && make
+    mv /scratch/scandium-{{SCANDIUM_VER}}/scandium /usr/bin
+    rm -rf scratch/* && apt-get clean
+
+%runscript 
+    ["/usr/bin/sandium"]
+    ["/bin/sh"]
