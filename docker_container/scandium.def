@@ -27,31 +27,32 @@ From: python:3.7-slim-buster
 
 # copy scandium source files
 %files 
-    /stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v1.5.1/scandium-1.5.1/* /scratch/scandium-1.5.1/
-    #/stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v{{SCANDIUM_VER}}/Scandium-v{{SCANDIUM_VER}}.tar.gz /scratch/
+    /stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v1.5.1/scandium-1.5.1/* /scratch/
+    #/stornext/snfs130/NGIRD/scratch/phuang/docker_exercises/singularity-apptainer/scandium/v{{SCANDIUM_VER}}/scandium-{{SCANDIUM_VER}}/Scandium-v{{SCANDIUM_VER}}.tar.gz /scratch/
 
 # Install HTSlib/Samtools and necessary packages/dependencies
 %post 
     apt-get -y update
-    apt-get -y install --no-install-recommends autoconf bzip2 gcc libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev make wget zlib1g-dev tar
+    apt-get -y install --no-install-recommends autoconf automake g++ bzip2 gcc libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev make wget zlib1g-dev tar
     rm -rf /var/lib/apt/lists/* 
     wget --no-check-certificate https://github.com/samtools/htslib/releases/download/{{HTSLIB_VER}}/htslib-{{HTSLIB_VER}}.tar.bz2
     tar -xvjf htslib-{{HTSLIB_VER}}.tar.bz2 
     cd htslib-{{HTSLIB_VER}} && autoconf && ./configure && make && make install
-    mv /scratch/htslib-{{HTSLIB_VER}} /usr/local/
+    mv /scratch/htslib-{{HTSLIB_VER}} /scratch/htslib && cd /scratch/htslib && make prefix=/scratch/htslib install
     cd /scratch 
     wget --no-check-certificate https://github.com/samtools/samtools/releases/download/{{SAMTOOLS_VER}}/samtools-{{SAMTOOLS_VER}}.tar.bz2
     tar --bzip2 -xf samtools-{{SAMTOOLS_VER}}.tar.bz2
     cd samtools-{{SAMTOOLS_VER}}
     autoconf && ./configure && make && make install 
-    rm -rf /scratch/htslib-{{HTSLIB_VER}}.tar.bz2 /scratch/samtools-{{SAMTOOLS_VER}}.tar.bz2 && apt-get clean
+    #rm -rf /scratch/htslib-{{HTSLIB_VER}}.tar.bz2 /scratch/samtools-{{SAMTOOLS_VER}}.tar.bz2 && apt-get clean
 
 # Install Scandium and necessary packages/dependencies
 %post 
     apt-get -y update && apt-get -y install --no-install-recommends default-libmysqlclient-dev libcurl4-openssl-dev libmariadb-dev libssl-dev
-    cd /scratch/scandium-{{SCANDIUM_VER}} && make
-    mv /scratch/scandium-{{SCANDIUM_VER}}/scandium /usr/bin
-    rm -rf scratch/* && apt-get clean
+    #cd /scratch/scandium-{{SCANDIUM_VER}} && make
+    cd /scratch && tar xzf Scandium-v{{SCANDIUM_VER}}.tar.gz --no-same-owner && autoreconf -i && ./configure && make && make install
+    #mv /scratch/scandium-{{SCANDIUM_VER}}/scandium /usr/bin
+    #rm -rf scratch/* && apt-get clean
 
 %runscript 
     ["/usr/bin/sandium"]

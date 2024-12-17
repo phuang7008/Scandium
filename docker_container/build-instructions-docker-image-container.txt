@@ -3,13 +3,28 @@ For REDHat linux system
 The followings are the steps used to build docker images for Scandium v1.5.1
 (one can replace buildah with docker based on the system you are using)
 
-1). buildah build -f Dockerfile -t scandium-v1.5.1
+1). make the file structure like the following
+.
+├── Dockerfile
+├── scandium-1.5.1
+│   └── Scandium-v1.5.1.tar.gz
+├── src
+│   ├── aws_tools
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-36.pyc
+│   │   │   └── s3utils.cpython-36.pyc
+│   │   └── s3utils.py
+│   └── scandium_aws.py
+├── scandium.def
 
-2). buildah images
+2). buildah build -f Dockerfile -t scandium-v1.5.1
 
-3). the image can be pushed onto the Elastic Container Registry (ECR) at AWS. 
+3). buildah images
 
-4). Create a job definition based on the AWS Registry URI.
+4). the image can be pushed onto the Elastic Container Registry (ECR) at AWS. 
+
+5). Create a job definition based on the AWS Registry URI.
 
 
 The followings are the steps used to build docker container for Scandium v1.5.1

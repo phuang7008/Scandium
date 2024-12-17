@@ -26,7 +26,7 @@ See [INSTALL](INSTALL) for complete details. Please download the [release tarbal
     wget https://github.com/phuang7008/Scandium/releases/download/Scandium_vXXX/Scandium-vXXX.tar.gz
     tar zxvf Scandium-vXXX.tar.gz 
 
-    build htslib (see htslib install instruction at the htslib website)
+build htslib (see htslib install instruction at the htslib website)
     
     autoreconf -i
     ./configure --includedir="path-to-mysql-header" LDFLAGS=$LDFLAGS -L"path-to-libmysqlclient"
@@ -39,7 +39,9 @@ See [INSTALL](INSTALL) for complete details. Please download the [release tarbal
 
 To run Scandium, here is an example of the run command: 
 
-    scandium -i input_bam -o output_dir -R reference -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -t pair_of_target_bedfile_vs_annotation_file_separated_by_tab_one_per_line
+    scandium -i input_bam -o output_dir -R reference -r list_of_chromosomes_to_be_processed -T num_of_threads -b minimal_base_qual -m minimal_mapping_qual -D reference_version -w WGS_coverage_summary -t target_bedfile -f annotation_bedfile
+
+Note: Starting from version 3+, the -f option is no longer available. Instead, use the -t option with a file that contains both the target BED file and annotation BED file pairs, separated by a tab, one pair per line.
 
 Note: The resources/ folder contains pre-built bedfiles as examples to run Scandium on human genomes. Files are available for both hg37 and hg38 genome builds. Be sure to select the correct version to match your dataset.
 
